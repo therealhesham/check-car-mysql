@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model contracts {
+  id                Int        @id @default(autoincrement())
+  contract_number                Int                              
+  car_model                      String  @db.VarChar(255)         
+  plate_number                   String  @db.VarChar(255)          
+  operation_type                 String  @db.VarChar(50)           
+  employee_name                  String  @db.VarChar(100)        
+  branch_name                    String  @db.VarChar(100)        
+  meter                          String? @db.VarChar(512)
+  right_doors                    String? @db.VarChar(512)
+  front_right_fender             String? @db.VarChar(512)
+  rear_right_fender              String? @db.VarChar(512)
+  rear_bumper_with_lights        String? @db.VarChar(512)
+  trunk_lid                      String? @db.VarChar(512)
+  roof                           String? @db.VarChar(512)
+  rear_left_fender               String? @db.VarChar(512)
+  left_doors                     String? @db.VarChar(512)
+  front_left_fender              String? @db.VarChar(512)
+  front_bumper                   String? @db.VarChar(512)
+  hoode                          String? @db.VarChar(512)
+  front_windshield               String? @db.VarChar(512)
+  trunk_contents                 String? @db.VarChar(512)
+  fire_extinguisher              String? @db.VarChar(512)
+  front_right_seat               String? @db.VarChar(512)
+  front_left_seat                String? @db.VarChar(512)
+  rear_seat_with_front_seat_backs String? @db.VarChar(512)
+  other_images                   String? @db.VarChar(512)
+}
+
+model users{
+
+      Name String
+  id                Int        @id @default(autoincrement())
+
+        EmID Int
+        password String
+        role String
+        branch String
+
+
+}
+
