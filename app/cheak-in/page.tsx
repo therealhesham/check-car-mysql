@@ -353,12 +353,11 @@ export default function CheckInPage() {
     plateItem.toLowerCase().includes(plateSearch.toLowerCase())
   );
 
-  const DO_ACCESS_KEY = process.env.DO_ACCESS_KEY || 'DO80192ACFDRB9F6LGW8';
-  const DO_SECRET_KEY = process.env.DO_SECRET_KEY || 'd4DkpWlzchg7gBFxIoBjqFk0R2WXZZOY4lzV/ZOO7yM';
-  const DO_SPACE_NAME = 'uploadcarimages';
-  const DO_REGION = 'sgp1';
-  const DO_ENDPOINT = `https://uploadcarimages.sgp1.digitaloceanspaces.com`;
-
+  const DO_ACCESS_KEY = process.env.NEXT_PUBLIC_DO_ACCESS_KEY ;
+  const DO_SECRET_KEY = process.env.NEXT_PUBLIC_DO_SECRET_KEY ;
+  const DO_SPACE_NAME =   process.env.NEXT_PUBLIC_DO_SPACE_NAME;
+  const DO_REGION = process.env.NEXT_PUBLIC_DO_REGION;
+  const DO_ENDPOINT = process.env.NEXT_PUBLIC_DO_ENDPOINT
   const s3 = new AWS.S3({
     accessKeyId: DO_ACCESS_KEY,
     secretAccessKey: DO_SECRET_KEY,
