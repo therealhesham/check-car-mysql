@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import Airtable from 'airtable';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 
 // إعدادات Airtable
 const airtableApiKey = 'patH4avQdGYSC0oz4.b2bc135c01c9c5c44cfa2d8595850d75189ea9b050661b9a1efb4e243bd44156';
@@ -49,28 +51,24 @@ async function checkCarExists(name: string): Promise<boolean> {
 // جلب قائمة السيارات
 export async function GET(req: NextRequest) {
   try {
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Cannot access the database.',
-          error: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
+    // const hasAccess = await verifyTableAccess();
+    // if (!hasAccess) {
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       message: 'Cannot access the database.',
+    //       error: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
+    //     },
+    //     { status: 403 }
+    //   );
+    // }
 
-    const records = await base(airtableTableName)
-      .select({
-        view: 'Grid view',
-      })
-      .all();
+    const records = await prisma.cars.findMany()
 
     const cars = records.map((record) => ({
       id: record.id,
       fields: {
-        Name: String(record.fields.Name),
+        Name: String(record.car_name),
       },
     }));
 

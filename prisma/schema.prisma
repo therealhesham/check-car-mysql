@@ -49,3 +49,18 @@ model users{
 
 }
 
+model plateslist{
+
+
+  id                Int        @id @default(autoincrement())
+  plate_name      String     @db.VarChar(255)
+
+}
+
+model cars{
+
+
+  id                Int        @id @default(autoincrement())
+  car_name      String     @db.VarChar(255)
+
+}

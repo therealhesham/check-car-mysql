@@ -253,7 +253,7 @@ export default function UploadPage() {
         if (data.success) {
           const fetchedPlates = data.results.map((record: any) => ({
             id: record.id,
-            name: record.fields.Name,
+            name: record.plate_name,
           }));
           setPlates(fetchedPlates);
         } else {
