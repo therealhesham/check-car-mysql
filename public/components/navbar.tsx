@@ -586,8 +586,8 @@ export default function Navbar() {
                 </div>
               </div>
               <div className="notice-content">
-                <div className="username">{user.name}</div>
-                <div className="label-user">{user.name}</div>
+                <div className="username">{user.Name}</div>
+                <div className="label-user">{user.Name}</div>
                 <div className="user-id">
                   {user.role === 'admin' ? 'مدير' : 'موظف'} في {user.branch}
                 </div>
