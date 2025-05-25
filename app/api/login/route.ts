@@ -26,8 +26,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const { password: _, ...userData } = user;
-    return NextResponse.json({ success: true, user: userData }, { status: 200 });
+    // const { password: _, ...userData } = user;
+    return NextResponse.json({ success: true, user }, { status: 200 });
   } catch (error) {
     console.error(error);
     return NextResponse.json(

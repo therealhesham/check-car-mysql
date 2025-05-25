@@ -12,7 +12,7 @@
 
 # testing
 /coverage
-
+*.rar
 # next.js
 /.next/
 /out/

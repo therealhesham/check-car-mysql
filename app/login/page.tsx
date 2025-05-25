@@ -29,7 +29,8 @@ export default function LoginPage() {
 
       const data = await response.json();
       if (data.success) {
-        localStorage.setItem('user', JSON.stringify(data.user));
+        console.log('Login successful:', data.user);
+        localStorage.setItem('user',JSON.stringify(data.user));
         router.push('/');
       } else {
         setError(data.message || 'معرف الموظف أو كلمة المرور غير صحيحة');

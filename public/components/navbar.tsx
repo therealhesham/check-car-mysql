@@ -196,7 +196,7 @@ import styled from 'styled-components';
 
 interface User {
   id: string;
-  name: string;
+  Name: string;
   EmID: number;
   role: string;
   branch: string;
@@ -463,8 +463,11 @@ export default function Navbar() {
   // استرجاع بيانات المستخدم من localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
+    console.log('User data found in localStorage:', storedUser);
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      const parsedUser = JSON.parse(storedUser);
+      console.log('Parsed user data:', parsedUser.Name);
+      setUser(parsedUser);
     } else {
       router.push('/login');
     }
@@ -513,8 +516,8 @@ export default function Navbar() {
                 </div>
               </div>
               <div className="notice-content">
-                <div className="username">{user.name}</div>
-                <div className="label-user">{user.name}</div>
+                <div className="username">{user?.Name}</div>
+                <div className="label-user">{user?.Name}</div>
                 <div className="user-id">
                   {user.role === 'admin' ? 'مدير' : 'موظف'} في {user.branch}
                 </div>
