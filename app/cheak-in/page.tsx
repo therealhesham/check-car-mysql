@@ -90,7 +90,7 @@ interface ApiResponse {
 
 interface User {
   id: string;
-  name: string;
+  Name: string;
   EmID: number;
   role: string;
   branch: string;
@@ -738,7 +738,7 @@ export default function CheckInPage() {
       return;
     }
 
-    if (!user || !user.name || !user.branch) {
+    if (!user || !user.Name || !user.branch) {
       setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       setShowToast(true);
       return;
@@ -757,7 +757,7 @@ export default function CheckInPage() {
       airtableData.fields['اللوحة'] = plate.trim();
       airtableData.fields['العقد'] = contractNum.toString();
       airtableData.fields['نوع العملية'] = operationType;
-      airtableData.fields['الموظف'] = user.name;
+      airtableData.fields['الموظف'] = user.Name;
       airtableData.fields['الفرع'] = user.branch;
 
       files.forEach((fileSection) => {
@@ -1027,7 +1027,7 @@ export default function CheckInPage() {
                     الموظف
                   </label>
                   <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
-                    {user?.name || 'غير متوفر'}
+                    {user?.Name || 'غير متوفر'}
                   </div>
                 </div>
                 <div>

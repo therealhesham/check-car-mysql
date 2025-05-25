@@ -50,19 +50,19 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>>
     const body: RequestBody = await req.json();
     const { fields } = body;
 
-    // Validate required fields
-    const requiredFields = ['السيارة', 'اللوحة', 'العقد', 'نوع العملية', 'الموظف', 'الفرع'];
-    const missingFields = requiredFields.filter((field) => !fields[field] || fields[field].trim() === '');
-    if (missingFields.length > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'حقول مطلوبة مفقودة أو غير صالحة',
-          details: { missingFields },
-        },
-        { status: 400 }
-      );
-    }
+    // // Validate required fields
+    // const requiredFields = ['السيارة', 'اللوحة', 'العقد', 'نوع العملية', 'الموظف', 'الفرع'];
+    // const missingFields = requiredFields.filter((field) => !fields[field] || fields[field].trim() === '');
+    // if (missingFields.length > 0) {
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       error: 'حقول مطلوبة مفقودة أو غير صالحة',
+    //       details: { missingFields },
+    //     },
+    //     { status: 400 }
+    //   );
+    // }
 
     // Validate contract number
     const contractNumber = parseInt(fields['العقد'], 10);
@@ -116,21 +116,20 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>>
       'rear_seat_with_front_seat_backs',
     ];
 
-    const missingImages = imageFields.filter((field) => !fields[field] || fields[field] === '');
-    if (missingImages.length > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `يجب رفع صورة واحدة على الأقل لكل من: ${missingImages.join(', ')}`,
-        },
-        { status: 400 }
-      );
-    }
+    // const missingImages = imageFields.filter((field) => !fields[field] || fields[field] === '');
+    // if (missingImages.length > 0) {
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       error: `يجب رفع صورة واحدة على الأقل لكل من: ${missingImages.join(', ')}`,
+    //     },
+    //     { status: 400 }
+    //   );
+    // }
 
     // Create new contract record
     const newContract = await prisma.contracts.create({
       data: {
-        id: uuidv4(), // Generate unique ID
         contract_number: contractNumber,
         car_model: fields['السيارة'],
         plate_number: fields['اللوحة'],

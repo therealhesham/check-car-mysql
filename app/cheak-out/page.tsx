@@ -153,6 +153,7 @@ export default function UploadPage() {
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
+      console.log(storedUser)
       setUser(JSON.parse(storedUser));
     }
   }, []);
@@ -739,7 +740,7 @@ export default function UploadPage() {
       return;
     }
 
-    if (!user || !user.name || !user.branch) {
+    if (!user || !user.Name || !user.branch) {
       setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       setShowToast(true);
       return;
@@ -758,7 +759,7 @@ export default function UploadPage() {
       airtableData.fields['اللوحة'] = plate;
       airtableData.fields['العقد'] = contractNum.toString();
       airtableData.fields['نوع العملية'] = operationType;
-      airtableData.fields['الموظف'] = user.name;
+      airtableData.fields['الموظف'] = user.Name;
       airtableData.fields['الفرع'] = user.branch;
 
       files.forEach((fileSection) => {
