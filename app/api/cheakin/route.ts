@@ -69,19 +69,9 @@ async function checkPreviousEntry(contractNumber: string): Promise<boolean> {
     if (isNaN(contractNum) || !Number.isInteger(contractNum)) {
       throw new Error('رقم العقد يجب أن يكون رقمًا صحيحًا');
     }
+const records = await prisma.contracts.findMany({
+      where: {operation_type:"دخول", contract_number: contractNum }});
 
-    const filterFormula = `AND({العقد} = ${contractNum}, {نوع العملية} = "دخول")`;
-    console.log(`Filter formula for checking previous entry: ${filterFormula}`);
-
-    console.log(`Checking for previous entry with contract number: ${contractNum}`);
-    const records = await base(airtableTableName)
-      .select({
-        filterByFormula: filterFormula,
-        maxRecords: 1,
-      })
-      .firstPage();
-
-    console.log(`Found ${records.length} previous entry records for contract ${contractNum}`);
     return records.length > 0;
   } catch (error: any) {
     console.error('Error checking previous entry:', {
@@ -193,7 +183,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           message: 'تم تسجيل عملية دخول لهذا العقد من قبل.',
-          error: 'PREVIOUS_ENTRY_EXISTS',
+          error: 'يوجد سجل دخول سابق',
         },
         { status: 400 }
       );
@@ -207,7 +197,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           message: 'يجب تقديم صورة واحدة على الأقل.',
-          error: 'NO_IMAGES_PROVIDED',
+          error: 'لم يتم رفع صور',
         },
         { status: 400 }
       );
@@ -218,7 +208,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           message: 'يجب تقديم بيانات الموظف والفرع.',
-          error: 'MISSING_EMPLOYEE_OR_BRANCH',
+          error: 'بيانات الموظف والفرع مطلوبة',
         },
         { status: 400 }
       );
