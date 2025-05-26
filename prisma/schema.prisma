@@ -64,3 +64,11 @@ model cars{
   car_name      String     @db.VarChar(255)
 
 }
+
+model branches{
+
+
+  id                Int        @id @default(autoincrement())
+  branch_name      String     @db.VarChar(255)
+
+}

@@ -33,18 +33,10 @@ async function verifyTableAccess(): Promise<boolean> {
 }
 
 // دالة للتحقق من وجود اللوحة مسبقًا
-async function checkPlateExists(plate: string, excludeId?: string): Promise<boolean> {
+async function checkPlateExists(plate: string, excludeId?: number){
   try {
-    const records = await base(airtableTableName)
-      .select({
-        filterByFormula: `{Name} = '${encodeURIComponent(plate)}'`,
-        maxRecords: 1,
-      })
-      .firstPage();
-    if (excludeId) {
-      return records.length > 0 && records[0].id !== excludeId;
-    }
-    return records.length > 0;
+    const records = await prisma.plateslist.findMany({where: { id: excludeId }});
+  return records?.length > 0;
   } catch (error: any) {
     console.error('Error checking plate existence:', error);
     throw new Error(`Failed to check plate existence: ${error.message}`);
@@ -55,8 +47,14 @@ async function checkPlateExists(plate: string, excludeId?: string): Promise<bool
 export async function GET(req: NextRequest) {
   try {
 
-const plates = await prisma.plateslist.findMany()
 
+    const records = await prisma.plateslist.findMany()
+    const plates = records.map((record) => ({
+      id: record.id,
+      fields: {
+        Name: String(record.plate_name),
+      },
+    }));
 
     return NextResponse.json({
       success: true,
@@ -105,19 +103,6 @@ export async function POST(req: NextRequest) {
 
     const plate = `${letters.trim()} ${numbers.trim()}`;
 
-    // التحقق من الوصول إلى الجدول
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Cannot access the database.',
-          errorCode: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
-
     // التحقق من عدم وجود اللوحة مسبقًا
     const plateExists = await checkPlateExists(plate);
     if (plateExists) {
@@ -128,15 +113,9 @@ export async function POST(req: NextRequest) {
     }
 
     // إضافة اللوحة إلى Airtable
-    const createdRecords = await base(airtableTableName).create([
-      {
-        fields: {
-          Name: plate,
-        },
-      },
-    ]);
-
-    const recordId = createdRecords[0].id;
+    const createdRecords = await prisma.plateslist.create({
+      data: { plate_name: plate }})
+    const recordId = createdRecords;
     console.log('Created plate record with ID:', recordId);
 
     return NextResponse.json({
@@ -144,7 +123,7 @@ export async function POST(req: NextRequest) {
       message: 'Plate added successfully!',
       result: {
         id: recordId,
-        fields: createdRecords[0].fields,
+        fields: createdRecords,
       },
     });
   } catch (error: any) {
@@ -160,7 +139,8 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const { id, letters, numbers } = await req.json();
-    if (!id || typeof id !== 'string' || !letters || typeof letters !== 'string' || !numbers || typeof numbers !== 'string') {
+    console.log('Received data for updating plate:', { id, letters, numbers });
+    if ( !letters || typeof letters !== 'string' || !numbers || typeof numbers !== 'string') {
       return NextResponse.json(
         { success: false, error: 'ID, letters, and numbers are required and must be strings' },
         { status: 400 }
@@ -185,37 +165,9 @@ export async function PUT(req: NextRequest) {
 
     const plate = `${letters.trim()} ${numbers.trim()}`;
 
-    // التحقق من الوصول إلى الجدول
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Cannot access the database.',
-          errorCode: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
-
-    // التحقق من عدم وجود اللوحة مسبقًا (باستثناء السجل الحالي)
-    const plateExists = await checkPlateExists(plate, id);
-    if (plateExists) {
-      return NextResponse.json(
-        { success: false, error: 'Plate already exists' },
-        { status: 400 }
-      );
-    }
-
-    // تعديل اللوحة في Airtable
-    const updatedRecords = await base(airtableTableName).update([
-      {
-        id,
-        fields: {
-          Name: plate,
-        },
-      },
-    ]);
+ 
+    const updatedRecords = await prisma.plateslist.update({
+      data: { plate_name: plate },where: { id: parseInt(id) }})
 
     console.log('Updated plate record with ID:', id);
 
@@ -223,8 +175,8 @@ export async function PUT(req: NextRequest) {
       success: true,
       message: 'Plate updated successfully!',
       result: {
-        id: updatedRecords[0].id,
-        fields: updatedRecords[0].fields,
+        id: updatedRecords,
+        fields: updatedRecords,
       },
     });
   } catch (error: any) {
@@ -240,34 +192,16 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const { id } = await req.json();
-    if (!id || typeof id !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Plate ID is required and must be a string' },
-        { status: 400 }
-      );
-    }
 
-    // التحقق من الوصول إلى الجدول
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Cannot access the database.',
-          errorCode: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
 
-    // حذف اللوحة من Airtable
-    await base(airtableTableName).destroy([id]);
-    console.log('Deleted plate record with ID:', id);
+
+const deleter = await prisma.plateslist.delete({where: { id: parseInt(id) }});
 
     return NextResponse.json({
       success: true,
       message: 'Plate deleted successfully!',
     });
+  
   } catch (error: any) {
     console.error('Error deleting plate:', error);
     return NextResponse.json(

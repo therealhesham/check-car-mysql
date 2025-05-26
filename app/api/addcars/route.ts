@@ -104,46 +104,39 @@ export async function POST(req: NextRequest) {
     // دمج الشركة والموديل في حقل Name
     const carName = `${company.trim()}-${model.trim()}`;
 
-    // التحقق من الوصول إلى الجدول
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Cannot access the database.',
-          errorCode: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
+    // // التحقق من الوصول إلى الجدول
+    // const hasAccess = await verifyTableAccess();
+    // if (!hasAccess) {
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       error: 'Cannot access the database.',
+    //       errorCode: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
+    //     },
+    //     { status: 403 }
+    //   );
+    // }
 
-    // التحقق من عدم وجود السيارة مسبقًا
-    const carExists = await checkCarExists(carName);
-    if (carExists) {
-      return NextResponse.json(
-        { success: false, error: 'Car already exists' },
-        { status: 400 }
-      );
-    }
+    // // التحقق من عدم وجود السيارة مسبقًا
+    // const carExists = await checkCarExists(carName);
+    // if (carExists) {
+    //   return NextResponse.json(
+    //     { success: false, error: 'Car already exists' },
+    //     { status: 400 }
+    //   );
+    // }
 
     // إضافة السيارة إلى Airtable
-    const createdRecords = await base(airtableTableName).create([
-      {
-        fields: {
-          Name: carName,
-        },
-      },
-    ]);
+    const createdRecords = await prisma.cars.create({
+      data: {car_name: carName}})
 
-    const recordId = createdRecords[0].id;
-    console.log('Created car record with ID:', recordId);
 
     return NextResponse.json({
       success: true,
       message: 'Car added successfully!',
       result: {
-        id: recordId,
-        fields: createdRecords[0].fields,
+        id: createdRecords.id,
+        fields: createdRecords,
       },
     });
   } catch (error: any) {
@@ -159,30 +152,30 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const { id } = await req.json();
-    if (!id || typeof id !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Car ID is required and must be a string' },
-        { status: 400 }
-      );
-    }
+    // if (!id || typeof id !== 'string') {
+    //   return NextResponse.json(
+    //     { success: false, error: 'Car ID is required and must be a string' },
+    //     { status: 400 }
+    //   );
+    // }
 
-    // التحقق من الوصول إلى الجدول
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Cannot access the database.',
-          errorCode: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
+    // // التحقق من الوصول إلى الجدول
+    // const hasAccess = await verifyTableAccess();
+    // if (!hasAccess) {
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       error: 'Cannot access the database.',
+    //       errorCode: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
+    //     },
+    //     { status: 403 }
+    //   );
+    // }
 
-    // حذف السيارة من Airtable
-    await base(airtableTableName).destroy([id]);
-    console.log('Deleted car record with ID:', id);
 
+
+    const deleter = await prisma.cars.delete({
+      where: { id: Number(id) }})
     return NextResponse.json({
       success: true,
       message: 'Car deleted successfully!',

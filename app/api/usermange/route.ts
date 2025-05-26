@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 
 // واجهة لبيانات الطلب لإنشاء أو تحديث موظف
 interface CreateOrUpdateEmployeeRequestData {
@@ -61,31 +63,16 @@ async function verifyTableAccess(): Promise<boolean> {
 // جلب جميع الموظفين
 export async function GET(req: NextRequest) {
   try {
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'لا يمكن الوصول إلى قاعدة البيانات.',
-          error: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
 
-    const records = await base(airtableTableName)
-      .select({
-        view: 'Grid view',
-      })
-      .all();
+    const records = await prisma.users.findMany()
 
     const employees = records.map((record) => ({
       id: record.id,
-      Name: String(record.fields.Name),
-      EmID: Number(record.fields.EmID),
-      password: String(record.fields.password),
-      role: String(record.fields.role),
-      branch: String(record.fields.branch),
+      Name: String(record.Name),
+      EmID: Number(record.EmID),
+      password: String(record.password),
+      role: String(record.role),
+      branch: String(record.branch),
     }));
 
     return NextResponse.json({
@@ -157,41 +144,17 @@ export async function POST(req: NextRequest) {
     }
 
     // التحقق من الوصول إلى الجدول
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'لا يمكن الوصول إلى قاعدة البيانات.',
-          error: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
+ 
 
     // إنشاء السجل في Airtable
-    const createdRecords = await base(airtableTableName).create([
-      {
-        fields: {
-          Name: data.fields.Name.trim(),
-          EmID: data.fields.EmID,
-          password: data.fields.password.trim(),
-          role: data.fields.role,
-          branch: data.fields.branch.trim(),
-        },
-      },
-    ]);
-
-    const createdRecord = createdRecords[0];
-    console.log('Created employee record with ID:', createdRecord.id);
+    const createdRecords = await prisma.users.create({
+      data: {branch: data.fields.branch.trim(),EmID: data.fields.EmID, Name: data.fields.Name.trim(), password: data.fields.password.trim(), role: data.fields.role},
+    });
 
     return NextResponse.json({
       success: true,
       message: 'تم إضافة الموظف بنجاح!',
-      result: {
-        id: createdRecord.id,
-        fields: createdRecord.fields,
-      },
+ 
     });
   } catch (error: any) {
     console.error('Error creating employee:', error);
@@ -260,42 +223,23 @@ export async function PUT(req: NextRequest) {
     }
 
     // التحقق من الوصول إلى الجدول
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'لا يمكن الوصول إلى قاعدة البيانات.',
-          error: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
+console.log('Verifying access to Airtable table:', data);    
 
-    // تحديث السجل في Airtable
-    const updatedRecords = await base(airtableTableName).update([
+    const updatedRecords = await prisma.users.update({where: { id: parseInt(data.id) }, data:
       {
-        id: data.id,
-        fields: {
           Name: data.fields.Name.trim(),
           EmID: data.fields.EmID,
           password: data.fields.password.trim(),
           role: data.fields.role,
           branch: data.fields.branch.trim(),
-        },
-      },
-    ]);
+      }});
 
-    const updatedRecord = updatedRecords[0];
-    console.log('Updated employee record with ID:', updatedRecord.id);
+    // console.log('Updated employee record with ID:', updatedRecord.id);
 
     return NextResponse.json({
       success: true,
       message: 'تم تحديث الموظف بنجاح!',
-      result: {
-        id: updatedRecord.id,
-        fields: updatedRecord.fields,
-      },
+     
     });
   } catch (error: any) {
     console.error('Error updating employee:', error);
@@ -331,21 +275,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // التحقق من الوصول إلى الجدول
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'لا يمكن الوصول إلى قاعدة البيانات.',
-          error: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
-
-    // حذف السجل من Airtable
-    await base(airtableTableName).destroy([data.id]);
+await prisma.users.delete({where: { id: parseInt(data.id) }});
     console.log('Deleted employee record with ID:', data.id);
 
     return NextResponse.json({

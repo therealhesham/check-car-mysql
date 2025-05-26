@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import Airtable from 'airtable';
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 
 // إعدادات Airtable
 const airtableApiKey = 'patH4avQdGYSC0oz4.b2bc135c01c9c5c44cfa2d8595850d75189ea9b050661b9a1efb4e243bd44156';
@@ -52,28 +54,24 @@ async function checkBranchExists(branch: string, excludeId?: string): Promise<bo
 // جلب قائمة الفروع
 export async function GET(req: NextRequest) {
   try {
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Cannot access the database.',
-          error: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
+    // const hasAccess = await verifyTableAccess();
+    // if (!hasAccess) {
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       message: 'Cannot access the database.',
+    //       error: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
+    //     },
+    //     { status: 403 }
+    //   );
+    // }
 
-    const records = await base(airtableTableName)
-      .select({
-        view: 'Grid view',
-      })
-      .all();
+    const records = await prisma.branches.findMany();
 
     const branches = records.map((record) => ({
       id: record.id,
       fields: {
-        Name: String(record.fields.Name),
+        Name: String(record.branch_name),
       },
     }));
 
@@ -115,38 +113,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // التحقق من الوصول إلى الجدول
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Cannot access the database.',
-          errorCode: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
-
-    // التحقق من عدم وجود الفرع مسبقًا
-    const branchExists = await checkBranchExists(branch.trim());
-    if (branchExists) {
-      return NextResponse.json(
-        { success: false, error: 'Branch already exists' },
-        { status: 400 }
-      );
-    }
+    // // التحقق من عدم وجود الفرع مسبقًا
+    // const branchExists = await checkBranchExists(branch.trim());
+    // if (branchExists) {
+    //   return NextResponse.json(
+    //     { success: false, error: 'Branch already exists' },
+    //     { status: 400 }
+    //   );
+    // }
 
     // إضافة الفرع إلى Airtable
-    const createdRecords = await base(airtableTableName).create([
-      {
-        fields: {
-          Name: branch.trim(),
-        },
-      },
-    ]);
+    const createdRecords = await prisma.branches.create({
+      data: {branch_name: branch.trim()}})
 
-    const recordId = createdRecords[0].id;
+    const recordId = createdRecords;
     console.log('Created branch record with ID:', recordId);
 
     return NextResponse.json({
@@ -154,7 +134,7 @@ export async function POST(req: NextRequest) {
       message: 'Branch added successfully!',
       result: {
         id: recordId,
-        fields: createdRecords[0].fields,
+        fields: createdRecords,
       },
     });
   } catch (error: any) {
@@ -170,12 +150,12 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const { id, branch } = await req.json();
-    if (!id || typeof id !== 'string' || !branch || typeof branch !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'ID and branch name are required and must be strings' },
-        { status: 400 }
-      );
-    }
+    // if (!id || typeof id !== 'string' || !branch || typeof branch !== 'string') {
+    //   return NextResponse.json(
+    //     { success: false, error: 'ID and branch name are required and must be strings' },
+    //     { status: 400 }
+    //   );
+    // }
 
     // التحقق من صحة اسم الفرع (حروف عربية ومسافات فقط)
     const branchRegex = /^[ء-ي\s]+$/;
@@ -186,37 +166,18 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    // التحقق من الوصول إلى الجدول
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Cannot access the database.',
-          errorCode: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
 
     // التحقق من عدم وجود الفرع مسبقًا (باستثناء السجل الحالي)
-    const branchExists = await checkBranchExists(branch.trim(), id);
-    if (branchExists) {
-      return NextResponse.json(
-        { success: false, error: 'Branch already exists' },
-        { status: 400 }
-      );
-    }
+    // const branchExists = await checkBranchExists(branch.trim(), id);
+    // if (branchExists) {
+    //   return NextResponse.json(
+    //     { success: false, error: 'Branch already exists' },
+    //     { status: 400 }
+    //   );
+    // }
 
     // تعديل الفرع في Airtable
-    const updatedRecords = await base(airtableTableName).update([
-      {
-        id,
-        fields: {
-          Name: branch.trim(),
-        },
-      },
-    ]);
+    const updatedRecords = await prisma.branches.update({data: {branch_name: branch.trim()}, where: {id:parseInt(id)}});
 
     console.log('Updated branch record with ID:', id);
 
@@ -224,8 +185,8 @@ export async function PUT(req: NextRequest) {
       success: true,
       message: 'Branch updated successfully!',
       result: {
-        id: updatedRecords[0].id,
-        fields: updatedRecords[0].fields,
+        id: updatedRecords.id,
+        fields: updatedRecords,
       },
     });
   } catch (error: any) {
@@ -241,77 +202,11 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const { id } = await req.json();
-    if (!id || typeof id !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Branch ID is required and must be a string' },
-        { status: 400 }
-      );
-    }
 
-    // التحقق من الوصول إلى جدول الفروع
-    const hasBranchAccess = await verifyTableAccess();
-    if (!hasBranchAccess) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Cannot access the branches database.',
-          errorCode: 'INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND',
-        },
-        { status: 403 }
-      );
-    }
 
-    // جلب اسم الفرع المراد حذفه
-    const branchRecords = await base(airtableTableName)
-      .select({
-        filterByFormula: `RECORD_ID() = '${id}'`,
-        maxRecords: 1,
-      })
-      .firstPage();
-
-    if (branchRecords.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Branch not found' },
-        { status: 404 }
-      );
-    }
-
-    const branchName = branchRecords[0].fields.Name as string | undefined;
-    if (!branchName) {
-      return NextResponse.json(
-        { success: false, error: 'Branch name is missing in the record' },
-        { status: 400 }
-      );
-    }
-
-    // التحقق من وجود موظفين مرتبطين بالفرع في جدول الموظفين (user)
-    const trimmedBranchName = branchName.trim();
-    console.log('Checking employees for branch:', trimmedBranchName);
 
     const userTable = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId)('user');
-    const employeeRecords = await userTable
-      .select({
-        filterByFormula: `{branch} = '${trimmedBranchName.replace(/'/g, "\\'")}'`, // Escaping single quotes
-      })
-      .all();
-
-    console.log('Found employees:', employeeRecords.length);
-    if (employeeRecords.length > 0) {
-      employeeRecords.forEach((record) => {
-        console.log('Employee branch value:', record.fields.branch);
-      });
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'لا يمكن حذف الفرع لأنه يحتوي على موظفين. يرجى نقل الموظفين إلى فرع آخر أو إزالتهم أولاً.',
-        },
-        { status: 400 }
-      );
-    }
-
-    // حذف الفرع من Airtable إذا لم يكن هناك موظفون مرتبطون
-    await base(airtableTableName).destroy([id]);
-    console.log('Deleted branch record with ID:', id);
+    const employeeRecords = await prisma.branches.delete({where: {id:parseInt(id)}});
 
     return NextResponse.json({
       success: true,

@@ -1725,6 +1725,7 @@ async function fetchBranches(): Promise<Branch[]> {
         id: record.id,
         Name: record.fields.Name,
       }));
+
     }
     return [];
   } catch (error) {
@@ -1847,7 +1848,7 @@ export default function HomePage() {
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
-
+const [time,settime]=useState(Date.now())
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -1882,7 +1883,7 @@ export default function HomePage() {
       }
     };
     loadData();
-  }, [router]);
+  }, [router,time]);
 
   useEffect(() => {
     if (isCarModalOpen && user?.role === 'admin') {
@@ -2103,6 +2104,7 @@ export default function HomePage() {
       setNewPlateLetters('');
       setNewPlateNumbers('');
       setIsAddPlateMode(false);
+settime(Date.now())
       toast.success('تمت إضافة اللوحة بنجاح!');
     } catch (err: any) {
       console.error('Error adding plate:', err);
@@ -2187,6 +2189,7 @@ export default function HomePage() {
       setSelectedPlate(null);
       setNewPlateLetters('');
       setNewPlateNumbers('');
+      settime(Date.now())
       toast.success('تم تعديل اللوحة بنجاح!');
     } catch (err: any) {
       console.error('Error updating plate:', err);
@@ -2285,6 +2288,8 @@ export default function HomePage() {
       setBranches([...branches, { id: data.result.id, Name: data.result.fields.Name }]);
       setNewBranchName('');
       setIsAddBranchMode(false);
+      settime(Date.now())
+
       toast.success('تمت إضافة الفرع بنجاح!');
     } catch (err: any) {
       console.error('Error adding branch:', err);
@@ -2350,11 +2355,13 @@ export default function HomePage() {
       const data = await response.json();
       setBranches(
         branches.map((branch) =>
-          branch.id === selectedBranch.id ? { id: data.result.id, Name: data.result.fields.Name } : branch
+          branch.id === selectedBranch.id ? { id: data.result.id, Name: data.result.Name } : branch
         )
       );
       setSelectedBranch(null);
       setNewBranchName('');
+      settime(Date.now())
+
       toast.success('تم تعديل الفرع بنجاح!');
     } catch (err: any) {
       console.error('Error updating branch:', err);
@@ -2406,6 +2413,8 @@ export default function HomePage() {
 
       setBranches(branches.filter((branch) => branch.id !== branchToDelete));
       closeDeleteConfirmModal();
+      settime(Date.now())
+
       toast.success('تم حذف الفرع بنجاح!');
     } catch (err: any) {
       console.error('Error deleting branch:', err);
@@ -2455,6 +2464,9 @@ export default function HomePage() {
       setNewCarCompany('');
       setNewCarModel('');
       setIsAddCarMode(false);
+
+      settime(Date.now())
+
       toast.success('تمت إضافة السيارة بنجاح!');
     } catch (err: any) {
       console.error('Error adding car:', err);
@@ -2515,9 +2527,11 @@ export default function HomePage() {
       }
 
       const data = await response.json();
-      setEmployees([...employees, { id: data.result.id, ...data.result.fields }]);
-      setNewEmployee({ id: '', Name: '', EmID: 0, password: '', role: 'employee', branch: branches[0]?.Name || '' });
+      // setEmployees([...employees, { id: data.result.id, ...data.result.fields }]);
+      // setNewEmployee({ id: '', Name: '', EmID: 0, password: '', role: 'employee', branch: branches[0]?.Name || '' });
       setIsAddEmployeeMode(false);
+      settime(Date.now())
+
       toast.success('تمت إضافة الموظف بنجاح!');
     } catch (err: any) {
       console.error('Error adding employee:', err);
@@ -2594,12 +2608,14 @@ export default function HomePage() {
       }
 
       const data = await response.json();
-      setEmployees(
-        employees.map((emp) =>
-          emp.id === selectedEmployee.id ? { id: data.result.id, ...data.result.fields } : emp
-        )
-      );
+      // setEmployees(
+      //   employees.map((emp) =>
+      //     emp.id === selectedEmployee.id ? { id: data.result.id, ...data.result.fields } : emp
+      //   )
+      // );
       setSelectedEmployee(null);
+      settime(Date.now())
+
       toast.success('تم تحديث الموظف بنجاح!');
     } catch (err: any) {
       console.error('Error updating employee:', err);
@@ -2661,6 +2677,8 @@ export default function HomePage() {
 
       setEmployees(employees.filter((emp) => emp.id !== employeeToDelete));
       closeDeleteConfirmModal();
+      settime(Date.now())
+
       toast.success('تم حذف الموظف بنجاح!');
     } catch (err: any) {
       console.error('Error deleting employee:', err);
@@ -2707,6 +2725,8 @@ export default function HomePage() {
 
       setCars(cars.filter((car) => car.id !== carToDelete));
       closeDeleteConfirmModal();
+      settime(Date.now())
+
       toast.success('تم حذف السيارة بنجاح!');
     } catch (err: any) {
       console.error('Error deleting car:', err);
