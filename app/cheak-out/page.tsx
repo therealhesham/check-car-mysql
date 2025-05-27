@@ -253,7 +253,7 @@ export default function UploadPage() {
         if (data.success) {
           const fetchedPlates = data.results.map((record: any) => ({
             id: record.id,
-            name: record.plate_name,
+            name: record.fields.Name,
           }));
           setPlates(fetchedPlates);
         } else {
@@ -334,13 +334,17 @@ export default function UploadPage() {
       setIsSearching(false);
     }
   };
+const normalizeArabic = (text: string) => {
+  // Return empty string for invalid inputs
+  if (typeof text !== 'string' || text == null) {
+    return '';
+  }
 
-  const normalizeArabic = (text: string) => {
-    return text
-      .replace(/[\u0617-\u061A\u064B-\u065F]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  };
+  return text
+    .replace(/[\u0617-\u061A\u064B-\u065F]/g, '') // Remove Arabic diacritics
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .trim(); // Remove leading/trailing whitespace
+};
 
   const filteredCars = cars.filter((carItem) => {
     const normalizedCar = normalizeArabic(carItem.name).toLowerCase();
@@ -353,7 +357,6 @@ export default function UploadPage() {
     const normalizedSearch = normalizeArabic(plateSearch).toLowerCase();
     return normalizedPlate.includes(normalizedSearch);
   });
-
   // إعداد بيانات DigitalOcean Spaces
   const DO_ACCESS_KEY = process.env.NEXT_PUBLIC_DO_ACCESS_KEY ;
   const DO_SECRET_KEY = process.env.NEXT_PUBLIC_DO_SECRET_KEY ;
