@@ -990,7 +990,7 @@ const normalizeArabic = (text: string) => {
                 {files.map((fileSection, index) => (
                   <div key={fileSection.id} className="mb-3">
                     <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
-{fieldTitlesMap[fileSection.title] ? fieldTitlesMap[fileSection.title] + "*" : fileSection.title}
+{fieldTitlesMap[fileSection.title]  !== "صور اخرى"? fieldTitlesMap[fileSection.title] + " *" : fieldTitlesMap[fileSection.title]}
 
                     </div>
                     {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
