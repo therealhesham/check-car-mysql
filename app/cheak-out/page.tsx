@@ -45,27 +45,27 @@ interface AirtableRecord {
     [key: string]: any;
   };
 }
-const fieldTitlesMap = {
-  'rear_bumper_with_lights': 'الصدام الخلفي مع الانوار',
-  'trunk_lid': 'سطح الشنطة مع الزجاج الخلفي',
-  'trunk_contents': 'محتويات الشنطة مع الاستبنة',
-  'roof': 'التندة',
-  'rear_right_fender': 'الرفرف الخلفي يمين',
-  'right_doors': 'الابواب اليمين مع توضيح السمكة',
-  'front_right_fender': 'الرفرف الامامي يمين',
-  'front_bumper': 'الصدام الامامي مع الشنب',
-  'hoode': 'الكبوت مع الشبك',
-  'front_windshield': 'الزجاج الامامي',
-  'front_left_fender': 'الرفرف الامامي يسار',
-  'left_doors': 'الابواب اليسار مع توضيح السمكة',
-  'rear_left_fender': 'الرفرف الخلفي يسار',
-  'front_left_seat': 'المقعد الامامي يسار',
-  'front_right_seat': 'المقعد الامامي يمين',
-  'rear_seat_with_front_seat_backs': 'المقعد الخلفي مع خلفية المقاعد الامامية',
-  'fire_extinguisher': 'طفاية الحريق',
-  'meter': 'العداد',
-  'other_images': 'صور اخرى',
-};
+// const fieldTitlesMap = {
+//   'rear_bumper_with_lights': 'الصدام الخلفي مع الانوار',
+//   'trunk_lid': 'سطح الشنطة مع الزجاج الخلفي',
+//   'trunk_contents': 'محتويات الشنطة مع الاستبنة',
+//   'roof': 'التندة',
+//   'rear_right_fender': 'الرفرف الخلفي يمين',
+//   'right_doors': 'الابواب اليمين مع توضيح السمكة',
+//   'front_right_fender': 'الرفرف الامامي يمين',
+//   'front_bumper': 'الصدام الامامي مع الشنب',
+//   'hoode': 'الكبوت مع الشبك',
+//   'front_windshield': 'الزجاج الامامي',
+//   'front_left_fender': 'الرفرف الامامي يسار',
+//   'left_doors': 'الابواب اليسار مع توضيح السمكة',
+//   'rear_left_fender': 'الرفرف الخلفي يسار',
+//   'front_left_seat': 'المقعد الامامي يسار',
+//   'front_right_seat': 'المقعد الامامي يمين',
+//   'rear_seat_with_front_seat_backs': 'المقعد الخلفي مع خلفية المقاعد الامامية',
+//   'fire_extinguisher': 'طفاية الحريق',
+//   'meter': 'العداد',
+//   'other_images': 'صور اخرى',
+// };
 interface ApiResponse {
   success: boolean;
   message: string;
@@ -88,6 +88,27 @@ interface Plate {
 }
 
 export default function UploadPage() {
+  const fieldTitlesMap = {
+    'meter': 'العداد',
+    'right_doors': 'الابواب اليمين مع توضيح السمكة',
+    'front_right_fender': 'الرفرف الامامي يمين',
+    'rear_right_fender': 'الرفرف الخلفي يمين',
+    'rear_bumper_with_lights': 'الصدام الخلفي مع الانوار',
+    'trunk_lid': 'سطح الشنطة مع الزجاج الخلفي',
+    'roof': 'التندة',
+    'rear_left_fender': 'الرفرف الخلفي يسار',
+    'left_doors': 'الابواب اليسار مع توضيح السمكة',
+    'front_left_fender': 'الرفرف الامامي يسار',
+    'front_bumper': 'الصدام الامامي مع الشنب',
+    'hoode': 'الكبوت مع الشبك',
+    'front_windshield': 'الزجاج الامامي',
+    'trunk_contents': 'محتويات الشنطة مع الاستبنة',
+    'fire_extinguisher': 'طفاية الحريق',
+    'front_right_seat': 'المقعد الامامي يمين',
+    'front_left_seat': 'المقعد الامامي يسار',
+    'rear_seat_with_front_seat_backs': 'المقعد الخلفي مع خلفية المقاعد الامامية',
+    'other_images': 'صور اخرى',
+  };
   const fieldTitles = [
     'meter', 
     'right_doors', 
@@ -114,7 +135,7 @@ export default function UploadPage() {
   const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
     id: `file-section-${sanitizeTitle(title, index)}`,
     imageUrls: null,
-    title: title,
+    title: title ,
     multiple: index === fieldTitles.length - 1,
     previewUrls: [],
     isUploading: false,
@@ -711,7 +732,7 @@ const normalizeArabic = (text: string) => {
       return;
     }
 
-    const requiredImages = files.filter((fileSection) => fileSection.title !== 'صور اخرى');
+    const requiredImages = files.filter((fileSection) => fileSection.title !== 'other_images');
     const hasAnyRequiredImage = requiredImages.some((fileSection) => {
       if (fileSection.imageUrls === null) return false;
       if (Array.isArray(fileSection.imageUrls)) return fileSection.imageUrls.length > 0;
@@ -969,7 +990,7 @@ const normalizeArabic = (text: string) => {
                 {files.map((fileSection, index) => (
                   <div key={fileSection.id} className="mb-3">
                     <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
-{fieldTitlesMap[fileSection.title] ? fieldTitlesMap[fileSection.title] : fileSection.title}
+{fieldTitlesMap[fileSection.title] ? fieldTitlesMap[fileSection.title] + "*" : fileSection.title}
 
                     </div>
                     {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
