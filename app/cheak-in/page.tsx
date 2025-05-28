@@ -10,6 +10,7 @@ import { useState, useRef, useEffect, RefCallback } from 'react';
 import { carList } from '@/lib/car';
 import { licenseList } from '@/lib/License';
 import { FaSearch, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
+import SignatureCanvas from 'react-signature-canvas';
 
 // دالة لتنظيف العناوين مع دعم الأحرف العربية وضمان التفرد
 const sanitizeTitle = (title: string, index: number) => {
@@ -375,21 +376,103 @@ export default function CheckInPage() {
     signatureVersion: 'v4',
   });
 
-  const compressImage = async (file: File): Promise<File> => {
-    const options = {
-      maxSizeMB: 4,
-      maxWidthOrHeight: 1920,
-      useWebWorker: true,
-    };
-
-    try {
-      const compressedFile = await imageCompression(file, options);
-      return new File([compressedFile], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
-    } catch (error) {
-      throw new Error('فشل في ضغط الصورة.');
-    }
-  };
-
+ const addDateTimeToImage = async (file: File): Promise<File> => {
+     if (!file.type.startsWith('image/')) {
+       throw new Error('الملف ليس صورة صالحة.');
+     }
+   
+     return new Promise((resolve, reject) => {
+       const img = new Image();
+       const reader = new FileReader();
+   
+       reader.onload = (e) => {
+         console.log('FileReader loaded successfully');
+         img.src = e.target?.result as string;
+   
+         img.onload = () => {
+           console.log('Image loaded, width:', img.width, 'height:', img.height);
+           const canvas = document.createElement('canvas');
+           const ctx = canvas.getContext('2d');
+           if (!ctx) {
+             reject(new Error('فشل في إنشاء سياق الرسم.'));
+             return;
+           }
+   
+           canvas.width = img.width;
+           canvas.height = img.height;
+   
+           ctx.drawImage(img, 0, 0);
+   
+           const now = new Date();
+           const dateTimeString = now.toLocaleString('ar-SA', {
+             calendar: 'gregory', // Use Gregorian calendar
+             year: 'numeric',
+             month: '2-digit',
+             day: '2-digit',
+             hour: '2-digit',
+             minute: '2-digit',
+             second: '2-digit',
+             hour12: true,
+           });
+   
+           ctx.font = '40px Arial';
+           ctx.fillStyle = 'white'; // White text for visibility
+           ctx.strokeStyle = 'black';
+           ctx.lineWidth = 3;
+   
+           const text = dateTimeString;
+           const textWidth = ctx.measureText(text).width;
+           const padding = 20;
+           const textX = canvas.width - textWidth - padding; // Right-aligned
+           const textY = 40; // Position at the top (40px from top edge)
+   
+           ctx.strokeText(text, textX, textY);
+           ctx.fillText(text, textX, textY);
+   
+           canvas.toBlob(
+             (blob) => {
+               if (!blob) {
+                 reject(new Error('فشل في تحويل الصورة إلى Blob.'));
+                 return;
+               }
+               const modifiedFile = new File([blob], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
+               resolve(modifiedFile);
+             },
+             'image/jpeg',
+             0.9
+           );
+         };
+   
+         img.onerror = () => {
+           reject(new Error('فشل في تحميل الصورة.'));
+         };
+       };
+   
+       reader.onerror = () => {
+         reject(new Error('فشل في قراءة ملف الصورة.'));
+       };
+   
+       reader.readAsDataURL(file);
+     });
+   };
+   const compressImage = async (file: File): Promise<File> => {
+     const options = {
+       maxSizeMB: 4,
+       maxWidthOrHeight: 1920,
+       useWebWorker: true,
+     };
+   
+     try {
+       console.log('Starting image compression...');
+       const compressedFile = await imageCompression(file, options);
+       console.log('Image compressed successfully');
+       const modifiedFile = await addDateTimeToImage(compressedFile);
+       return modifiedFile;
+     } catch (error) {
+       console.error('Error processing image:', error);
+       throw new Error('فشل في معالجة الصورة: ' + error.message);
+     }
+   }; 
   const uploadImageToBackend = async (
     file: File,
     fileSectionId: string,

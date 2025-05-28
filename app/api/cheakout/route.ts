@@ -9,6 +9,9 @@ const prisma = new PrismaClient();
 
 interface RequestBody {
   fields: {
+    client_id?: string | null;
+    client_name?: string | null;
+    meter_reading?: string | null;
     'السيارة': string;
     'اللوحة': string;
     'العقد': string;
@@ -31,12 +34,10 @@ interface RequestBody {
     trunk_contents?: string | null;
     fire_extinguisher?: string | null;
     front_right_seat?: string | null;
-    client_id:string |null;
-    client_name:string |null;
-    meter_reading:string|null;
     front_left_seat?: string | null;
     rear_seat_with_front_seat_backs?: string | null;
     other_images?: string[] | null;
+    signature_url?: string | null; // Added signature_url field
   };
 }
 
@@ -51,21 +52,21 @@ interface ApiResponse {
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>> {
   try {
     const body: RequestBody = await req.json();
-    const { fields,client_id,client_name,meter_reading } = body;
+    const { fields } = body;
 
-    // // Validate required fields
-    // const requiredFields = ['السيارة', 'اللوحة', 'العقد', 'نوع العملية', 'الموظف', 'الفرع'];
-    // const missingFields = requiredFields.filter((field) => !fields[field] || fields[field].trim() === '');
-    // if (missingFields.length > 0) {
-    //   return NextResponse.json(
-    //     {
-    //       success: false,
-    //       error: 'حقول مطلوبة مفقودة أو غير صالحة',
-    //       details: { missingFields },
-    //     },
-    //     { status: 400 }
-    //   );
-    // }
+    // Validate required fields
+    const requiredFields = ['السيارة', 'اللوحة', 'العقد', 'نوع العملية', 'الموظف', 'الفرع', 'signature_url'];
+    const missingFields = requiredFields.filter((field) => !fields[field] || fields[field].trim() === '');
+    if (missingFields.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'حقول مطلوبة مفقودة أو غير صالحة',
+          details: { missingFields },
+        },
+        { status: 400 }
+      );
+    }
 
     // Validate contract number
     const contractNumber = parseInt(fields['العقد'], 10);
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>>
       );
     }
 
-    // Validate required images (all fields except 'other_images')
+    // Validate required images (all fields except 'other_images' and 'signature_url')
     const imageFields = [
       'meter',
       'right_doors',
@@ -119,20 +120,23 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>>
       'rear_seat_with_front_seat_backs',
     ];
 
-    // const missingImages = imageFields.filter((field) => !fields[field] || fields[field] === '');
-    // if (missingImages.length > 0) {
-    //   return NextResponse.json(
-    //     {
-    //       success: false,
-    //       error: `يجب رفع صورة واحدة على الأقل لكل من: ${missingImages.join(', ')}`,
-    //     },
-    //     { status: 400 }
-    //   );
-    // }
-
+    const missingImages = imageFields.filter((field) => !fields[field] || fields[field] === '');
+    if (missingImages.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `يجب رفع صورة واحدة على الأقل لكل من: ${missingImages.join(', ')}`,
+        },
+        { status: 400 }
+      );
+    }
+console.log('Fields:', fields.client_id);
     // Create new contract record
     const newContract = await prisma.contracts.create({
-      data: {client_id,client_name,meter_reading,
+      data: {
+        client_id: fields.client_id,
+        client_name: fields.client_name,
+        meter_reading: fields.meter_reading,
         contract_number: contractNumber,
         car_model: fields['السيارة'],
         plate_number: fields['اللوحة'],
@@ -157,7 +161,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>>
         front_right_seat: fields.front_right_seat,
         front_left_seat: fields.front_left_seat,
         rear_seat_with_front_seat_backs: fields.rear_seat_with_front_seat_backs,
-        other_images: fields.other_images ? fields.other_images.join(',') : null, // Convert array to comma-separated string
+        other_images: fields.other_images ? fields.other_images.join(',') : null,
+        signature_url: fields.signature_url, // Added signature_url to data
       },
     });
 

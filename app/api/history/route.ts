@@ -25,6 +25,7 @@ export async function GET(req: Request) {
     const contracts = await prisma.contracts.findMany({
       where,
       select: {
+        signature_url: true,
         id: true,
         contract_number: true,
         client_id:true,created_at:true,client_name:true,meter_reading:true,

@@ -31,6 +31,7 @@ model contracts {
   trunk_contents                 String? @db.VarChar(512)
   fire_extinguisher              String? @db.VarChar(512)
   front_right_seat               String? @db.VarChar(512)
+  signature_url           String? @db.VarChar(512)  
   front_left_seat                String? @db.VarChar(512)
   rear_seat_with_front_seat_backs String? @db.VarChar(512)
   other_images                   String? @db.VarChar(512)

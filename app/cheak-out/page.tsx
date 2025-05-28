@@ -1,7 +1,3 @@
-//@ts-nocheck
-//@ts-ignore
-
-
 'use client';
 
 import Navbar from '@/public/components/navbar';
@@ -10,8 +6,8 @@ import { FaCheckCircle } from 'react-icons/fa';
 import imageCompression from 'browser-image-compression';
 import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
+import SignatureCanvas from 'react-signature-canvas';
 
-// دالة لتنظيف العناوين مع دعم الأحرف العربية وضمان التفرد
 const sanitizeTitle = (title: string, index: number) => {
   const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
   return `${cleanTitle}-${index}`;
@@ -35,48 +31,6 @@ interface User {
   branch: string;
 }
 
-interface AirtableRecord {
-  id: string;
-  fields: {
-    العقد?: number | null;
-    السيارة?: string | null;
-    اللوحة?: string | null;
-    'نوع العملية'?: string | null;
-    [key: string]: any;
-  };
-}
-// const fieldTitlesMap = {
-//   'rear_bumper_with_lights': 'الصدام الخلفي مع الانوار',
-//   'trunk_lid': 'سطح الشنطة مع الزجاج الخلفي',
-//   'trunk_contents': 'محتويات الشنطة مع الاستبنة',
-//   'roof': 'التندة',
-//   'rear_right_fender': 'الرفرف الخلفي يمين',
-//   'right_doors': 'الابواب اليمين مع توضيح السمكة',
-//   'front_right_fender': 'الرفرف الامامي يمين',
-//   'front_bumper': 'الصدام الامامي مع الشنب',
-//   'hoode': 'الكبوت مع الشبك',
-//   'front_windshield': 'الزجاج الامامي',
-//   'front_left_fender': 'الرفرف الامامي يسار',
-//   'left_doors': 'الابواب اليسار مع توضيح السمكة',
-//   'rear_left_fender': 'الرفرف الخلفي يسار',
-//   'front_left_seat': 'المقعد الامامي يسار',
-//   'front_right_seat': 'المقعد الامامي يمين',
-//   'rear_seat_with_front_seat_backs': 'المقعد الخلفي مع خلفية المقاعد الامامية',
-//   'fire_extinguisher': 'طفاية الحريق',
-//   'meter': 'العداد',
-//   'other_images': 'صور اخرى',
-// };
-interface ApiResponse {
-  success: boolean;
-  message: string;
-  results: AirtableRecord[];
-  total: number;
-  page: number;
-  pageSize: number;
-  error?: string;
-  details?: any;
-}
-
 interface Car {
   id: string;
   name: string;
@@ -87,71 +41,6 @@ interface Plate {
   name: string;
 }
 
-// const fieldTitlesMap = {
-//   'rear_bumper_with_lights': 'الصدام الخلفي مع الانوار',
-//   'trunk_lid': 'سطح الشنطة مع الزجاج الخلفي',
-//   'trunk_contents': 'محتويات الشنطة مع الاستبنة',
-//   'roof': 'التندة',
-//   'rear_right_fender': 'الرفرف الخلفي يمين',
-//   'right_doors': 'الابواب اليمين مع توضيح السمكة',
-//   'front_right_fender': 'الرفرف الامامي يمين',
-//   'front_bumper': 'الصدام الامامي مع الشنب',
-//   'hoode': 'الكبوت مع الشبك',
-//   'front_windshield': 'الزجاج الامامي',
-//   'front_left_fender': 'الرفرف الامامي يسار',
-//   'left_doors': 'الابواب اليسار مع توضيح السمكة',
-//   'rear_left_fender': 'الرفرف الخلفي يسار',
-//   'front_left_seat': 'المقعد الامامي يسار',
-//   'front_right_seat': 'المقعد الامامي يمين',
-//   'rear_seat_with_front_seat_backs': 'المقعد الخلفي مع خلفية المقاعد الامامية',
-//   'fire_extinguisher': 'طفاية الحريق',
-//   'meter': 'العداد',
-//   'other_images': 'صور اخرى',
-// };
-
-// export default function UploadPage() {
-//   const fieldTitlesMap = {
-//     'meter': 'العداد',
-//     'right_doors': 'الابواب اليمين مع توضيح السمكة',
-//     'front_right_fender': 'الرفرف الامامي يمين',
-//     'rear_right_fender': 'الرفرف الخلفي يمين',
-//     'rear_bumper_with_lights': 'الصدام الخلفي مع الانوار',
-//     'trunk_lid': 'سطح الشنطة مع الزجاج الخلفي',
-//     'roof': 'التندة',
-//     'rear_left_fender': 'الرفرف الخلفي يسار',
-//     'left_doors': 'الابواب اليسار مع توضيح السمكة',
-//     'front_left_fender': 'الرفرف الامامي يسار',
-//     'front_bumper': 'الصدام الامامي مع الشنب',
-//     'hoode': 'الكبوت مع الشبك',
-//     'front_windshield': 'الزجاج الامامي',
-//     'trunk_contents': 'محتويات الشنطة مع الاستبنة',
-//     'fire_extinguisher': 'طفاية الحريق',
-//     'front_right_seat': 'المقعد الامامي يمين',
-//     'front_left_seat': 'المقعد الامامي يسار',
-//     'rear_seat_with_front_seat_backs': 'المقعد الخلفي مع خلفية المقاعد الامامية',
-//     'other_images': 'صور اخرى',
-//   };
-//   const fieldTitles = [
-//     'meter', 
-//     'right_doors', 
-//     'front_right_fender', 
-//     'rear_right_fender', 
-//     'rear_bumper_with_lights', 
-//     'trunk_lid', 
-//     'roof', 
-//     'rear_left_fender', 
-//     'left_doors', 
-//     'front_left_fender', 
-//     'front_bumper', 
-//     'hoode', 
-//     'front_windshield', 
-//     'trunk_contents', 
-//     'fire_extinguisher', 
-//     'front_right_seat', 
-//     'front_left_seat', 
-//     'rear_seat_with_front_seat_backs', 
-//     'other_images', 
-//   ];
 export default function UploadPage() {
   const fieldTitlesMap = {
     'rear_bumper_with_lights': 'الصدام الخلفي مع الانوار',
@@ -174,7 +63,7 @@ export default function UploadPage() {
     'meter': 'العداد',
     'other_images': 'صور اخرى',
   };
-  
+
   const fieldTitles = [
     'rear_bumper_with_lights',
     'trunk_lid',
@@ -200,7 +89,7 @@ export default function UploadPage() {
   const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
     id: `file-section-${sanitizeTitle(title, index)}`,
     imageUrls: null,
-    title: title ,
+    title: title,
     multiple: index === fieldTitles.length - 1,
     previewUrls: [],
     isUploading: false,
@@ -214,14 +103,6 @@ export default function UploadPage() {
   const [showCarList, setShowCarList] = useState<boolean>(false);
   const [plate, setPlate] = useState<string>('');
   const [plateSearch, setPlateSearch] = useState<string>('');
-
-
-  const [meter_reading, setMeterReading] = useState<string>('');
-  const [client_id, setClientId] = useState<string>('');
-  const [client_name, setClientName] = useState<string>('');
-
-
-
   const [plates, setPlates] = useState<Plate[]>([]);
   const [showPlateList, setShowPlateList] = useState<boolean>(false);
   const [contract, setContract] = useState<string>('');
@@ -237,17 +118,22 @@ export default function UploadPage() {
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [isLoadingCars, setIsLoadingCars] = useState<boolean>(true);
   const [isLoadingPlates, setIsLoadingPlates] = useState<boolean>(true);
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
+  const [isSignatureEmpty, setIsSignatureEmpty] = useState<boolean>(true);
+  const [meter_reading, setMeterReading] = useState<string>('');
+  const [client_id, setClientId] = useState<string>('');
+  const [client_name, setClientName] = useState<string>('');
 
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const carInputRef = useRef<HTMLDivElement>(null);
   const plateInputRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const uploadQueue = useRef<Promise<void>>(Promise.resolve());
+  const signatureCanvasRef = useRef<SignatureCanvas>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      console.log(storedUser)
       setUser(JSON.parse(storedUser));
     }
   }, []);
@@ -389,7 +275,6 @@ export default function UploadPage() {
     abortControllerRef.current = new AbortController();
 
     try {
-
       const response = await fetch(`/api/history?contractNumber=${encodeURIComponent(contract)}`, {
         method: 'GET',
         headers: {
@@ -404,8 +289,7 @@ export default function UploadPage() {
       }
 
       const data = await response.json();
-      console.log(data)
-      if (data.length> 0) {
+      if (data.length > 0) {
         const exitRecord = data.find((record) => record['operation_type'] === 'خروج');
         if (exitRecord) {
           setHasExitRecord(true);
@@ -428,17 +312,17 @@ export default function UploadPage() {
       setIsSearching(false);
     }
   };
-const normalizeArabic = (text: string) => {
-  // Return empty string for invalid inputs
-  if (typeof text !== 'string' || text == null) {
-    return '';
-  }
 
-  return text
-    .replace(/[\u0617-\u061A\u064B-\u065F]/g, '') // Remove Arabic diacritics
-    .replace(/\s+/g, ' ') // Normalize whitespace
-    .trim(); // Remove leading/trailing whitespace
-};
+  const normalizeArabic = (text: string) => {
+    if (typeof text !== 'string' || text == null) {
+      return '';
+    }
+
+    return text
+      .replace(/[\u0617-\u061A\u064B-\u065F]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
 
   const filteredCars = cars.filter((carItem) => {
     const normalizedCar = normalizeArabic(carItem.name).toLowerCase();
@@ -451,12 +335,12 @@ const normalizeArabic = (text: string) => {
     const normalizedSearch = normalizeArabic(plateSearch).toLowerCase();
     return normalizedPlate.includes(normalizedSearch);
   });
-  // إعداد بيانات DigitalOcean Spaces
-  const DO_ACCESS_KEY = process.env.NEXT_PUBLIC_DO_ACCESS_KEY ;
-  const DO_SECRET_KEY = process.env.NEXT_PUBLIC_DO_SECRET_KEY ;
-  const DO_SPACE_NAME =   process.env.NEXT_PUBLIC_DO_SPACE_NAME;
+
+  const DO_ACCESS_KEY = process.env.NEXT_PUBLIC_DO_ACCESS_KEY;
+  const DO_SECRET_KEY = process.env.NEXT_PUBLIC_DO_SECRET_KEY;
+  const DO_SPACE_NAME = process.env.NEXT_PUBLIC_DO_SPACE_NAME;
   const DO_REGION = process.env.NEXT_PUBLIC_DO_REGION;
-  const DO_ENDPOINT = process.env.NEXT_PUBLIC_DO_ENDPOINT
+  const DO_ENDPOINT = process.env.NEXT_PUBLIC_DO_ENDPOINT;
   const s3 = new AWS.S3({
     accessKeyId: DO_ACCESS_KEY,
     secretAccessKey: DO_SECRET_KEY,
@@ -464,6 +348,84 @@ const normalizeArabic = (text: string) => {
     s3ForcePathStyle: true,
     signatureVersion: 'v4',
   });
+
+  const addDateTimeToImage = async (file: File): Promise<File> => {
+    if (!file.type.startsWith('image/')) {
+      throw new Error('الملف ليس صورة صالحة.');
+    }
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('فشل في إنشاء سياق الرسم.'));
+            return;
+          }
+
+          canvas.width = img.width;
+          canvas.height = img.height;
+
+          ctx.drawImage(img, 0, 0);
+
+          const now = new Date();
+          const dateTimeString = now.toLocaleString('ar-SA', {
+            calendar: 'gregory',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+          });
+
+          ctx.font = '40px Arial';
+          ctx.fillStyle = 'white';
+          ctx.strokeStyle = 'black';
+          ctx.lineWidth = 3;
+
+          const text = dateTimeString;
+          const textWidth = ctx.measureText(text).width;
+          const padding = 20;
+          const textX = canvas.width - textWidth - padding;
+          const textY = 40;
+
+          ctx.strokeText(text, textX, textY);
+          ctx.fillText(text, textX, textY);
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('فشل في تحويل الصورة إلى Blob.'));
+                return;
+              }
+              const modifiedFile = new File([blob], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
+              resolve(modifiedFile);
+            },
+            'image/jpeg',
+            0.9
+          );
+        };
+
+        img.onerror = () => {
+          reject(new Error('فشل في تحميل الصورة.'));
+        };
+      };
+
+      reader.onerror = () => {
+        reject(new Error('فشل في قراءة ملف الصورة.'));
+      };
+
+      reader.readAsDataURL(file);
+    });
+  };
 
   const compressImage = async (file: File): Promise<File> => {
     const options = {
@@ -474,9 +436,10 @@ const normalizeArabic = (text: string) => {
 
     try {
       const compressedFile = await imageCompression(file, options);
-      return new File([compressedFile], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
+      const modifiedFile = await addDateTimeToImage(compressedFile);
+      return modifiedFile;
     } catch (error) {
-      throw new Error('فشل في ضغط الصورة.');
+      throw new Error('فشل في معالجة الصورة: ' + error.message);
     }
   };
 
@@ -695,10 +658,8 @@ const normalizeArabic = (text: string) => {
 
       s3.deleteObject(params, (err, data) => {
         if (err) {
-          console.error('Error deleting:', err);
           reject(new Error(`فشل في حذف الملف: ${fileKey}`));
         } else {
-          console.log('File deleted successfully:', fileKey);
           resolve();
         }
       });
@@ -753,7 +714,7 @@ const normalizeArabic = (text: string) => {
       })
     );
 
-        const index = files.findIndex((fileSection) => fileSection.id === fileId);
+    const index = files.findIndex((fileSection) => fileSection.id === fileId);
     if (fileInputRefs.current[index]) {
       fileInputRefs.current[index]!.value = '';
     }
@@ -775,6 +736,45 @@ const normalizeArabic = (text: string) => {
     setPlate(selectedPlate);
     setPlateSearch(selectedPlate);
     setShowPlateList(false);
+  };
+
+  const handleSaveSignature = async () => {
+    if (!signatureCanvasRef.current) return;
+
+    if (signatureCanvasRef.current.isEmpty()) {
+      setUploadMessage('يرجى رسم التوقيع قبل الحفظ.');
+      setShowToast(true);
+      return;
+    }
+
+    try {
+      const signatureDataUrl = signatureCanvasRef.current
+        .getTrimmedCanvas()
+        .toDataURL('image/jpeg');
+
+      const response = await fetch(signatureDataUrl);
+      const blob = await response.blob();
+      const signatureFile = new File([blob], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
+
+      const compressedSignature = await compressImage(signatureFile);
+
+      const uploadedSignatureUrl = await uploadImageToBackend(compressedSignature);
+
+      setSignatureUrl(uploadedSignatureUrl);
+      setUploadMessage('تم حفظ التوقيع بنجاح.');
+      setShowToast(true);
+    } catch (error: any) {
+      setUploadMessage('فشل في حفظ التوقيع: ' + error.message);
+      setShowToast(true);
+    }
+  };
+
+  const handleClearSignature = () => {
+    if (signatureCanvasRef.current) {
+      signatureCanvasRef.current.clear();
+      setIsSignatureEmpty(true);
+      setSignatureUrl(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -805,6 +805,12 @@ const normalizeArabic = (text: string) => {
       return;
     }
 
+    if (!signatureUrl) {
+      setUploadMessage('يرجى حفظ التوقيع قبل إرسال البيانات.');
+      setShowToast(true);
+      return;
+    }
+
     const requiredImages = files.filter((fileSection) => fileSection.title !== 'other_images');
     const hasAnyRequiredImage = requiredImages.some((fileSection) => {
       if (fileSection.imageUrls === null) return false;
@@ -824,7 +830,9 @@ const normalizeArabic = (text: string) => {
     });
     if (missingImages.length > 0) {
       setUploadMessage(
-        `يجب رفع صورة واحدة على الأقل لكل من: ${missingImages.map((f) => f.title).join(', ')}.`
+        `يجب رفع صورة واحدة على الأقل لكل من: ${missingImages
+          .map((f) => fieldTitlesMap[f.title])
+          .join(', ')}.`
       );
       setShowToast(true);
       return;
@@ -858,9 +866,10 @@ const normalizeArabic = (text: string) => {
       airtableData.fields['نوع العملية'] = operationType;
       airtableData.fields['الموظف'] = user.Name;
       airtableData.fields['الفرع'] = user.branch;
-      airtableData.client_id =client_id;
-      airtableData.meter_reading = meter_reading;
-      airtableData.client_name = client_name;
+      airtableData.fields['client_id'] = client_id;
+      airtableData.fields['meter_reading'] = meter_reading;
+      airtableData.fields['client_name'] = client_name;
+      airtableData.fields['signature_url'] = signatureUrl;
 
       files.forEach((fileSection) => {
         if (fileSection.imageUrls) {
@@ -909,7 +918,15 @@ const normalizeArabic = (text: string) => {
           setPlate('');
           setPlateSearch('');
           setContract('');
+          setMeterReading('');
+          setClientId('');
+          setClientName('');
           setHasExitRecord(false);
+          setSignatureUrl(null);
+          if (signatureCanvasRef.current) {
+            signatureCanvasRef.current.clear();
+            setIsSignatureEmpty(true);
+          }
           fileInputRefs.current.forEach((ref, index) => {
             if (ref) {
               ref.value = '';
@@ -1052,7 +1069,6 @@ const normalizeArabic = (text: string) => {
                     required
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     قراءة العداد *
@@ -1070,15 +1086,12 @@ const normalizeArabic = (text: string) => {
                     required
                   />
                 </div>
-
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     اسم العميل *
                   </label>
                   <input
                     type="text"
-                    inputMode="numeric"
                     value={client_name}
                     onChange={(e) => setClientName(e.target.value)}
                     className={`w-full px-3 py-2 border ${
@@ -1087,8 +1100,7 @@ const normalizeArabic = (text: string) => {
                     placeholder="أدخل اسم العميل"
                     required
                   />
-
-<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 mt-2">
                     رقم الهوية *
                   </label>
                   <input
@@ -1103,12 +1115,7 @@ const normalizeArabic = (text: string) => {
                     placeholder="أدخل رقم الهوية"
                     required
                   />
-
-
                 </div>
-
-
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     نوع العملية
@@ -1119,12 +1126,55 @@ const normalizeArabic = (text: string) => {
                 </div>
               </div>
 
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                  التوقيع *
+                </label>
+                <div className="border-2 border-gray-300 dark:border-gray-600 rounded-md p-2">
+                  <SignatureCanvas
+                    ref={signatureCanvasRef}
+                    penColor={isDarkMode ? 'white' : 'black'}
+                    canvasProps={{
+                      className: 'w-full h-32 bg-white dark:bg-gray-700 rounded',
+                    }}
+                    onEnd={() => setIsSignatureEmpty(signatureCanvasRef.current?.isEmpty() || false)}
+                  />
+                  <div className="flex justify-between mt-2">
+                    <button
+                      type="button"
+                      onClick={handleClearSignature}
+                      className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+                    >
+                      مسح التوقيع
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveSignature}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                      disabled={isSignatureEmpty}
+                    >
+                      حفظ التوقيع
+                    </button>
+                  </div>
+                  {signatureUrl && (
+                    <div className="mt-2">
+                      <img
+                        src={signatureUrl}
+                        alt="التوقيع"
+                        className="max-w-full h-20 object-contain rounded"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
                 {files.map((fileSection, index) => (
                   <div key={fileSection.id} className="mb-3">
                     <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
-{fieldTitlesMap[fileSection.title]  !== "صور اخرى"? fieldTitlesMap[fileSection.title] + " *" : fieldTitlesMap[fileSection.title]}
-
+                      {fieldTitlesMap[fileSection.title] !== 'صور اخرى'
+                        ? fieldTitlesMap[fileSection.title] + ' *'
+                        : fieldTitlesMap[fileSection.title]}
                     </div>
                     {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
                       <div
