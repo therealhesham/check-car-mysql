@@ -50,6 +50,9 @@ interface FileSection {
 
 interface AirtableRecord {
   id: string;
+  client_id:string;
+  client_name:string;
+  meter_reading:string;
   contract_number: number;
   car_model: string;
   plate_number: string;
@@ -131,6 +134,8 @@ export default function CheckInPage() {
 
   const [files, setFiles] = useState<FileSection[]>(initialFiles);
   const [car, setCar] = useState<string>('');
+  const [newMeterReading,setNewMeterReading]=useState("")
+
   const [carSearch, setCarSearch] = useState<string>('');
   const [showCarList, setShowCarList] = useState<boolean>(false);
   const [plate, setPlate] = useState<string>('');
@@ -205,6 +210,8 @@ export default function CheckInPage() {
       return () => clearTimeout(timer);
     }
   }, [showToast]);
+  const [client_id,setClientId]=useState("")
+  const [client_name,setClientName]=useState("")
 
   useEffect(() => {
     if (isSuccess) {
@@ -297,12 +304,14 @@ export default function CheckInPage() {
         return;
       }
 
-      
       setIsContractVerified(true);
       if (entryData.length > 0 && entryData[0].contract_number === parseInt(contract)) {
         const exitRecord = entryData[0];
+        console.log(exitRecord)
         setPreviousRecord(exitRecord);
         setHasExitRecord(true);
+        setClientId(exitRecord.client_id)
+        setClientName(exitRecord.client_name)
         setUploadMessage('تم العثور على سجل خروج سابق.');
         setShowToast(true);
         // Auto-fill car and plate fields
@@ -759,6 +768,9 @@ export default function CheckInPage() {
       airtableData.fields['نوع العملية'] = operationType;
       airtableData.fields['الموظف'] = user.Name;
       airtableData.fields['الفرع'] = user.branch;
+      airtableData.client_id =client_id;
+      airtableData.meter_reading = newMeterReading;
+      airtableData.client_name = client_name;
 
       files.forEach((fileSection) => {
         if (fileSection.imageUrls) {
@@ -1037,6 +1049,38 @@ export default function CheckInPage() {
                   <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
                     {user?.branch || 'غير متوفر'}
                   </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                هوية العميل
+                  </label>
+                  <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                    {client_id || 'غير متوفر'}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    اسم العميل
+                  </label>
+                  <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                    {client_name || 'غير متوفر'}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    قراءة العداد 
+                  </label>
+                  <input
+                    type="text"
+                    value={newMeterReading}
+                    onChange={(e) => {
+                      setNewMeterReading(e.target.value);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    placeholder="اكتب قراءة العداد"
+                    required
+                  />
+
                 </div>
               </div>
 

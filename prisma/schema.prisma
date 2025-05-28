@@ -34,6 +34,11 @@ model contracts {
   front_left_seat                String? @db.VarChar(512)
   rear_seat_with_front_seat_backs String? @db.VarChar(512)
   other_images                   String? @db.VarChar(512)
+  client_id                      String @db.VarChar(45)
+  meter_reading                  String? @db.VarChar(255)
+  created_at                    DateTime @default(now())
+  updated_at                    DateTime @updatedAt
+  client_name                   String @db.VarChar(255)
 }
 
 model users{
@@ -49,22 +54,18 @@ model users{
 
 }
 
-model plateslist{
-
-
-  id                Int        @id @default(autoincrement())
-  plate_name      String     @db.VarChar(255)
-
+model plateslist {
+  id          Int     @id @default(autoincrement())
+  plate_name  String  @db.VarChar(255)
+  cars        cars[]  
 }
 
-model cars{
-
-
-  id                Int        @id @default(autoincrement())
-  car_name      String     @db.VarChar(255)
-
+model cars {
+  id            Int         @id @default(autoincrement())
+  car_name      String      @db.VarChar(255)
+  plate_id      Int      
+  plate         plateslist  @relation(fields: [plate_id], references: [id]) 
 }
-
 model branches{
 
 

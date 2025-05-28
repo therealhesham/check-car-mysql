@@ -149,6 +149,14 @@ export default function UploadPage() {
   const [showCarList, setShowCarList] = useState<boolean>(false);
   const [plate, setPlate] = useState<string>('');
   const [plateSearch, setPlateSearch] = useState<string>('');
+
+
+  const [meter_reading, setMeterReading] = useState<string>('');
+  const [client_id, setClientId] = useState<string>('');
+  const [client_name, setClientName] = useState<string>('');
+
+
+
   const [plates, setPlates] = useState<Plate[]>([]);
   const [showPlateList, setShowPlateList] = useState<boolean>(false);
   const [contract, setContract] = useState<string>('');
@@ -785,6 +793,9 @@ const normalizeArabic = (text: string) => {
       airtableData.fields['نوع العملية'] = operationType;
       airtableData.fields['الموظف'] = user.Name;
       airtableData.fields['الفرع'] = user.branch;
+      airtableData.client_id =client_id;
+      airtableData.meter_reading = meter_reading;
+      airtableData.client_name = client_name;
 
       files.forEach((fileSection) => {
         if (fileSection.imageUrls) {
@@ -976,6 +987,63 @@ const normalizeArabic = (text: string) => {
                     required
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    قراءة العداد *
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={meter_reading}
+                    onChange={(e) => setMeterReading(e.target.value)}
+                    onKeyPress={restrictToNumbers}
+                    className={`w-full px-3 py-2 border ${
+                      hasExitRecord ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    placeholder="أدخل رقم قراءة العداد"
+                    required
+                  />
+                </div>
+
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    اسم العميل *
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={client_name}
+                    onChange={(e) => setClientName(e.target.value)}
+                    className={`w-full px-3 py-2 border ${
+                      hasExitRecord ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    placeholder="أدخل اسم العميل"
+                    required
+                  />
+
+<label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    رقم الهوية *
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={client_id}
+                    onChange={(e) => setClientId(e.target.value)}
+                    onKeyPress={restrictToNumbers}
+                    className={`w-full px-3 py-2 border ${
+                      hasExitRecord ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    placeholder="أدخل رقم الهوية"
+                    required
+                  />
+
+
+                </div>
+
+
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     نوع العملية

@@ -27,6 +27,7 @@ export async function GET(req: Request) {
       select: {
         id: true,
         contract_number: true,
+        client_id:true,created_at:true,client_name:true,meter_reading:true,
         car_model: true,
         plate_number: true,
         operation_type: true,

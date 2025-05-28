@@ -2084,6 +2084,7 @@ const [time,settime]=useState(Date.now())
         body: JSON.stringify({
           letters: newPlateLetters.trim(),
           numbers: newPlateNumbers.trim(),
+          carName: newCarCompany.trim() + ' ' + newCarModel.trim()
         }),
       });
 
@@ -2913,6 +2914,27 @@ settime(Date.now())
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
+                      <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">الشركة</label>
+                    <input
+                      type="text"
+                      value={newCarCompany}
+                      onChange={(e) => setNewCarCompany(e.target.value)}
+                      placeholder="مثال: هيونداي"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">الموديل</label>
+                    <input
+                      type="text"
+                      value={newCarModel}
+                      onChange={(e) => setNewCarModel(e.target.value)}
+                      placeholder="مثال: اكسنت"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+     
                     </div>
                     <div className="flex justify-end gap-3 mt-3">
                       <button

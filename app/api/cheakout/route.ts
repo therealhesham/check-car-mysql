@@ -31,6 +31,9 @@ interface RequestBody {
     trunk_contents?: string | null;
     fire_extinguisher?: string | null;
     front_right_seat?: string | null;
+    client_id:string |null;
+    client_name:string |null;
+    meter_reading:string|null;
     front_left_seat?: string | null;
     rear_seat_with_front_seat_backs?: string | null;
     other_images?: string[] | null;
@@ -48,7 +51,7 @@ interface ApiResponse {
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>> {
   try {
     const body: RequestBody = await req.json();
-    const { fields } = body;
+    const { fields,client_id,client_name,meter_reading } = body;
 
     // // Validate required fields
     // const requiredFields = ['السيارة', 'اللوحة', 'العقد', 'نوع العملية', 'الموظف', 'الفرع'];
@@ -129,7 +132,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>>
 
     // Create new contract record
     const newContract = await prisma.contracts.create({
-      data: {
+      data: {client_id,client_name,meter_reading,
         contract_number: contractNumber,
         car_model: fields['السيارة'],
         plate_number: fields['اللوحة'],
