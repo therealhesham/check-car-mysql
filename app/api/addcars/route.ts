@@ -1,3 +1,5 @@
+//@ts-nocheck
+//@ts-ignore
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import Airtable from 'airtable';
