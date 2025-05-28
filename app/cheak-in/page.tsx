@@ -38,7 +38,9 @@ const fieldTitlesMap = {
   'fire_extinguisher': 'طفاية الحريق',
   'meter': 'العداد',
   'other_images': 'صور اخرى',
+  'signature_url': 'التوقيع', // Added signature field
 };
+
 interface FileSection {
   id: string;
   imageUrls: string | string[] | null;
@@ -51,9 +53,9 @@ interface FileSection {
 
 interface AirtableRecord {
   id: string;
-  client_id:string;
-  client_name:string;
-  meter_reading:string;
+  client_id: string;
+  client_name: string;
+  meter_reading: string;
   contract_number: number;
   car_model: string;
   plate_number: string;
@@ -79,6 +81,7 @@ interface AirtableRecord {
   front_left_seat?: string;
   rear_seat_with_front_seat_backs?: string;
   other_images?: string;
+  signature_url?: string; // Added signature_url
 }
 
 interface ApiResponse {
@@ -91,7 +94,6 @@ interface ApiResponse {
   error?: string;
   details?: any;
 }
-
 interface User {
   id: string;
   Name: string;
@@ -121,6 +123,7 @@ export default function CheckInPage() {
     'fire_extinguisher',
     'meter',
     'other_images',
+    'signature_url', // Added signature_url to fieldTitles
   ];
 
   const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
@@ -135,8 +138,7 @@ export default function CheckInPage() {
 
   const [files, setFiles] = useState<FileSection[]>(initialFiles);
   const [car, setCar] = useState<string>('');
-  const [newMeterReading,setNewMeterReading]=useState("")
-
+  const [newMeterReading, setNewMeterReading] = useState('');
   const [carSearch, setCarSearch] = useState<string>('');
   const [showCarList, setShowCarList] = useState<boolean>(false);
   const [plate, setPlate] = useState<string>('');
@@ -157,6 +159,11 @@ export default function CheckInPage() {
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
+  const [client_id, setClientId] = useState('');
+  const [client_name, setClientName] = useState('');
+
+  // Signature Canvas Reference
+  const sigCanvas = useRef<SignatureCanvas>(null);
 
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const carInputRef = useRef<HTMLDivElement>(null);
@@ -211,8 +218,6 @@ export default function CheckInPage() {
       return () => clearTimeout(timer);
     }
   }, [showToast]);
-  const [client_id,setClientId]=useState("")
-  const [client_name,setClientName]=useState("")
 
   useEffect(() => {
     if (isSuccess) {
@@ -245,7 +250,6 @@ export default function CheckInPage() {
       e.preventDefault();
     }
   };
-
   const fetchPreviousRecord = async () => {
     if (!contract.trim()) {
       setPreviousRecord(null);
@@ -255,7 +259,7 @@ export default function CheckInPage() {
       setShowToast(true);
       return;
     }
-
+  
     if (!/^\d+$/.test(contract.trim())) {
       setPreviousRecord(null);
       setHasExitRecord(false);
@@ -264,17 +268,17 @@ export default function CheckInPage() {
       setShowToast(true);
       return;
     }
-
+  
     setIsSearching(true);
     setUploadMessage('');
-
+  
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
-
+  
     try {
-      // Check for existing check-in record
+      // التحقق من سجل الدخول
       const entryResponse = await fetch(
         `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=دخول`,
         {
@@ -285,14 +289,16 @@ export default function CheckInPage() {
           signal: abortControllerRef.current.signal,
         }
       );
-
+  
       if (!entryResponse.ok) {
         const errorData = await entryResponse.json().catch(() => ({}));
         throw new Error(errorData.message || `فشل في التحقق من سجل الدخول (حالة: ${entryResponse.status})`);
       }
-
+  
       const entryData: ApiResponse = await entryResponse.json();
-      if (entryData.success && entryData.results.length > 0) {
+  
+      // التحقق من وجود سجل دخول
+      if (entryData.results && entryData.results.length > 0) {
         setPreviousRecord(null);
         setHasExitRecord(false);
         setIsContractVerified(true);
@@ -304,18 +310,34 @@ export default function CheckInPage() {
         setPlateSearch('');
         return;
       }
-
-      setIsContractVerified(true);
-      if (entryData.length > 0 && entryData[0].contract_number === parseInt(contract)) {
-        const exitRecord = entryData[0];
-        console.log(exitRecord)
+  
+      // التحقق من سجل الخروج
+      const exitResponse = await fetch(
+        `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=خروج`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: abortControllerRef.current.signal,
+        }
+      );
+  
+      if (!exitResponse.ok) {
+        const errorData = await exitResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || `فشل في التحقق من سجل الخروج (حالة: ${exitResponse.status})`);
+      }
+  
+      const exitData: ApiResponse = await exitResponse.json();
+  
+      if (exitData) {
+        const exitRecord = exitData[0];
         setPreviousRecord(exitRecord);
         setHasExitRecord(true);
-        setClientId(exitRecord.client_id)
-        setClientName(exitRecord.client_name)
+        setClientId(exitRecord.client_id);
+        setClientName(exitRecord.client_name);
         setUploadMessage('تم العثور على سجل خروج سابق.');
         setShowToast(true);
-        // Auto-fill car and plate fields
         setCar(exitRecord.car_model);
         setCarSearch(exitRecord.car_model);
         setPlate(exitRecord.plate_number);
@@ -330,6 +352,8 @@ export default function CheckInPage() {
         setPlate('');
         setPlateSearch('');
       }
+  
+      setIsContractVerified(true);
     } catch (err: any) {
       if (err.name === 'AbortError') {
         return;
@@ -343,7 +367,6 @@ export default function CheckInPage() {
       setIsSearching(false);
     }
   };
-
   const handleSearch = () => {
     fetchPreviousRecord();
   };
@@ -363,11 +386,11 @@ export default function CheckInPage() {
     plateItem.toLowerCase().includes(plateSearch.toLowerCase())
   );
 
-  const DO_ACCESS_KEY = process.env.NEXT_PUBLIC_DO_ACCESS_KEY ;
-  const DO_SECRET_KEY = process.env.NEXT_PUBLIC_DO_SECRET_KEY ;
-  const DO_SPACE_NAME =   process.env.NEXT_PUBLIC_DO_SPACE_NAME;
+  const DO_ACCESS_KEY = process.env.NEXT_PUBLIC_DO_ACCESS_KEY;
+  const DO_SECRET_KEY = process.env.NEXT_PUBLIC_DO_SECRET_KEY;
+  const DO_SPACE_NAME = process.env.NEXT_PUBLIC_DO_SPACE_NAME;
   const DO_REGION = process.env.NEXT_PUBLIC_DO_REGION;
-  const DO_ENDPOINT = process.env.NEXT_PUBLIC_DO_ENDPOINT
+  const DO_ENDPOINT = process.env.NEXT_PUBLIC_DO_ENDPOINT;
   const s3 = new AWS.S3({
     accessKeyId: DO_ACCESS_KEY,
     secretAccessKey: DO_SECRET_KEY,
@@ -376,103 +399,101 @@ export default function CheckInPage() {
     signatureVersion: 'v4',
   });
 
- const addDateTimeToImage = async (file: File): Promise<File> => {
-     if (!file.type.startsWith('image/')) {
-       throw new Error('الملف ليس صورة صالحة.');
-     }
-   
-     return new Promise((resolve, reject) => {
-       const img = new Image();
-       const reader = new FileReader();
-   
-       reader.onload = (e) => {
-         console.log('FileReader loaded successfully');
-         img.src = e.target?.result as string;
-   
-         img.onload = () => {
-           console.log('Image loaded, width:', img.width, 'height:', img.height);
-           const canvas = document.createElement('canvas');
-           const ctx = canvas.getContext('2d');
-           if (!ctx) {
-             reject(new Error('فشل في إنشاء سياق الرسم.'));
-             return;
-           }
-   
-           canvas.width = img.width;
-           canvas.height = img.height;
-   
-           ctx.drawImage(img, 0, 0);
-   
-           const now = new Date();
-           const dateTimeString = now.toLocaleString('ar-SA', {
-             calendar: 'gregory', // Use Gregorian calendar
-             year: 'numeric',
-             month: '2-digit',
-             day: '2-digit',
-             hour: '2-digit',
-             minute: '2-digit',
-             second: '2-digit',
-             hour12: true,
-           });
-   
-           ctx.font = '40px Arial';
-           ctx.fillStyle = 'white'; // White text for visibility
-           ctx.strokeStyle = 'black';
-           ctx.lineWidth = 3;
-   
-           const text = dateTimeString;
-           const textWidth = ctx.measureText(text).width;
-           const padding = 20;
-           const textX = canvas.width - textWidth - padding; // Right-aligned
-           const textY = 40; // Position at the top (40px from top edge)
-   
-           ctx.strokeText(text, textX, textY);
-           ctx.fillText(text, textX, textY);
-   
-           canvas.toBlob(
-             (blob) => {
-               if (!blob) {
-                 reject(new Error('فشل في تحويل الصورة إلى Blob.'));
-                 return;
-               }
-               const modifiedFile = new File([blob], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
-               resolve(modifiedFile);
-             },
-             'image/jpeg',
-             0.9
-           );
-         };
-   
-         img.onerror = () => {
-           reject(new Error('فشل في تحميل الصورة.'));
-         };
-       };
-   
-       reader.onerror = () => {
-         reject(new Error('فشل في قراءة ملف الصورة.'));
-       };
-   
-       reader.readAsDataURL(file);
-     });
-   };
-   const compressImage = async (file: File): Promise<File> => {
-     const options = {
-       maxSizeMB: 4,
-       maxWidthOrHeight: 1920,
-       useWebWorker: true,
-     };
-   
-     try {
-       console.log('Starting image compression...');
-       const compressedFile = await imageCompression(file, options);
-       console.log('Image compressed successfully');
-       const modifiedFile = await addDateTimeToImage(compressedFile);
-       return modifiedFile;
-     } catch (error) {
-       console.error('Error processing image:', error);
-       throw new Error('فشل في معالجة الصورة: ' + error.message);
-     }
-   }; 
+  const addDateTimeToImage = async (file: File): Promise<File> => {
+    if (!file.type.startsWith('image/')) {
+      throw new Error('الملف ليس صورة صالحة.');
+    }
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('فشل في إنشاء سياق الرسم.'));
+            return;
+          }
+
+          canvas.width = img.width;
+          canvas.height = img.height;
+
+          ctx.drawImage(img, 0, 0);
+
+          const now = new Date();
+          const dateTimeString = now.toLocaleString('ar-SA', {
+            calendar: 'gregory',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+          });
+
+          ctx.font = '40px Arial';
+          ctx.fillStyle = 'white';
+          ctx.strokeStyle = 'black';
+          ctx.lineWidth = 3;
+
+          const text = dateTimeString;
+          const textWidth = ctx.measureText(text).width;
+          const padding = 20;
+          const textX = canvas.width - textWidth - padding;
+          const textY = 40;
+
+          ctx.strokeText(text, textX, textY);
+          ctx.fillText(text, textX, textY);
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('فشل في تحويل الصورة إلى Blob.'));
+                return;
+              }
+              const modifiedFile = new File([blob], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
+              resolve(modifiedFile);
+            },
+            'image/jpeg',
+            0.9
+          );
+        };
+
+        img.onerror = () => {
+          reject(new Error('فشل في تحميل الصورة.'));
+        };
+      };
+
+      reader.onerror = () => {
+        reject(new Error('فشل في قراءة ملف الصورة.'));
+      };
+
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const compressImage = async (file: File): Promise<File> => {
+    const options = {
+      maxSizeMB: 4,
+      maxWidthOrHeight: 1920,
+      useWebWorker: true,
+    };
+
+    try {
+      const compressedFile = await imageCompression(file, options);
+      const modifiedFile = await addDateTimeToImage(compressedFile);
+      return modifiedFile;
+    } catch (error) {
+      console.error('Error processing image:', error);
+      throw new Error('فشل في معالجة الصورة: ' + error.message);
+    }
+  };
+
   const uploadImageToBackend = async (
     file: File,
     fileSectionId: string,
@@ -509,6 +530,86 @@ export default function CheckInPage() {
     } catch (error: any) {
       throw error;
     }
+  };
+
+  // New function to handle signature upload
+  const handleSignatureSave = async (fileSectionId: string) => {
+    if (!sigCanvas.current || sigCanvas.current.isEmpty()) {
+      setUploadMessage('يرجى رسم التوقيع أولاً.');
+      setShowToast(true);
+      return;
+    }
+
+    const signatureDataUrl = sigCanvas.current.getTrimmedCanvas().toDataURL('image/jpeg');
+    const blob = await fetch(signatureDataUrl).then((res) => res.blob());
+    const file = new File([blob], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
+
+    const localPreviewUrl = URL.createObjectURL(file);
+
+    setFiles((prevFiles) =>
+      prevFiles.map((fileSection) =>
+        fileSection.id === fileSectionId
+          ? {
+              ...fileSection,
+              previewUrls: [localPreviewUrl],
+              imageUrls: null,
+              isUploading: true,
+              uploadProgress: 0,
+            }
+          : fileSection
+      )
+    );
+
+    uploadQueue.current = uploadQueue.current.then(async () => {
+      try {
+        const compressedFile = await compressImage(file);
+        const imageUrl = await uploadImageToBackend(compressedFile, fileSectionId, (progress) => {
+          setFiles((prevFiles) =>
+            prevFiles.map((fileSection) =>
+              fileSection.id === fileSectionId
+                ? { ...fileSection, uploadProgress: progress }
+                : fileSection
+            )
+          );
+        });
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === fileSectionId
+              ? {
+                  ...fileSection,
+                  imageUrls: imageUrl,
+                  previewUrls: [imageUrl],
+                  isUploading: false,
+                  uploadProgress: 100,
+                }
+              : fileSection
+          )
+        );
+        URL.revokeObjectURL(localPreviewUrl);
+        sigCanvas.current?.clear();
+      } catch (error: any) {
+        let errorMessage = 'حدث خطأ أثناء رفع التوقيع. يرجى المحاولة مرة أخرى.';
+        if (error.message.includes('Rate limit')) {
+          errorMessage = 'تم تجاوز حد رفع الصور. يرجى المحاولة مجددًا لاحقًا.';
+        }
+        setUploadMessage(errorMessage);
+        setShowToast(true);
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === fileSectionId
+              ? {
+                  ...fileSection,
+                  imageUrls: null,
+                  previewUrls: [],
+                  isUploading: false,
+                  uploadProgress: 0,
+                }
+              : fileSection
+          )
+        );
+        URL.revokeObjectURL(localPreviewUrl);
+      }
+    });
   };
 
   const handleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -771,8 +872,7 @@ export default function CheckInPage() {
     e.preventDefault();
 
     if (!contract.trim() || !car.trim() || !plate.trim()) {
-      setUploadMessage('يرجى ملء جميع الحقول الم一')
-
+      setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
       setShowToast(true);
       return;
     }
@@ -816,7 +916,7 @@ export default function CheckInPage() {
     if (missingImages.length > 0) {
       setUploadMessage(
         `يجب رفع صورة واحدة على الأقل لكل من: ${missingImages
-          .map((f) => f.title)
+          .map((f) => fieldTitlesMap[f.title] || f.title)
           .join(', ')}.`
       );
       setShowToast(true);
@@ -843,6 +943,9 @@ export default function CheckInPage() {
     try {
       const airtableData = {
         fields: {} as Record<string, string | string[]>,
+        client_id,
+        client_name,
+        meter_reading: newMeterReading,
       };
 
       airtableData.fields['السيارة'] = car.trim();
@@ -851,9 +954,6 @@ export default function CheckInPage() {
       airtableData.fields['نوع العملية'] = operationType;
       airtableData.fields['الموظف'] = user.Name;
       airtableData.fields['الفرع'] = user.branch;
-      airtableData.client_id =client_id;
-      airtableData.meter_reading = newMeterReading;
-      airtableData.client_name = client_name;
 
       files.forEach((fileSection) => {
         if (fileSection.imageUrls) {
@@ -900,9 +1000,13 @@ export default function CheckInPage() {
           setPreviousRecord(null);
           setHasExitRecord(false);
           setIsContractVerified(false);
+          setClientId('');
+          setClientName('');
+          setNewMeterReading('');
           fileInputRefs.current.forEach((ref) => {
             if (ref) ref.value = '';
           });
+          sigCanvas.current?.clear();
         } else {
           throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
         }
@@ -962,6 +1066,15 @@ export default function CheckInPage() {
       const newIndex = currentImageIndex + 1;
       setCurrentImageIndex(newIndex);
       setPreviewImage(previewImages[newIndex]);
+    }
+  };
+
+  // New function to clear signature
+  const clearSignature = () => {
+    sigCanvas.current?.clear();
+    const signatureSection = files.find((fileSection) => fileSection.title === 'signature_url');
+    if (signatureSection && signatureSection.imageUrls) {
+      removePreviewImage(signatureSection.id, 0);
     }
   };
 
@@ -1135,7 +1248,7 @@ export default function CheckInPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                هوية العميل
+                    هوية العميل
                   </label>
                   <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
                     {client_id || 'غير متوفر'}
@@ -1151,7 +1264,7 @@ export default function CheckInPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                    قراءة العداد 
+                    قراءة العداد
                   </label>
                   <input
                     type="text"
@@ -1163,7 +1276,6 @@ export default function CheckInPage() {
                     placeholder="اكتب قراءة العداد"
                     required
                   />
-
                 </div>
               </div>
 
@@ -1171,55 +1283,24 @@ export default function CheckInPage() {
                 {files.map((fileSection, index) => (
                   <div key={fileSection.id} className="mb-3">
                     <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
-                   
-{fieldTitlesMap[fileSection.title] ? fieldTitlesMap[fileSection.title] : fileSection.title}
+                      {fieldTitlesMap[fileSection.title] || fileSection.title}
                     </div>
                     <div className="grid grid-cols-1 gap-3">
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                          الصورة الجديدة:
+                          {fileSection.title === 'signature_url' ? 'التوقيع الجديد:' : 'الصورة الجديدة:'}
                         </div>
-                        {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
+                        {fileSection.title === 'signature_url' ? (
                           <div
-                            className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-md p-2 ${
-                              fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
+                            className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-md p-2 h-28 sm:h-32 ${
+                              !hasExitRecord ? 'pointer-events-none opacity-50' : ''
                             }`}
                           >
-                            {fileSection.multiple ? (
-                              <div className="grid grid-cols-2 gap-2">
-                                {fileSection.previewUrls.map((previewUrl, previewIndex) => (
-                                  <div key={previewIndex} className="relative h-20 sm:h-24">
-                                    <img
-                                      src={previewUrl}
-                                      alt={`صورة ${previewIndex + 1}`}
-                                      className="h-full w-full object-cover rounded cursor-pointer"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openPreview(fileSection.previewUrls, previewIndex);
-                                      }}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={(e) => removePreviewImage(fileSection.id, previewIndex, e)}
-                                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
-                                      aria-label="حذف الصورة"
-                                    >
-                                      <span className="text-lg font-bold">×</span>
-                                    </button>
-                                  </div>
-                                ))}
-                                <label
-                                  htmlFor={`file-input-${fileSection.id}`}
-                                  className="h-20 sm:h-24 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
-                                >
-                                  <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
-                                </label>
-                              </div>
-                            ) : (
+                            {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
                               <div className="relative h-full w-full flex items-center justify-center">
                                 <img
                                   src={fileSection.previewUrls[0]}
-                                  alt={fileSection.title}
+                                  alt="التوقيع"
                                   className="max-h-full max-w-full object-contain rounded cursor-pointer"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1230,9 +1311,33 @@ export default function CheckInPage() {
                                   type="button"
                                   onClick={(e) => removePreviewImage(fileSection.id, 0, e)}
                                   className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-md z-10"
-                                  aria-label="حذف الصورة"
+                                  aria-label="حذف التوقيع"
                                 >
                                   <span className="text-lg font-bold">×</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="h-full w-full flex flex-col items-center justify-center">
+                                <SignatureCanvas
+                                  ref={sigCanvas}
+                                  backgroundColor='#ffffff'
+                                  penColor="black"
+                                  canvasProps={{
+                                    className: 'border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md w-full h-full',
+                                  }}
+                                  onEnd={() => {
+                                    if (!sigCanvas.current?.isEmpty()) {
+                                      handleSignatureSave(fileSection.id);
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={clearSignature}
+                                  className="mt-2 px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600"
+                                  disabled={!hasExitRecord}
+                                >
+                                  مسح التوقيع
                                 </button>
                               </div>
                             )}
@@ -1251,56 +1356,131 @@ export default function CheckInPage() {
                             )}
                           </div>
                         ) : (
-                          <label
-                            htmlFor={`file-input-${fileSection.id}`}
-                            className={`cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-2 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors flex flex-col items-center justify-center h-28 sm:h-32 ${
-                              !hasExitRecord ? 'pointer-events-none opacity-50' : ''
-                            }`}
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-7 w-7 text-gray-400 dark:text-gray-500 mb-1"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                              />
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                              />
-                            </svg>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {fileSection.multiple ? 'انقر لاختيار عدة صور' : 'انقر لالتقاط صورة'}
-                            </span>
-                          </label>
+                          <div>
+                            {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
+                              <div
+                                className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-md p-2 ${
+                                  fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
+                                }`}
+                              >
+                                {fileSection.multiple ? (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {fileSection.previewUrls.map((previewUrl, previewIndex) => (
+                                      <div key={previewIndex} className="relative h-20 sm:h-24">
+                                        <img
+                                          src={previewUrl}
+                                          alt={`صورة ${previewIndex + 1}`}
+                                          className="h-full w-full object-cover rounded cursor-pointer"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openPreview(fileSection.previewUrls, previewIndex);
+                                          }}
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={(e) => removePreviewImage(fileSection.id, previewIndex, e)}
+                                          className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
+                                          aria-label="حذف الصورة"
+                                        >
+                                          <span className="text-lg font-bold">×</span>
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <label
+                                      htmlFor={`file-input-${fileSection.id}`}
+                                      className="h-20 sm:h-24 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
+                                    >
+                                      <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
+                                    </label>
+                                  </div>
+                                ) : (
+                                  <div className="relative h-full w-full flex items-center justify-center">
+                                    <img
+                                      src={fileSection.previewUrls[0]}
+                                      alt={fileSection.title}
+                                      className="max-h-full max-w-full object-contain rounded cursor-pointer"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openPreview([fileSection.previewUrls[0]], 0);
+                                      }}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => removePreviewImage(fileSection.id, 0, e)}
+                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-md z-10"
+                                      aria-label="حذف الصورة"
+                                    >
+                                      <span className="text-lg font-bold">×</span>
+                                    </button>
+                                  </div>
+                                )}
+                                {fileSection.isUploading && fileSection.uploadProgress < 100 && (
+                                  <div className="mt-2">
+                                    <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+                                      <div
+                                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                                        style={{ width: `${fileSection.uploadProgress}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
+                                      {fileSection.uploadProgress}%
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <label
+                                htmlFor={`file-input-${fileSection.id}`}
+                                className={`cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-2 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors flex flex-col items-center justify-center h-28 sm:h-32 ${
+                                  !hasExitRecord ? 'pointer-events-none opacity-50' : ''
+                                }`}
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-7 w-7 text-gray-400 dark:text-gray-500 mb-1"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                                  />
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                                  />
+                                </svg>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                  {fileSection.multiple ? 'انقر لاختيار عدة صور' : 'انقر لالتقاط صورة'}
+                                </span>
+                              </label>
+                            )}
+                            <input
+                              id={`file-input-${fileSection.id}`}
+                              ref={setInputRef(index)}
+                              type="file"
+                              accept="image/*"
+                              capture={fileSection.multiple ? undefined : 'environment'}
+                              multiple={fileSection.multiple}
+                              onChange={(e) =>
+                                fileSection.multiple
+                                  ? handleMultipleFileChange(fileSection.id, e)
+                                  : handleFileChange(fileSection.id, e)
+                              }
+                              className="hidden"
+                              disabled={!hasExitRecord}
+                            />
+                          </div>
                         )}
-                        <input
-                          id={`file-input-${fileSection.id}`}
-                          ref={setInputRef(index)}
-                          type="file"
-                          accept="image/*"
-                          capture={fileSection.multiple ? undefined : 'environment'}
-                          multiple={fileSection.multiple}
-                          onChange={(e) =>
-                            fileSection.multiple
-                              ? handleMultipleFileChange(fileSection.id, e)
-                              : handleFileChange(fileSection.id, e)
-                          }
-                          className="hidden"
-                          disabled={!hasExitRecord}
-                        />
                       </div>
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                          الصورة القديمة (تشييك الخروج):
+                          {fileSection.title === 'signature_url' ? 'التوقيع القديم (تشييك الخروج):' : 'الصورة القديمة (تشييك الخروج):'}
                         </div>
                         {previousRecord && previousRecord[fileSection.title] ? (
                           <div
@@ -1340,7 +1520,7 @@ export default function CheckInPage() {
                           </div>
                         ) : (
                           <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
-                            لا توجد صورة قديمة
+                            {fileSection.title === 'signature_url' ? 'لا يوجد توقيع قديم' : 'لا توجد صورة قديمة'}
                           </div>
                         )}
                       </div>

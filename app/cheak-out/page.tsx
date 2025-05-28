@@ -740,26 +740,35 @@ export default function UploadPage() {
 
   const handleSaveSignature = async () => {
     if (!signatureCanvasRef.current) return;
-
+  
     if (signatureCanvasRef.current.isEmpty()) {
       setUploadMessage('يرجى رسم التوقيع قبل الحفظ.');
       setShowToast(true);
       return;
     }
-
+  
     try {
+      // Get the signature as a data URL
       const signatureDataUrl = signatureCanvasRef.current
         .getTrimmedCanvas()
-        .toDataURL('image/jpeg');
-
+        .toDataURL('image/png');
+  
+      // Convert data URL to Blob
       const response = await fetch(signatureDataUrl);
       const blob = await response.blob();
-      const signatureFile = new File([blob], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
-
-      const compressedSignature = await compressImage(signatureFile);
-
+      const signatureFile = new File([blob], `${uuidv4()}.png`, { type: 'image/png' });
+  
+      // Compress the signature image
+      const options = {
+        maxSizeMB: 4,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+      };
+      const compressedSignature = await imageCompression(signatureFile, options);
+  
+      // Upload the compressed signature to the backend
       const uploadedSignatureUrl = await uploadImageToBackend(compressedSignature);
-
+  
       setSignatureUrl(uploadedSignatureUrl);
       setUploadMessage('تم حفظ التوقيع بنجاح.');
       setShowToast(true);
