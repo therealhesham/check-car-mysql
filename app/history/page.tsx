@@ -555,6 +555,8 @@ export default function HistoryPage() {
                   <th className="py-3 px-4 text-right">رقم العقد</th>
                   <th className="py-3 px-4 text-right">السيارة</th>
                   <th className="py-3 px-4 text-right">اللوحة</th>
+                  <th className="py-3 px-4 text-right">قراءة العداد</th>
+
                   <th className="py-3 px-4 text-right">نوع العملية</th>
                   <th className="py-3 px-4 text-right">الموظف</th>
                   <th className="py-3 px-4 text-right">الفرع</th>
@@ -580,6 +582,11 @@ export default function HistoryPage() {
                       <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
                         {record.plate_number ?? '-'}
                       </td>
+
+                      <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
+                        {record.meter ?? '-'}
+                      </td>
+
                       <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
                         {record.operation_type ?? '-'}
                       </td>
