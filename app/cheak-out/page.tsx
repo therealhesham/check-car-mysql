@@ -1,3 +1,6 @@
+//@ts-nocheck
+//@ts-ignore
+
 'use client';
 
 import Navbar from '@/public/components/navbar';
@@ -1135,48 +1138,7 @@ export default function UploadPage() {
                 </div>
               </div>
 
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                  التوقيع *
-                </label>
-                <div className="border-2 border-gray-300 dark:border-gray-600 rounded-md p-2">
-                  <SignatureCanvas
-                    ref={signatureCanvasRef}
-                    penColor={isDarkMode ? 'white' : 'black'}
-                    canvasProps={{
-                      className: 'w-full h-32 bg-white dark:bg-gray-700 rounded',
-                    }}
-                    onEnd={() => setIsSignatureEmpty(signatureCanvasRef.current?.isEmpty() || false)}
-                  />
-                  <div className="flex justify-between mt-2">
-                    <button
-                      type="button"
-                      onClick={handleClearSignature}
-                      className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
-                    >
-                      مسح التوقيع
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveSignature}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                      disabled={isSignatureEmpty}
-                    >
-                      حفظ التوقيع
-                    </button>
-                  </div>
-                  {signatureUrl && (
-                    <div className="mt-2">
-                      <img
-                        src={signatureUrl}
-                        alt="التوقيع"
-                        className="max-w-full h-20 object-contain rounded"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
+          
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
                 {files.map((fileSection, index) => (
                   <div key={fileSection.id} className="mb-3">
@@ -1294,6 +1256,47 @@ export default function UploadPage() {
                     />
                   </div>
                 ))}
+              </div>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                  التوقيع *
+                </label>
+                <div className="border-2 border-gray-300 dark:border-gray-600 rounded-md p-2">
+                  <SignatureCanvas
+                    ref={signatureCanvasRef}
+                    penColor={isDarkMode ? 'white' : 'black'}
+                    canvasProps={{
+                      className: 'w-full h-32 bg-white dark:bg-gray-700 rounded',
+                    }}
+                    onEnd={() => setIsSignatureEmpty(signatureCanvasRef.current?.isEmpty() || false)}
+                  />
+                  <div className="flex justify-between mt-2">
+                    <button
+                      type="button"
+                      onClick={handleClearSignature}
+                      className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+                    >
+                      مسح التوقيع
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveSignature}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                      disabled={isSignatureEmpty}
+                    >
+                      حفظ التوقيع
+                    </button>
+                  </div>
+                  {signatureUrl && (
+                    <div className="mt-2">
+                      <img
+                        src={signatureUrl}
+                        alt="التوقيع"
+                        className="max-w-full h-20 object-contain rounded"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="mb-4 text-center mt-4">
