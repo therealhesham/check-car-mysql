@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 interface Contract {
+  meter_reading:string;
   id: string;
   contract_number: number | null;
   car_model: string | null;
@@ -584,7 +585,7 @@ export default function HistoryPage() {
                       </td>
 
                       <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
-                        {record.meter ?? '-'}
+                        {record.meter_reading ?? '-'}
                       </td>
 
                       <td className="py-3 px-4 text-right text-gray-900 dark:text-gray-100">
