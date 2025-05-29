@@ -13,6 +13,7 @@ WORKDIR /app
 COPY . .
 COPY --from=deps /app/node_modules ./node_modules
 
+RUN npx prisma generate
 # Build the Next.js app
 RUN npm run build
 
