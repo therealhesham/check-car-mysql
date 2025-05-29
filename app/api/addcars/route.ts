@@ -65,12 +65,11 @@ export async function GET(req: NextRequest) {
     //   );
     // }
 
-    const records = await prisma.cars.findMany()
-
+    const records = await prisma.carsDetails.findMany({select:{id:true,manufacturer:true,model:true}})
     const cars = records.map((record) => ({
       id: record.id,
       fields: {
-        Name: String(record.car_name),
+        Name: String(record.manufacturer)+'-'+String(record.model),
       },
     }));
 

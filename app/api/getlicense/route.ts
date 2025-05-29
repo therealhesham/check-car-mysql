@@ -48,12 +48,11 @@ export async function GET(req: NextRequest) {
   try {
 
 
-    const records = await prisma.carsDetails.findMany({select:{id:true, plate:true}});
-    console.log('Fetched records:', records);
+    const records = await prisma.plateslist.findMany()
     const plates = records.map((record) => ({
       id: record.id,
       fields: {
-        Name: String(record.plate),
+        Name: String(record.plate_name),
       },
     }));
 
@@ -75,47 +74,12 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// إضافة لوحة جديدة
+
 export async function POST(req: NextRequest) {
   try {
-    const { letters, numbers } = await req.json();
-    if (!letters || typeof letters !== 'string' || !numbers || typeof numbers !== 'string') {
-      return NextResponse.json(
-        { success: false, error: 'Letters and numbers are required and must be strings' },
-        { status: 400 }
-      );
-    }
-
-    // التحقق من صحة الإدخال
-    const lettersRegex = /^[ء-ي\s]+$/; // حروف عربية ومسافات فقط
-    const numbersRegex = /^\d{1,4}$/; // من 1 إلى 4 أرقام
-    if (!lettersRegex.test(letters.trim())) {
-      return NextResponse.json(
-        { success: false, error: 'Letters must contain only Arabic letters and spaces' },
-        { status: 400 }
-      );
-    }
-    if (!numbersRegex.test(numbers.trim())) {
-      return NextResponse.json(
-        { success: false, error: 'Numbers must contain 1 to 4 digits only' },
-        { status: 400 }
-      );
-    }
-
-    const plate = `${letters.trim()} ${numbers.trim()}`;
-
-    // التحقق من عدم وجود اللوحة مسبقًا
-    const plateExists = await checkPlateExists(plate);
-    if (plateExists) {
-      return NextResponse.json(
-        { success: false, error: 'Plate already exists' },
-        { status: 400 }
-      );
-    }
-
-    // إضافة اللوحة إلى Airtable
-    const createdRecords = await prisma.plateslist.create({
-      data: { plate_name: plate }})
+    const { plate } = await req.json();
+    const createdRecords = await prisma.carsDetails.findFirst({select:{id:true,plate:true,manufacturer:true,model:true},
+      where: {plate: plate},})
     const recordId = createdRecords;
     console.log('Created plate record with ID:', recordId);
 
@@ -124,7 +88,7 @@ export async function POST(req: NextRequest) {
       message: 'Plate added successfully!',
       result: {
         id: recordId,
-        fields: createdRecords,
+        fields: createdRecords?.manufacturer + ' ' + createdRecords?.model ,
       },
     });
   } catch (error: any) {

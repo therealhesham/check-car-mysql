@@ -77,24 +77,24 @@ model branches{
 
 model CarsDetails {
   id                 Int      @id @default(autoincrement())
-  owner_name         String
-  specification_policy String
-  Ref                String   @unique
-  make_no            String
-  manufacturer       String
-  model_no           String
-  model              String
-  type_no            String
-  Type               String
+  owner_name         String?
+  specification_policy String?
+  Ref                String?   @unique
+  make_no            String?
+  manufacturer       String?
+  model_no           String?
+  model              String?
+  type_no            String?
+  Type               String?
   seats              Int?
-  manufacturing_year Int
-  plate              String   @unique
-  sequance           String   @unique
-  chassis            String   @unique
-  excess             Int
-  color              String
-  sum_insured        Float
-  premium            Float
+  manufacturing_year Int?
+  plate              String?   @unique
+  sequance           String?   @unique
+  chassis            String?   @unique
+  excess             Int?
+  color              String?
+  sum_insured        Float?
+  premium            Float?
 
   @@map("cars_details")
 }
