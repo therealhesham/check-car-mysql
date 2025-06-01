@@ -42,8 +42,7 @@ import { useState, useRef, useEffect, RefCallback } from 'react';
 import { carList } from '@/lib/car';
 import { licenseList } from '@/lib/License';
 import { FaSearch, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
-import SignatureCanvas from 'react-signature-canvas';
-
+import SignaturePad from 'react-signature-canvas';
 // دالة لتنظيف العناوين مع دعم الأحرف العربية وضمان التفرد
 const sanitizeTitle = (title: string, index: number) => {
   const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
@@ -167,6 +166,7 @@ export default function CheckInPage() {
     isUploading: false,
     uploadProgress: 0,
   }));
+  const signatureCanvasRef = useRef<SignaturePad>(null);
 
   const [files, setFiles] = useState<FileSection[]>(initialFiles);
   const [car, setCar] = useState<string>('');
@@ -195,7 +195,7 @@ export default function CheckInPage() {
   const [client_name, setClientName] = useState('');
 
   // Signature Canvas Reference
-  const sigCanvas = useRef<SignatureCanvas>(null);
+  const sigCanvas = useRef<SignaturePad>(null);
 
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const carInputRef = useRef<HTMLDivElement>(null);
@@ -572,7 +572,7 @@ export default function CheckInPage() {
       return;
     }
 
-    const rawCanvas = signatureCanvasRef.current.getCanvas();
+    const rawCanvas = sigCanvas.current.getCanvas();
     const trimmedCanvas = trimCanvas(rawCanvas);
     const signatureDataUrl = trimmedCanvas.toDataURL('image/png');
     
@@ -1355,7 +1355,7 @@ export default function CheckInPage() {
                               </div>
                             ) : (
                               <div className="h-full w-full flex flex-col items-center justify-center">
-                                <SignatureCanvas
+                                <SignaturePad
                                   ref={sigCanvas}
                                   backgroundColor='#ffffff'
                                   penColor="black"
