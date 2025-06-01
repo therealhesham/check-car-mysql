@@ -984,6 +984,12 @@ export default function CheckInPage() {
         client_name,
         meter_reading: newMeterReading,
       };
+      files.forEach((fileSection) => {
+        if (fileSection.imageUrls) {
+          airtableData.fields[fileSection.title] = fileSection.imageUrls;
+          console.log(`Field ${fileSection.title}:`, fileSection.imageUrls);
+        }
+      });
 
       airtableData.fields['السيارة'] = car.trim();
       airtableData.fields['اللوحة'] = plate.trim();

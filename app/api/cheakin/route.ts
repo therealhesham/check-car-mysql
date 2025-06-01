@@ -1,6 +1,5 @@
-//@ts-ignore
 //@ts-nocheck
-
+//@ts-ignore
 
 
 
@@ -85,13 +84,9 @@ const records = await prisma.contracts.findMany({
 }
 
 // Direct upload to Airtable
-async function uploadDirectly(data: Record<string, string | string[]>): Promise<any> {
+async function uploadDirectly(data: Record<string, string | string[]>,datas): Promise<any> {
   try {
-    console.log('Attempting direct upload...');
-    const hasAccess = await verifyTableAccess();
-    if (!hasAccess) {
-      throw new Error('INVALID_PERMISSIONS_OR_TABLE_NOT_FOUND');
-    }
+
 
     const fields: Record<string, any> = {};
 
@@ -120,10 +115,12 @@ async function uploadDirectly(data: Record<string, string | string[]>): Promise<
       }
     }
 
-    console.log('Fields to Airtable:', JSON.stringify(fields, null, 2));
-console.log(fields)
-    const newContract = await prisma.contracts.create({
+console.log(fields.client_id)
+const newContract = await prisma.contracts.create({
       data: {
+        client_id:datas.client_id,
+        client_name:datas.client_name,
+        meter_reading:datas.meter_reading,
         contract_number: fields['العقد'] ,
         car_model: fields['السيارة'],
         plate_number: fields['اللوحة'],
@@ -145,13 +142,14 @@ console.log(fields)
         front_windshield: fields.front_windshield[0].url,
         trunk_contents: fields.trunk_contents[0].url,
         fire_extinguisher: fields.fire_extinguisher[0].url,
+        signature_url:fields.signature_url,
         front_right_seat: fields.front_right_seat[0].url,
         front_left_seat: fields.front_left_seat[0].url,
         rear_seat_with_front_seat_backs: fields.rear_seat_with_front_seat_backs[0].url,
         other_images: fields.other_images ? fields.other_images.join(',') : null, // Convert array to comma-separated string
       },
     });
-
+console.log(fields.signature_url[0].url)
     return {
       success: true
     };
@@ -215,7 +213,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await uploadDirectly(data.fields);
+    const result = await uploadDirectly(data.fields,data);
     return NextResponse.json({
       success: true,
       message: 'تم رفع البيانات بنجاح!',
