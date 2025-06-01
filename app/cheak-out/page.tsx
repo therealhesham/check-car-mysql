@@ -830,8 +830,7 @@ getCar()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (!contract.trim() || !car.trim() || !plate.trim()) {
+    if (!contract.trim() ||!plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
       setShowToast(true);
       return;

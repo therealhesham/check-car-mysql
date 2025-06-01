@@ -55,7 +55,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse>>
     const { fields } = body;
 
     // Validate required fields
-    const requiredFields = ['السيارة', 'اللوحة', 'العقد', 'نوع العملية', 'الموظف', 'الفرع', 'signature_url'];
+    const requiredFields = ['اللوحة', 'العقد', 'نوع العملية', 'الموظف', 'الفرع', 'signature_url'];
     const missingFields = requiredFields.filter((field) => !fields[field] || fields[field].trim() === '');
     if (missingFields.length > 0) {
       return NextResponse.json(
