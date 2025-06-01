@@ -1,6 +1,38 @@
 //@ts-nocheck
 //@ts-ignore
 'use client';
+function trimCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+  const imageData = ctx.getImageData(0, 0, width, height).data;
+
+  let top = null, left = null, right = null, bottom = null;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (width * y + x) * 4;
+      if (imageData[idx + 3] > 0) { // alpha > 0 means there's content
+        if (top === null) top = y;
+        if (left === null || x < left) left = x;
+        if (right === null || x > right) right = x;
+        bottom = y;
+      }
+    }
+  }
+
+  if (top === null) return canvas; // no content
+
+  const trimmedWidth = right - left;
+  const trimmedHeight = bottom - top;
+  const trimmed = document.createElement('canvas');
+  trimmed.width = trimmedWidth;
+  trimmed.height = trimmedHeight;
+  const trimmedCtx = trimmed.getContext('2d');
+  trimmedCtx.drawImage(canvas, left, top, trimmedWidth, trimmedHeight, 0, 0, trimmedWidth, trimmedHeight);
+
+  return trimmed;
+}
 
 import AWS from 'aws-sdk';
 import imageCompression from 'browser-image-compression';
@@ -540,7 +572,12 @@ export default function CheckInPage() {
       return;
     }
 
-    const signatureDataUrl = sigCanvas.current.getTrimmedCanvas().toDataURL('image/jpeg');
+    const rawCanvas = signatureCanvasRef.current.getCanvas();
+    const trimmedCanvas = trimCanvas(rawCanvas);
+    const signatureDataUrl = trimmedCanvas.toDataURL('image/png');
+    
+
+
     const blob = await fetch(signatureDataUrl).then((res) => res.blob());
     const file = new File([blob], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
 
