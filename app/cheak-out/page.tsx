@@ -783,6 +783,7 @@ getCar()
       setUploadMessage('تم حفظ التوقيع بنجاح.');
       setShowToast(true);
     } catch (error: any) {
+      console.error('Error saving signature:', error);
       setUploadMessage('فشل في حفظ التوقيع: ' + error.message);
       setShowToast(true);
     }
