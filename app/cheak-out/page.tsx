@@ -130,7 +130,6 @@ export default function UploadPage() {
     isUploading: false,
     uploadProgress: 0,
   }));
-
   const [files, setFiles] = useState<FileSection[]>(initialFiles);
   const [car, setCar] = useState<string>('');
   const [carSearch, setCarSearch] = useState<string>('');
@@ -165,7 +164,6 @@ export default function UploadPage() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const uploadQueue = useRef<Promise<void>>(Promise.resolve());
   const signatureCanvasRef = useRef<SignaturePad>(null);
-
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -441,10 +439,10 @@ export default function UploadPage() {
                 reject(new Error('فشل في تحويل الصورة إلى Blob.'));
                 return;
               }
-              const modifiedFile = new File([blob], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
+              const modifiedFile = new File([blob], `${uuidv4()}.jpg`, { type: 'image/' });
               resolve(modifiedFile);
             },
-            'image/jpeg',
+            'image/',
             0.9
           );
         };
@@ -766,7 +764,8 @@ export default function UploadPage() {
     setCarSearch(selectedCar);
     setShowCarList(false);
   };
-const getCar = async()=>{
+const getCar = async(plate)=>{
+  // alert(plate)
 const getCarType = await fetch('/api/getlicense', { method: 'post' ,headers: {
   'Content-Type': 'application/json'},body: JSON.stringify({plate:plate})});
 const data = await getCarType.json();
@@ -775,43 +774,45 @@ setCar(data.result.fields);
 }
 // alert(car)
   const handlePlateSelect = (selectedPlate: string) => {
-getCar()
+getCar(selectedPlate)
     setPlate(selectedPlate);
     setPlateSearch(selectedPlate);
     setShowPlateList(false);
   };
-
   const handleSaveSignature = async () => {
     try {
+      if (!signatureCanvasRef.current) return;
   
-    if (!signatureCanvasRef.current) return;
+      if (signatureCanvasRef.current.isEmpty()) {
+        setUploadMessage('يرجى رسم التوقيع قبل الحفظ.');
+        setShowToast(true);
+        return;
+      }
   
-    if (signatureCanvasRef.current.isEmpty()) {
-      setUploadMessage('يرجى رسم التوقيع قبل الحفظ.');
-      setShowToast(true);
-      return;
-    }
+      // الحصول على الـ canvas بعد القطع
+      const rawCanvas = signatureCanvasRef.current.getCanvas();
+      const trimmedCanvas = trimCanvas(rawCanvas);
   
-    const rawCanvas = signatureCanvasRef.current.getCanvas();
-    const trimmedCanvas = trimCanvas(rawCanvas);
-    const signatureDataUrl = trimmedCanvas.toDataURL('image/png');
-    
-      // Convert data URL to Blob
-      const response = await fetch(signatureDataUrl);
+      // تحويل canvas إلى Blob
+      const dataUrl = trimmedCanvas.toDataURL('image/png');
+      const response = await fetch(dataUrl);
       const blob = await response.blob();
+  
       const signatureFile = new File([blob], `${uuidv4()}.png`, { type: 'image/png' });
   
-      // Compress the signature image
+      // ضغط الصورة
       const options = {
         maxSizeMB: 4,
         maxWidthOrHeight: 1920,
         useWebWorker: true,
       };
       const compressedSignature = await imageCompression(signatureFile, options);
+      const modifiedFile = await addDateTimeToImage(compressedSignature);
   
-      // Upload the compressed signature to the backend
-      const uploadedSignatureUrl = await uploadImageToBackend(compressedSignature);
+      // رفع التوقيع إلى الخادم
+      const uploadedSignatureUrl = await uploadImageToBackend(modifiedFile);
   
+      // تحديث الحالة
       setSignatureUrl(uploadedSignatureUrl);
       setUploadMessage('تم حفظ التوقيع بنجاح.');
       setShowToast(true);
@@ -821,7 +822,7 @@ getCar()
       setShowToast(true);
     }
   };
-
+  
   const handleClearSignature = () => {
     if (signatureCanvasRef.current) {
       signatureCanvasRef.current.clear();
@@ -1036,10 +1037,20 @@ getCar()
                       type="text"
                       value={plateSearch}
                       onChange={(e) => {
+                        
                         setPlateSearch(e.target.value);
                         setShowPlateList(true);
 
                       }}
+                
+                      onKeyDown={(e) => {
+                        if (e.key === 'Backspace' || e.key === 'Delete') {
+                          setPlateSearch('');
+                          setCar('');
+                          setCarSearch('');
+                        }
+                      }}
+
                       onFocus={() => setShowPlateList(true)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                       placeholder="ابحث عن اللوحة"
@@ -1076,14 +1087,16 @@ getCar()
                   ) : (
                     <input
                       type="text"
-                      value={carSearch}
-                      onChange={(e) => {
-                        setCarSearch(e.target.value);
-                        setShowCarList(true);
-                      }}
+                      value={plateSearch?carSearch:""}
+                      // onChange={(e) => {
+                      //   setCarSearch(e.target.value);
+                      // color='gray'
+                      style={{backgroundColor: 'lightgray'}}
+                      //   setShowCarList(true);
+                      // }}
                       onFocus={() => setShowCarList(true)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                      placeholder="ابحث عن السيارة"
+                      // placeholder="اختر اللو"
                  readOnly
                       required
                     />
@@ -1311,7 +1324,11 @@ getCar()
                     canvasProps={{
                       className: 'w-full h-32 bg-white dark:bg-gray-700 rounded',
                     }}
-                    onEnd={() => setIsSignatureEmpty(signatureCanvasRef.current?.isEmpty() || false)}
+                    onEnd={() => {setIsSignatureEmpty(signatureCanvasRef.current?.isEmpty() || false)
+                      handleSaveSignature()
+                    }
+
+                    }
                   />
                   <div className="flex justify-between mt-2">
                     <button
@@ -1321,14 +1338,14 @@ getCar()
                     >
                       مسح التوقيع
                     </button>
-                    <button
+                    {/* <button
                       type="button"
                       onClick={handleSaveSignature}
                       className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
                       disabled={isSignatureEmpty}
                     >
                       حفظ التوقيع
-                    </button>
+                    </button> */}
                   </div>
                   {signatureUrl && (
                     <div className="mt-2">

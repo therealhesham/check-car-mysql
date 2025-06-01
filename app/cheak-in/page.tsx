@@ -43,6 +43,7 @@ import { carList } from '@/lib/car';
 import { licenseList } from '@/lib/License';
 import { FaSearch, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import SignaturePad from 'react-signature-canvas';
+import { toast } from 'react-toastify';
 // دالة لتنظيف العناوين مع دعم الأحرف العربية وضمان التفرد
 const sanitizeTitle = (title: string, index: number) => {
   const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
@@ -907,7 +908,11 @@ export default function CheckInPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
+    if(parseInt(newMeterReading) < parseInt(previousRecord.meter_reading)) {
+      setUploadMessage('قراءة العداد الجديدة يجب أن تكون أكبر من القراءة السابقة.');
+      setShowToast(true);
+      return
+                            }
     if (!contract.trim() || !car.trim() || !plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
       setShowToast(true);
@@ -1307,13 +1312,14 @@ export default function CheckInPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                    قراءة العداد
+                       قراءة العداد (القراءة السابقة : {previousRecord?.meter_reading || 'غير متوفر'})
                   </label>
                   <input
                     type="text"
                     value={newMeterReading}
                     onChange={(e) => {
                       setNewMeterReading(e.target.value);
+                     
                     }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     placeholder="اكتب قراءة العداد"
@@ -1366,6 +1372,7 @@ export default function CheckInPage() {
                                   backgroundColor='#ffffff'
                                   penColor="black"
                                   canvasProps={{
+                                    
                                     className: 'border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md w-full h-full',
                                   }}
                                   onEnd={() => {
