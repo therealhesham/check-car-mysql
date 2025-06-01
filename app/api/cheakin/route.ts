@@ -149,7 +149,7 @@ const newContract = await prisma.contracts.create({
         other_images: fields.other_images ? fields.other_images.join(',') : null, // Convert array to comma-separated string
       },
     });
-console.log(fields.signature_url[0].url)
+// console.log(fields.signature_url[0].url)
     return {
       success: true
     };

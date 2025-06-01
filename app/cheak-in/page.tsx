@@ -937,8 +937,12 @@ export default function CheckInPage() {
       setShowToast(true);
       return;
     }
+    // const excludedTitles = ['other_images', 'signature_url'];
 
-    const requiredImages = files.filter((fileSection) => fileSection.title !== 'other_images');
+    // const requiredImages = files.filter(
+    //   (fileSection) => !excludedTitles.includes(fileSection.title)
+    // );
+    const requiredImages = files.filter((fileSection) => fileSection.title !== 'other_images' && fileSection.title !== 'signature_url');
     const hasAnyRequiredImage = requiredImages.some((fileSection) => {
       if (fileSection.imageUrls === null) return false;
       if (Array.isArray(fileSection.imageUrls)) return fileSection.imageUrls.length > 0;
