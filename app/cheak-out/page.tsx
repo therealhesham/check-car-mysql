@@ -1325,7 +1325,7 @@ getCar(selectedPlate)
                       className: 'w-full h-32 bg-white dark:bg-gray-700 rounded',
                     }}
                     onEnd={() => {setIsSignatureEmpty(signatureCanvasRef.current?.isEmpty() || false)
-                      handleSaveSignature()
+                      // handleSaveSignature()
                     }
 
                     }
@@ -1338,14 +1338,14 @@ getCar(selectedPlate)
                     >
                       مسح التوقيع
                     </button>
-                    {/* <button
+                    <button
                       type="button"
                       onClick={handleSaveSignature}
                       className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
                       disabled={isSignatureEmpty}
                     >
                       حفظ التوقيع
-                    </button> */}
+                    </button>
                   </div>
                   {signatureUrl && (
                     <div className="mt-2">

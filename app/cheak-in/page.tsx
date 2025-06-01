@@ -1331,8 +1331,8 @@ export default function CheckInPage() {
                   />
                 </div>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
+<div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3  gap-2 sm:gap-3">
                 {files.map((fileSection, index) => (
                   <div key={fileSection.id} className="mb-3">
                     <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
@@ -1370,21 +1370,24 @@ export default function CheckInPage() {
                                 </button>
                               </div>
                             ) : (
-                              <div className="h-full w-full flex flex-col items-center justify-center">
+                              <div 
+                              className="h-full w-full flex flex-col items-center justify-center gap-3">
                                 <SignaturePad
                                   ref={sigCanvas}
+                                  
                                   backgroundColor='#ffffff'
                                   penColor="black"
                                   canvasProps={{
                                     
                                     className: 'border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md w-full h-full',
                                   }}
-                                  onEnd={() => {
-                                    if (!sigCanvas.current?.isEmpty()) {
-                                      handleSignatureSave(fileSection.id);
-                                    }
-                                  }}
+                                  // onEnd={() => {
+                                  //   if (!sigCanvas.current?.isEmpty()) {
+                                  //     // handleSignatureSave(fileSection.id);
+                                  //   }
+                                  // }}
                                 />
+                                <div >
                                 <button
                                   type="button"
                                   onClick={clearSignature}
@@ -1393,7 +1396,17 @@ export default function CheckInPage() {
                                 >
                                   مسح التوقيع
                                 </button>
+                                <button
+                      type="button"
+                      onClick={()=>handleSignatureSave(fileSection.id)}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                      // disabled={isSignatureEmpty}
+                    >
+                      حفظ التوقيع
+                    </button>
                               </div>
+                              </div>
+
                             )}
                             {fileSection.isUploading && fileSection.uploadProgress < 100 && (
                               <div className="mt-2">
@@ -1582,7 +1595,7 @@ export default function CheckInPage() {
                   </div>
                 ))}
               </div>
-
+              </div>
               <div className="mb-4 text-center mt-4">
                 <button
                   type="submit"
