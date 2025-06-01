@@ -771,7 +771,9 @@ const getCarType = await fetch('/api/getlicense', { method: 'post' ,headers: {
   'Content-Type': 'application/json'},body: JSON.stringify({plate:plate})});
 const data = await getCarType.json();
 setCarSearch(data.result.fields)
+setCar(data.result.fields);
 }
+// alert(car)
   const handlePlateSelect = (selectedPlate: string) => {
 getCar()
     setPlate(selectedPlate);
