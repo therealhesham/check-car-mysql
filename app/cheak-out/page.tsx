@@ -1,5 +1,5 @@
 //@ts-nocheck
-//@ts-ignore
+//@ts-nocheck
 
 'use client';
 
@@ -9,7 +9,7 @@ import { FaCheckCircle } from 'react-icons/fa';
 import imageCompression from 'browser-image-compression';
 import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
-import SignatureCanvas from 'react-signature-canvas';
+import SignaturePad from 'react-signature-canvas';
 
 const sanitizeTitle = (title: string, index: number) => {
   const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
@@ -132,7 +132,7 @@ export default function UploadPage() {
   const plateInputRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const uploadQueue = useRef<Promise<void>>(Promise.resolve());
-  const signatureCanvasRef = useRef<SignatureCanvas>(null);
+  const signatureCanvasRef = useRef<SignaturePad>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -1272,7 +1272,7 @@ getCar()
                   التوقيع *
                 </label>
                 <div className="border-2 border-gray-300 dark:border-gray-600 rounded-md p-2">
-                  <SignatureCanvas
+                  <SignaturePad
                     ref={signatureCanvasRef}
                     penColor={isDarkMode ? 'white' : 'black'}
                     canvasProps={{
