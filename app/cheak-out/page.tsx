@@ -2,6 +2,38 @@
 //@ts-nocheck
 
 'use client';
+function trimCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+  const imageData = ctx.getImageData(0, 0, width, height).data;
+
+  let top = null, left = null, right = null, bottom = null;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (width * y + x) * 4;
+      if (imageData[idx + 3] > 0) { // alpha > 0 means there's content
+        if (top === null) top = y;
+        if (left === null || x < left) left = x;
+        if (right === null || x > right) right = x;
+        bottom = y;
+      }
+    }
+  }
+
+  if (top === null) return canvas; // no content
+
+  const trimmedWidth = right - left;
+  const trimmedHeight = bottom - top;
+  const trimmed = document.createElement('canvas');
+  trimmed.width = trimmedWidth;
+  trimmed.height = trimmedHeight;
+  const trimmedCtx = trimmed.getContext('2d');
+  trimmedCtx.drawImage(canvas, left, top, trimmedWidth, trimmedHeight, 0, 0, trimmedWidth, trimmedHeight);
+
+  return trimmed;
+}
 
 import Navbar from '@/public/components/navbar';
 import { useState, useRef, useEffect, RefCallback } from 'react';
@@ -758,11 +790,10 @@ getCar()
       return;
     }
   
-      // Get the signature as a data URL
-      const signatureDataUrl = signatureCanvasRef.current
-        .getTrimmedCanvas()
-        .toDataURL('image/png');
-  
+    const rawCanvas = signatureCanvasRef.current.getCanvas();
+    const trimmedCanvas = trimCanvas(rawCanvas);
+    const signatureDataUrl = trimmedCanvas.toDataURL('image/png');
+    
       // Convert data URL to Blob
       const response = await fetch(signatureDataUrl);
       const blob = await response.blob();
