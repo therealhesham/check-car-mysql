@@ -2757,16 +2757,7 @@ settime(Date.now())
               <p className="text-sm text-gray-600">تسجيل بيانات خروج السيارة مع الصور</p>
             </div>
           </Link>
-          <Link href="/history">
-            <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
-              <div className="text-blue-600 mb-4">
-                <FaHistory className="inline-block text-4xl" />
-              </div>
-              <h2 className="text-xl font-medium text-gray-800 mb-2">السجل</h2>
-              <p className="text-sm text-gray-600">عرض سجلات تشييك السيارات</p>
-            </div>
-          </Link>
-
+       
           <Link href="/cheak-in">
             <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
               <div className="text-blue-600 mb-4">
@@ -2777,6 +2768,17 @@ settime(Date.now())
               <p className="text-sm text-gray-600">تسجيل بيانات دخول السيارة مع الصور</p>
             </div>
           </Link>
+
+          <Link href="/history">
+            <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
+              <div className="text-blue-600 mb-4">
+                <FaHistory className="inline-block text-4xl" />
+              </div>
+              <h2 className="text-xl font-medium text-gray-800 mb-2">السجل</h2>
+              <p className="text-sm text-gray-600">عرض سجلات تشييك السيارات</p>
+            </div>
+          </Link>
+
 
           {user.role === 'admin' && (
             <div
