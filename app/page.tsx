@@ -2746,17 +2746,17 @@ settime(Date.now())
       <Navbar />
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Link href="/cheak-in">
+          
+          <Link href="/cheak-out">
             <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
               <div className="text-blue-600 mb-4">
                 <FaCar className="inline-block text-4xl" />
-                <FaArrowRight className="inline-block text-2xl ml-2" />
+                <FaArrowLeft className="inline-block text-2xl ml-2" />
               </div>
-              <h2 className="text-xl font-medium text-gray-800 mb-2">تشييك دخول السيارة</h2>
-              <p className="text-sm text-gray-600">تسجيل بيانات دخول السيارة مع الصور</p>
+              <h2 className="text-xl font-medium text-gray-800 mb-2">تشييك خروج السيارة</h2>
+              <p className="text-sm text-gray-600">تسجيل بيانات خروج السيارة مع الصور</p>
             </div>
           </Link>
-
           <Link href="/history">
             <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
               <div className="text-blue-600 mb-4">
@@ -2767,14 +2767,14 @@ settime(Date.now())
             </div>
           </Link>
 
-          <Link href="/cheak-out">
+          <Link href="/cheak-in">
             <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
               <div className="text-blue-600 mb-4">
                 <FaCar className="inline-block text-4xl" />
-                <FaArrowLeft className="inline-block text-2xl ml-2" />
+                <FaArrowRight className="inline-block text-2xl ml-2" />
               </div>
-              <h2 className="text-xl font-medium text-gray-800 mb-2">تشييك خروج السيارة</h2>
-              <p className="text-sm text-gray-600">تسجيل بيانات خروج السيارة مع الصور</p>
+              <h2 className="text-xl font-medium text-gray-800 mb-2">تشييك دخول السيارة</h2>
+              <p className="text-sm text-gray-600">تسجيل بيانات دخول السيارة مع الصور</p>
             </div>
           </Link>
 
