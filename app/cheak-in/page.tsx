@@ -44,6 +44,7 @@ import { licenseList } from '@/lib/License';
 import { FaSearch, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import SignaturePad from 'react-signature-canvas';
 import { toast } from 'react-toastify';
+import { useRouter } from 'next/navigation';
 // دالة لتنظيف العناوين مع دعم الأحرف العربية وضمان التفرد
 const sanitizeTitle = (title: string, index: number) => {
   const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
@@ -194,6 +195,7 @@ export default function CheckInPage() {
   const [user, setUser] = useState<User | null>(null);
   const [client_id, setClientId] = useState('');
   const [client_name, setClientName] = useState('');
+  const router = useRouter();
 
   // Signature Canvas Reference
   const sigCanvas = useRef<SignaturePad>(null);
@@ -1068,6 +1070,9 @@ export default function CheckInPage() {
             if (ref) ref.value = '';
           });
           sigCanvas.current?.clear();
+          setTimeout(() => {
+            router.push('/');
+          }, 2000); // تأخير لمدة 2 ثانية
         } else {
           throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
         }
