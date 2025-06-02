@@ -159,6 +159,7 @@ export default function UploadPage() {
   const [client_id, setClientId] = useState<string>('');
   const [client_name, setClientName] = useState<string>('');
   const router = useRouter();
+  const [isSignatureLocked, setIsSignatureLocked] = useState<boolean>(false);
 
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const carInputRef = useRef<HTMLDivElement>(null);
@@ -816,6 +817,7 @@ getCar(selectedPlate)
   
       // تحديث الحالة
       setSignatureUrl(uploadedSignatureUrl);
+      setIsSignatureLocked(true);
       setUploadMessage('تم حفظ التوقيع بنجاح.');
       setShowToast(true);
     } catch (error: any) {
@@ -830,42 +832,43 @@ getCar(selectedPlate)
       signatureCanvasRef.current.clear();
       setIsSignatureEmpty(true);
       setSignatureUrl(null);
+      setIsSignatureLocked(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!contract.trim() ||!plate.trim()) {
+    if (!contract.trim() || !plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
       setShowToast(true);
       return;
     }
-
+  
     if (!/^\d+$/.test(contract.trim())) {
       setUploadMessage('رقم العقد يجب أن يحتوي على أرقام فقط.');
       setShowToast(true);
       return;
     }
-
+  
     const contractNum = parseFloat(contract);
     if (isNaN(contractNum)) {
       setUploadMessage('رقم العقد يجب أن يكون رقمًا صالحًا.');
       setShowToast(true);
       return;
     }
-
+  
     if (hasExitRecord) {
       setUploadMessage('لا يمكن إضافة هذا التشييك لأنه تم تسجيل خروج لهذه السيارة لهذا العقد.');
       setShowToast(true);
       return;
     }
-
+  
     if (!signatureUrl) {
       setUploadMessage('يرجى حفظ التوقيع قبل إرسال البيانات.');
       setShowToast(true);
       return;
     }
-
+  
     const requiredImages = files.filter((fileSection) => fileSection.title !== 'other_images');
     const hasAnyRequiredImage = requiredImages.some((fileSection) => {
       if (fileSection.imageUrls === null) return false;
@@ -877,7 +880,7 @@ getCar(selectedPlate)
       setShowToast(true);
       return;
     }
-
+  
     const missingImages = requiredImages.filter((fileSection) => {
       if (fileSection.imageUrls === null) return true;
       if (Array.isArray(fileSection.imageUrls)) return fileSection.imageUrls.length === 0;
@@ -892,51 +895,51 @@ getCar(selectedPlate)
       setShowToast(true);
       return;
     }
-
+  
     const isAnyUploading = files.some((fileSection) => fileSection.isUploading);
     if (isAnyUploading) {
       setUploadMessage('يرجى الانتظار حتى يكتمل رفع جميع الصور.');
       setShowToast(true);
       return;
     }
-
-    if (!user || !user.Name || !user.branch) {
+  
+    if (!user || !user.name || !user.branch) {
       setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       setShowToast(true);
       return;
     }
-
+  
     setIsUploading(true);
     setUploadProgress(10);
     setIsSuccess(false);
-
+  
     try {
       const airtableData = {
         fields: {} as Record<string, string | string[]>,
       };
-
+  
       airtableData.fields['السيارة'] = car;
       airtableData.fields['اللوحة'] = plate;
       airtableData.fields['العقد'] = contractNum.toString();
       airtableData.fields['نوع العملية'] = operationType;
-      airtableData.fields['الموظف'] = user.Name;
+      airtableData.fields['الموظف'] = user.name;
       airtableData.fields['الفرع'] = user.branch;
       airtableData.fields['client_id'] = client_id;
       airtableData.fields['meter_reading'] = meter_reading;
       airtableData.fields['client_name'] = client_name;
       airtableData.fields['signature_url'] = signatureUrl;
-
+  
       files.forEach((fileSection) => {
         if (fileSection.imageUrls) {
           airtableData.fields[fileSection.title] = fileSection.imageUrls;
         }
       });
-
+  
       setUploadProgress(30);
-
+  
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000);
-
+  
       try {
         const response = await fetch('/api/cheakout', {
           method: 'POST',
@@ -946,12 +949,12 @@ getCar(selectedPlate)
           body: JSON.stringify(airtableData),
           signal: controller.signal,
         });
-
+  
         clearTimeout(timeoutId);
         setUploadProgress(90);
-
+  
         const result = await response.json();
-
+  
         if (result.success) {
           setUploadProgress(100);
           setIsSuccess(true);
@@ -978,6 +981,7 @@ getCar(selectedPlate)
           setClientName('');
           setHasExitRecord(false);
           setSignatureUrl(null);
+          setIsSignatureLocked(false); // إلغاء قفل التوقيع بعد الإرسال
           if (signatureCanvasRef.current) {
             signatureCanvasRef.current.clear();
             setIsSignatureEmpty(true);
@@ -989,7 +993,7 @@ getCar(selectedPlate)
           });
           setTimeout(() => {
             router.push('/');
-          }, 2000); // تأخير لمدة 2 ثانية
+          }, 2000);
         } else {
           throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
         }
@@ -1024,7 +1028,6 @@ getCar(selectedPlate)
               رفع بيانات تشييك الخروج
             </h1>
             <p className="text-sm text-center mb-4 text-gray-600 dark:text-gray-300">
-              ملاحظة: الصور الكبيرة قد تستغرق وقتًا أطول للرفع. الحد الأقصى لكل صورة هو 32 ميغابايت.
             </p>
             <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
@@ -1323,12 +1326,21 @@ getCar(selectedPlate)
                   التوقيع *
                 </label>
                 <div className="border-2 border-gray-300 dark:border-gray-600 rounded-md p-2">
+                {isSignatureLocked && (
+  <div className="absolute inset-0 bg-gray-200 bg-opacity-50 rounded flex items-center justify-center">
+    <span className="text-gray-600 dark:text-gray-400">اللوحة مقفلة. اضغط على مسح التوقيع لفتح اللوحة.</span>
+  </div>
+)}
                   <SignaturePad
                     ref={signatureCanvasRef}
                     penColor={isDarkMode ? 'white' : 'black'}
                     canvasProps={{
-                      className: 'w-full h-32 bg-white dark:bg-gray-700 rounded',
+                      className: `w-full h-32 bg-white dark:bg-gray-700 rounded ${
+                        isSignatureLocked ? 'pointer-events-none opacity-50' : ''
+                      }`,
+                      
                     }}
+                    
                     onEnd={() => {setIsSignatureEmpty(signatureCanvasRef.current?.isEmpty() || false)
                       // handleSaveSignature()
                     }
@@ -1340,6 +1352,7 @@ getCar(selectedPlate)
                       type="button"
                       onClick={handleClearSignature}
                       className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+                      disabled={!signatureUrl}
                     >
                       مسح التوقيع
                     </button>
@@ -1347,7 +1360,7 @@ getCar(selectedPlate)
                       type="button"
                       onClick={handleSaveSignature}
                       className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                      disabled={isSignatureEmpty}
+                      disabled={isSignatureEmpty || isSignatureLocked}
                     >
                       حفظ التوقيع
                     </button>

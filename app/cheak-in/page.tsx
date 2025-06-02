@@ -1153,7 +1153,7 @@ export default function CheckInPage() {
             رفع بيانات تشييك الدخول
           </h1>
           <p className="text-sm text-center mb-4 text-gray-600 dark:text-gray-300">
-            ملاحظة: الصور الكبيرة قد تستغرق وقتًا أطول للرفع. الحد الأقصى لكل صورة هو 32 ميغابايت.
+            
           </p>
           <form onSubmit={handleSubmit}>
             <div className="mb-6" ref={contractInputRef}>
