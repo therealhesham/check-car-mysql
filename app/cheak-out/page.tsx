@@ -42,6 +42,7 @@ import imageCompression from 'browser-image-compression';
 import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
 import SignaturePad from 'react-signature-canvas';
+import { useRouter } from 'next/navigation';
 
 const sanitizeTitle = (title: string, index: number) => {
   const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
@@ -157,6 +158,7 @@ export default function UploadPage() {
   const [meter_reading, setMeterReading] = useState<string>('');
   const [client_id, setClientId] = useState<string>('');
   const [client_name, setClientName] = useState<string>('');
+  const router = useRouter();
 
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const carInputRef = useRef<HTMLDivElement>(null);
@@ -985,6 +987,9 @@ getCar(selectedPlate)
               ref.value = '';
             }
           });
+          setTimeout(() => {
+            router.push('/');
+          }, 2000); // تأخير لمدة 2 ثانية
         } else {
           throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
         }
