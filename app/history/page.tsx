@@ -634,6 +634,7 @@ export default function HistoryPage() {
                                   className="relative w-12 h-12"
                                 >
                                   <img
+                                  
                                     src={image.url}
                                     alt={`${image.title}-${image.index}`}
                                     className="object-cover w-full h-full rounded"
