@@ -30,7 +30,7 @@ RUN npm run build
 FROM node:22-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
 # Copy only the output of the build
 COPY --from=builder /app/public ./public
