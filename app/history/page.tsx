@@ -172,7 +172,7 @@ export default function HistoryPage() {
       try {
         setIsLoading(true);
         setError(null);
-        let url = `/api/history?page=${page}&pageSize=${pageSize}`;
+        let url = `/api/history?page=${page}&pageSize=${pageSize}&sort=desc`; // إضافة sort=desc
         if (contractSearch) {
           url += `&contractNumber=${encodeURIComponent(contractSearch)}`;
         }
