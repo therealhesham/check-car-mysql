@@ -71,8 +71,8 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// GET /api/history - Fetch all contracts
-export async function GET(req: Request) {
+// GET request handler
+export async function GET(req: NextRequest) {
   try {
     // Extract query parameters
     const url = new URL(req.url);
@@ -83,7 +83,7 @@ export async function GET(req: Request) {
     const carModel = url.searchParams.get('carModel')?.trim();
     const operationType = url.searchParams.get('operationType')?.trim();
     const branchName = url.searchParams.get('branchName')?.trim();
-    const sort = url.searchParams.get('sort')?.toLowerCase(); // Extract sort parameter
+    const sort = url.searchParams.get('sort')?.toLowerCase();
     const fetchFiltersParam = url.searchParams.get('fetchFilters') === 'true';
 
     // Build the where clause dynamically
@@ -105,11 +105,9 @@ export async function GET(req: Request) {
     }
 
     // Handle sorting
-    const orderBy = {
-      created_at: sort === 'desc' ? 'desc' : 'asc', // Use literal values
-    };
+    const orderBy = sort === 'desc' ? [{ created_at: 'desc' }] : [{ created_at: 'asc' }];
 
-    // Handle fetch filters request
+    // Handle fetch filters
     if (fetchFiltersParam) {
       const contracts = await prisma.contracts.findMany({
         select: {
