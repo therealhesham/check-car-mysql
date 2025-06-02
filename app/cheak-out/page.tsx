@@ -1326,11 +1326,7 @@ getCar(selectedPlate)
                   التوقيع *
                 </label>
                 <div className="border-2 border-gray-300 dark:border-gray-600 rounded-md p-2">
-                {isSignatureLocked && (
-  <div className="absolute inset-0 bg-gray-200 bg-opacity-50 rounded flex items-center justify-center">
-    <span className="text-gray-600 dark:text-gray-400">اللوحة مقفلة. اضغط على مسح التوقيع لفتح اللوحة.</span>
-  </div>
-)}
+                  
                   <SignaturePad
                     ref={signatureCanvasRef}
                     penColor={isDarkMode ? 'white' : 'black'}
