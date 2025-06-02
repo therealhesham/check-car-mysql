@@ -204,6 +204,7 @@ export default function CheckInPage() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const uploadQueue = useRef<Promise<void>>(Promise.resolve());
   const contractInputRef = useRef<HTMLDivElement>(null);
+  const [meterError, setMeterError] = useState<string>('');
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -908,6 +909,13 @@ export default function CheckInPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+     // التحقق من وجود خطأ في قراءة العداد
+  if (meterError) {
+    setUploadMessage(meterError);
+    setShowToast(true);
+    return;
+  }
+
     if(parseInt(newMeterReading) < parseInt(previousRecord.meter_reading)) {
       setUploadMessage('قراءة العداد الجديدة يجب أن تكون أكبر من القراءة السابقة.');
       setShowToast(true);
@@ -1055,6 +1063,7 @@ export default function CheckInPage() {
           setClientId('');
           setClientName('');
           setNewMeterReading('');
+          setMeterError(''); // إضافة هذا السطر
           fileInputRefs.current.forEach((ref) => {
             if (ref) ref.value = '';
           });
@@ -1315,21 +1324,49 @@ export default function CheckInPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                       قراءة العداد (القراءة السابقة : {previousRecord?.meter_reading || 'غير متوفر'})
-                  </label>
-                  <input
-                    type="text"
-                    value={newMeterReading}
-                    onChange={(e) => {
-                      setNewMeterReading(e.target.value);
-                     
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    placeholder="اكتب قراءة العداد"
-                    required
-                  />
-                </div>
+  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+    قراءة العداد (القراءة السابقة: {previousRecord?.meter_reading || 'غير متوفر'})
+  </label>
+  <input
+    type="text"
+    inputMode="numeric"
+    pattern="[0-9]*"
+    value={newMeterReading}
+    onChange={(e) => {
+      const value = e.target.value;
+      setNewMeterReading(value);
+
+      // التحقق في الوقت الفعلي
+      if (value && previousRecord?.meter_reading) {
+        const newReading = parseInt(value);
+        const previousReading = parseInt(previousRecord.meter_reading);
+        if (!isNaN(newReading) && !isNaN(previousReading)) {
+          if (newReading < previousReading) {
+            setMeterError('قراءة العداد الجديدة يجب أن تكون أكبر من أو تساوي القراءة السابقة.');
+            toast.error('قراءة العداد الجديدة يجب أن تكون أكبر من أو تساوي القراءة السابقة.');
+          } else {
+            setMeterError('');
+          }
+        } else {
+          setMeterError('يرجى إدخال رقم صالح.');
+          toast.error('يرجى إدخال رقم صالح.');
+        }
+      } else {
+        setMeterError('');
+      }
+    }}
+    onKeyPress={restrictToNumbers}
+    className={`w-full px-3 py-2 border ${
+      meterError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+    placeholder="اكتب قراءة العداد"
+    required
+    disabled={!hasExitRecord}
+  />
+  {meterError && (
+    <p className="text-red-500 text-xs mt-1">{meterError}</p>
+  )}
+</div>
               </div>
 <div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3  gap-2 sm:gap-3">
