@@ -65,6 +65,7 @@
 //     );
 //   }
 // }
+
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
@@ -104,7 +105,9 @@ export async function GET(req: Request) {
     }
 
     // Handle sorting
-    const orderBy = sort === 'desc' ? { created_at: 'desc' } : { created_at: 'asc' };
+    const orderBy = {
+      created_at: sort === 'desc' ? 'desc' : 'asc', // Use literal values
+    };
 
     // Handle fetch filters request
     if (fetchFiltersParam) {
