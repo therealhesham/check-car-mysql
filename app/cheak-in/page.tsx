@@ -2706,35 +2706,35 @@ export default function CheckInPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
+  
     if (meterError) {
       setUploadMessage(meterError);
       setShowToast(true);
       toast.error(meterError);
       return;
     }
-
+  
     if (parseInt(newMeterReading) < parseInt(previousRecord?.meter_reading || '0')) {
       setUploadMessage('قراءة العداد الجديدة يجب أن تكون أكبر من أو تساوي القراءة السابقة.');
       setShowToast(true);
       toast.error('قراءة العداد الجديدة يجب أن تكون أكبر من أو تساوي القراءة السابقة.');
       return;
     }
-
+  
     if (!contract.trim() || !car.trim() || !plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
       setShowToast(true);
       toast.error('يرجى ملء جميع الحقول المطلوبة.');
       return;
     }
-
+  
     if (!/^\d+$/.test(contract.trim())) {
       setUploadMessage('رقم العقد يجب أن يحتوي على أرقام فقط.');
       setShowToast(true);
       toast.error('رقم العقد يجب أن يحتوي على أرقام فقط.');
       return;
     }
-
+  
     const contractNum = parseFloat(contract);
     if (isNaN(contractNum)) {
       setUploadMessage('رقم العقد يجب أن يكون رقمًا صالحًا.');
@@ -2742,21 +2742,14 @@ export default function CheckInPage() {
       toast.error('رقم العقد يجب أن يكون رقمًا صالحًا.');
       return;
     }
-
+  
     if (!hasExitRecord) {
       setUploadMessage('لا يمكن إرسال النموذج بدون سجل خروج سابق.');
       setShowToast(true);
       toast.error('لا يمكن إرسال النموذج بدون سجل خروج سابق.');
       return;
     }
-
-    if (!signatureFile.imageUrls) {
-      setUploadMessage('يرجى حفظ التوقيع قبل إرسال البيانات.');
-      setShowToast(true);
-      toast.error('يرجى حفظ التوقيع قبل إرسال البيانات.');
-      return;
-    }
-
+  
     const requiredImages = files.filter((fileSection) => fileSection.title !== 'other_images');
     const hasAnyRequiredImage = requiredImages.some((fileSection) => {
       if (fileSection.imageUrls === null) return false;
@@ -2769,7 +2762,7 @@ export default function CheckInPage() {
       toast.error('يرجى رفع الصور المطلوبة.');
       return;
     }
-
+  
     const missingImages = requiredImages.filter((fileSection) => {
       if (fileSection.imageUrls === null) return true;
       if (Array.isArray(fileSection.imageUrls)) return fileSection.imageUrls.length === 0;
@@ -2789,7 +2782,7 @@ export default function CheckInPage() {
       );
       return;
     }
-
+  
     const isAnyUploading = files.some((fileSection) => fileSection.isUploading) || signatureFile.isUploading;
     if (isAnyUploading) {
       setUploadMessage('يرجى الانتظار حتى يكتمل رفع جميع الصور أو التوقيع.');
@@ -2797,18 +2790,18 @@ export default function CheckInPage() {
       toast.error('يرجى الانتظار حتى يكتمل رفع جميع الصور أو التوقيع.');
       return;
     }
-
+  
     if (!user || !user.Name || !user.branch) {
       setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       setShowToast(true);
       toast.error('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       return;
     }
-
+  
     setIsUploading(true);
     setUploadMessage('');
     setIsSuccess(false);
-
+  
     try {
       const airtableData = {
         fields: {} as Record<string, string | string[]>,
@@ -2816,24 +2809,28 @@ export default function CheckInPage() {
         client_name,
         meter_reading: newMeterReading,
       };
-
+  
       airtableData.fields['السيارة'] = car.trim();
       airtableData.fields['اللوحة'] = plate.trim();
       airtableData.fields['العقد'] = contractNum.toString();
       airtableData.fields['نوع العملية'] = operationType;
       airtableData.fields['الموظف'] = user.Name;
       airtableData.fields['الفرع'] = user.branch;
-      airtableData.fields['signature_url'] = signatureFile.imageUrls as string;
-
+      // Only include signature if it exists
+      if (signatureFile.imageUrls) {
+        airtableData.fields['signature_url'] = signatureFile.imageUrls as string;
+      }
+  
       files.forEach((fileSection) => {
         if (fileSection.imageUrls) {
           airtableData.fields[fileSection.title] = fileSection.imageUrls;
         }
       });
-
+  
+      // Rest of the submission logic remains unchanged
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000);
-
+  
       try {
         const response = await fetch('/api/cheakin', {
           method: 'POST',
@@ -2843,9 +2840,9 @@ export default function CheckInPage() {
           body: JSON.stringify(airtableData),
           signal: controller.signal,
         });
-
+  
         clearTimeout(timeoutId);
-
+  
         const result = await response.json();
         if (result.success) {
           setIsSuccess(true);
@@ -3372,7 +3369,7 @@ export default function CheckInPage() {
                              
                                            <div className="mb-6 mt-6">
   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-    التوقيع *
+    التوقيع
   </label>
   <div className="grid grid-cols-1 gap-3">
     <div className="min-w-0">
@@ -3496,7 +3493,7 @@ export default function CheckInPage() {
                                                    جارٍ الرفع...
                                                  </span>
                                                ) : (
-                                                 'إرسال'
+                                                 'رفع التشييك'
                                                )}
                                              </button>
                                            </div>
