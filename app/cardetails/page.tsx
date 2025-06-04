@@ -136,7 +136,7 @@ export default function CarsPage() {
               <p className="text-gray-600">Plate: {car.plate || 'N/A'}</p>
               <p className="text-gray-600">Year: {car.manufacturing_year || 'N/A'}</p>
               <p className="text-gray-600">Color: {car.color || 'N/A'}</p>
-              <p className="text-gray-600">Premium: {car.premium ? `$${car.premium.toFixed(2)}` : 'N/A'}</p>
+              <p className="text-gray-600">Premium: {car.premium ? `${car.premium.toFixed(2)} SAR ` : 'N/A'}</p>
               <div className="mt-4 flex space-x-3">
                 <button
                   onClick={() => handleEdit(car)}
@@ -160,9 +160,9 @@ export default function CarsPage() {
           <button
             onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-300 transition duration-200"
+            className="px-4 py-2 bg-gray-200 cursor-pointer text-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-300 transition duration-200"
           >
-            Previous
+            السابق
           </button>
           <span className="px-4 py-2 text-gray-700">
             Page {currentPage} of {totalPages}
@@ -170,9 +170,9 @@ export default function CarsPage() {
           <button
             onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
             disabled={currentPage === totalPages}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-300 transition duration-200"
+            className="px-4 py-2 bg-gray-200 cursor-pointer text-gray-700 rounded-lg disabled:opacity-50 hover:bg-gray-300 transition duration-200"
           >
-            Next
+            التالي
           </button>
         </div>
 

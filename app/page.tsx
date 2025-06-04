@@ -589,11 +589,11 @@
 //       setError('غير مصرح لك بتنفيذ هذا الإجراء.');
 //       return;
 //     }
-  
+
 //     if (!branchToDelete) return;
-  
+
 //     setError(null);
-  
+
 //     try {
 //       const response = await fetch('/api/addbranch', {
 //         method: 'DELETE',
@@ -602,12 +602,12 @@
 //         },
 //         body: JSON.stringify({ id: branchToDelete }),
 //       });
-  
+
 //       if (!response.ok) {
 //         const errorData = await response.json().catch(() => ({}));
 //         throw new Error(errorData.error || 'فشل في حذف الفرع.');
 //       }
-  
+
 //       setBranches(branches.filter((branch) => branch.id !== branchToDelete));
 //       closeDeleteConfirmModal();
 //     } catch (err: any) {
@@ -1848,7 +1848,7 @@ export default function HomePage() {
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
-const [time,settime]=useState(Date.now())
+  const [time, settime] = useState(Date.now())
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -1883,7 +1883,7 @@ const [time,settime]=useState(Date.now())
       }
     };
     loadData();
-  }, [router,time]);
+  }, [router, time]);
 
   useEffect(() => {
     if (isCarModalOpen && user?.role === 'admin') {
@@ -2105,7 +2105,7 @@ const [time,settime]=useState(Date.now())
       setNewPlateLetters('');
       setNewPlateNumbers('');
       setIsAddPlateMode(false);
-settime(Date.now())
+      settime(Date.now())
       toast.success('تمت إضافة اللوحة بنجاح!');
     } catch (err: any) {
       console.error('Error adding plate:', err);
@@ -2633,7 +2633,7 @@ settime(Date.now())
       toast.error('لا يمكنك حذف نفسك.');
       return;
     }
-  
+
     const employeeToDelete = employees.find((emp) => emp.id === employeeId);
     if (employeeToDelete?.EmID === 1) {
       toast.error('لا يمكن حذف الموظف بمعرف 1.');
@@ -2643,7 +2643,7 @@ settime(Date.now())
       toast.error('فقط د.عبدالرحمن العوفي يمكنه حذف المديرين.');
       return;
     }
-  
+
     setEmployeeToDelete(employeeId);
     setCarToDelete(null);
     setPlateToDelete(null);
@@ -2746,7 +2746,7 @@ settime(Date.now())
       <Navbar />
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          
+
           <Link href="/cheak-out">
             <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
               <div className="text-blue-600 mb-4">
@@ -2757,7 +2757,7 @@ settime(Date.now())
               <p className="text-sm text-gray-600">تسجيل بيانات خروج السيارة مع الصور</p>
             </div>
           </Link>
-       
+
           <Link href="/cheak-in">
             <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
               <div className="text-blue-600 mb-4">
@@ -2779,7 +2779,7 @@ settime(Date.now())
             </div>
           </Link>
 
-
+          {/* 
           {user.role === 'admin' && (
             <div
               onClick={openPlateModal}
@@ -2791,7 +2791,7 @@ settime(Date.now())
               <h2 className="text-xl font-medium text-gray-800 mb-2">إدارة اللوحات</h2>
               <p className="text-sm text-gray-600">اضافة و حذف و تعديل اللوحات</p>
             </div>
-          )}
+          )} */}
 
           {user.role === 'admin' && (
             <div
@@ -2821,14 +2821,14 @@ settime(Date.now())
 
           {user.role === 'admin' && (
             <div
-              onClick={openCarModal}
+              onClick={() => router.push("/cardetails")}
               className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer"
             >
               <div className="text-blue-600 mb-4">
                 <FaCarSide className="inline-block text-4xl" />
               </div>
               <h2 className="text-xl font-medium text-gray-800 mb-2">إدارة السيارات</h2>
-              <p className="text-sm text-gray-600">إضافة وحذف السيارات</p>
+              {/* <p className="text-sm text-gray-600">إضافة وحذف السيارات</p> */}
             </div>
           )}
         </div>
@@ -2917,26 +2917,26 @@ settime(Date.now())
                         />
                       </div>
                       <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">الشركة</label>
-                    <input
-                      type="text"
-                      value={newCarCompany}
-                      onChange={(e) => setNewCarCompany(e.target.value)}
-                      placeholder="مثال: هيونداي"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">الموديل</label>
-                    <input
-                      type="text"
-                      value={newCarModel}
-                      onChange={(e) => setNewCarModel(e.target.value)}
-                      placeholder="مثال: اكسنت"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-     
+                        <label className="block text-sm font-medium text-gray-700 mb-1">الشركة</label>
+                        <input
+                          type="text"
+                          value={newCarCompany}
+                          onChange={(e) => setNewCarCompany(e.target.value)}
+                          placeholder="مثال: هيونداي"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">الموديل</label>
+                        <input
+                          type="text"
+                          value={newCarModel}
+                          onChange={(e) => setNewCarModel(e.target.value)}
+                          placeholder="مثال: اكسنت"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
                     </div>
                     <div className="flex justify-end gap-3 mt-3">
                       <button
@@ -3174,71 +3174,71 @@ settime(Date.now())
               <div className="flex-1 overflow-y-auto">
                 <h3 className="text-lg font-medium text-gray-800 mb-2">تعديل موظف</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">الاسم</label>
-    <input
-      type="text"
-      value={selectedEmployee.Name}
-      onChange={(e) =>
-        setSelectedEmployee({ ...selectedEmployee, Name: e.target.value })
-      }
-      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">معرف الموظف</label>
-    <input
-      type="number"
-      value={selectedEmployee.EmID}
-      onChange={(e) =>
-        setSelectedEmployee({ ...selectedEmployee, EmID: parseInt(e.target.value) })
-      }
-      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
-  {user?.EmID === 1 && (
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">كلمة المرور</label>
-    <input
-      type="text"
-      value={selectedEmployee.password}
-      onChange={(e) =>
-        setSelectedEmployee({ ...selectedEmployee, password: e.target.value })
-      }
-      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
-)}
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">الدور</label>
-    <select
-      value={selectedEmployee.role}
-      onChange={(e) =>
-        setSelectedEmployee({ ...selectedEmployee, role: e.target.value })
-      }
-      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-    >
-      <option value="admin">مدير</option>
-      <option value="employee">موظف</option>
-    </select>
-  </div>
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">الفرع</label>
-    <select
-      value={selectedEmployee.branch}
-      onChange={(e) =>
-        setSelectedEmployee({ ...selectedEmployee, branch: e.target.value })
-      }
-      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-    >
-      {branches.map((branch) => (
-        <option key={branch.id} value={branch.Name}>
-          {branch.Name}
-        </option>
-      ))}
-    </select>
-  </div>
-</div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">الاسم</label>
+                    <input
+                      type="text"
+                      value={selectedEmployee.Name}
+                      onChange={(e) =>
+                        setSelectedEmployee({ ...selectedEmployee, Name: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">معرف الموظف</label>
+                    <input
+                      type="number"
+                      value={selectedEmployee.EmID}
+                      onChange={(e) =>
+                        setSelectedEmployee({ ...selectedEmployee, EmID: parseInt(e.target.value) })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  {user?.EmID === 1 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">كلمة المرور</label>
+                      <input
+                        type="text"
+                        value={selectedEmployee.password}
+                        onChange={(e) =>
+                          setSelectedEmployee({ ...selectedEmployee, password: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">الدور</label>
+                    <select
+                      value={selectedEmployee.role}
+                      onChange={(e) =>
+                        setSelectedEmployee({ ...selectedEmployee, role: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="admin">مدير</option>
+                      <option value="employee">موظف</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">الفرع</label>
+                    <select
+                      value={selectedEmployee.branch}
+                      onChange={(e) =>
+                        setSelectedEmployee({ ...selectedEmployee, branch: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {branches.map((branch) => (
+                        <option key={branch.id} value={branch.Name}>
+                          {branch.Name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <div className="flex justify-end gap-3 mt-3">
                   <button
                     onClick={() => setSelectedEmployee(null)}
@@ -3357,33 +3357,33 @@ settime(Date.now())
                           </tr>
                         </thead>
                         <tbody>
-  {employees
-    .filter((employee) => user?.EmID === 1 || employee.EmID !== 1)
-    .map((employee) => (
-      <tr key={employee.id}>
-        <td className="px-3 py-2 border-b text-right">{employee.Name}</td>
-        <td className="px-3 py-2 border-b text-right">{employee.EmID}</td>
-        <td className="px-3 py-2 border-b text-right">
-          {employee.role === 'admin' ? 'مدير' : 'موظف'}
-        </td>
-        <td className="px-3 py-2 border-b text-right">{employee.branch}</td>
-        <td className="px-3 py-2 border-b text-right">
-          <button
-            onClick={() => handleEditEmployee(employee)}
-            className="text-blue-600 hover:underline mx-1"
-          >
-            تعديل
-          </button>
-          <button
-            onClick={() => confirmDeleteEmployee(employee.id)}
-            className="text-red-600 hover:underline mx-1"
-          >
-            حذف
-          </button>
-        </td>
-      </tr>
-    ))}
-</tbody>
+                          {employees
+                            .filter((employee) => user?.EmID === 1 || employee.EmID !== 1)
+                            .map((employee) => (
+                              <tr key={employee.id}>
+                                <td className="px-3 py-2 border-b text-right">{employee.Name}</td>
+                                <td className="px-3 py-2 border-b text-right">{employee.EmID}</td>
+                                <td className="px-3 py-2 border-b text-right">
+                                  {employee.role === 'admin' ? 'مدير' : 'موظف'}
+                                </td>
+                                <td className="px-3 py-2 border-b text-right">{employee.branch}</td>
+                                <td className="px-3 py-2 border-b text-right">
+                                  <button
+                                    onClick={() => handleEditEmployee(employee)}
+                                    className="text-blue-600 hover:underline mx-1"
+                                  >
+                                    تعديل
+                                  </button>
+                                  <button
+                                    onClick={() => confirmDeleteEmployee(employee.id)}
+                                    className="text-red-600 hover:underline mx-1"
+                                  >
+                                    حذف
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
                       </table>
                     )}
                   </div>
@@ -3510,10 +3510,10 @@ settime(Date.now())
               {employeeToDelete
                 ? 'هذا الموظف'
                 : carToDelete
-                ? 'هذه السيارة'
-                : plateToDelete
-                ? 'هذه اللوحة'
-                : 'هذا الفرع'}؟
+                  ? 'هذه السيارة'
+                  : plateToDelete
+                    ? 'هذه اللوحة'
+                    : 'هذا الفرع'}؟
             </p>
             <div className="flex justify-end gap-4">
               <button
