@@ -1976,7 +1976,7 @@ export default function CheckInPage() {
       setUser(JSON.parse(storedUser));
     }
   }, []);
-  
+
   useEffect(() => {
     if (shouldRedirect && !showToast) {
       // Redirect only after the toast has finished displaying
@@ -2854,80 +2854,81 @@ export default function CheckInPage() {
       const timeoutId = setTimeout(() => controller.abort(), 120000);
   
       try {
-        const response = await fetch('/api/cheakin', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(airtableData),
-          signal: controller.signal,
-        });
-  
-        clearTimeout(timeoutId);
-  
-        if (result.success) {
-          setIsSuccess(true);
-          setShowToast(true);
-          setUploadMessage('تم بنجاح رفع التشييك');
-          toast.success('تم بنجاح رفع التشييك');
-          setFiles(
-            fieldTitles.map((title, index) => ({
-              id: `file-section-${sanitizeTitle(title, index)}`,
-              imageUrls: null,
-              title: title,
-              multiple: title === 'other_images',
-              previewUrls: [],
-              isUploading: false,
-              uploadProgress: 0,
-            }))
-          );
-          setSignatureFile({
-            id: `file-section-signature_url`,
-            imageUrls: null,
-            title: 'signature_url',
-            multiple: false,
-            previewUrls: [],
-            isUploading: false,
-            uploadProgress: 0,
-          });
-          setIsSignatureLocked(false);
-          setCar('');
-          setCarSearch('');
-          setPlate('');
-          setPlateSearch('');
-          setContract('');
-          setPreviousRecord(null);
-          setHasExitRecord(false);
-          setIsContractVerified(false);
-          setClientId('');
-          setClientName('');
-          setNewMeterReading('');
-          setMeterError('');
-          fileInputRefs.current.forEach((ref) => {
-            if (ref) ref.value = '';
-          });
-          sigCanvas.current?.clear();
-          // Instead of setTimeout with router.push, set shouldRedirect to true
-          setShouldRedirect(true);
-        
-        } else {
-          throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
-        }
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
-          setUploadMessage('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
-          toast.error('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
-        } else {
-          setUploadMessage(
-            `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}`
-          );
-          toast.error(
-            `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}`
-          );
-        }
-        setShowToast(true);
-      }
+  const response = await fetch('/api/cheakin', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(airtableData),
+    signal: controller.signal,
+  });
+
+  clearTimeout(timeoutId);
+
+  // Parse the response to get the result
+  const result = await response.json();
+
+  if (result.success) {
+    setIsSuccess(true);
+    setShowToast(true);
+    setUploadMessage('تم بنجاح رفع التشييك');
+    toast.success('تم بنجاح رفع التشييك');
+    setFiles(
+      fieldTitles.map((title, index) => ({
+        id: `file-section-${sanitizeTitle(title, index)}`,
+        imageUrls: null,
+        title: title,
+        multiple: title === 'other_images',
+        previewUrls: [],
+        isUploading: false,
+        uploadProgress: 0,
+      }))
+    );
+    setSignatureFile({
+      id: `file-section-signature_url`,
+      imageUrls: null,
+      title: 'signature_url',
+      multiple: false,
+      previewUrls: [],
+      isUploading: false,
+      uploadProgress: 0,
+    });
+    setIsSignatureLocked(false);
+    setCar('');
+    setCarSearch('');
+    setPlate('');
+    setPlateSearch('');
+    setContract('');
+    setPreviousRecord(null);
+    setHasExitRecord(false);
+    setIsContractVerified(false);
+    setClientId('');
+    setClientName('');
+    setNewMeterReading('');
+    setMeterError('');
+    fileInputRefs.current.forEach((ref) => {
+      if (ref) ref.value = '';
+    });
+    sigCanvas.current?.clear();
+    setShouldRedirect(true);
+  } else {
+    throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
+  }
+} catch (fetchError: any) {
+  clearTimeout(timeoutId);
+  if (fetchError.name === 'AbortError') {
+    setUploadMessage('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
+    toast.error('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
+  } else {
+    setUploadMessage(
+      `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}`
+    );
+    toast.error(
+      `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}`
+    );
+  }
+  setShowToast(true);
+}
     } catch (error: any) {
       setUploadMessage(error.message || 'حدث خطأ أثناء تجهيز البيانات للرفع.');
       setShowToast(true);
