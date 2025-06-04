@@ -2441,7 +2441,7 @@ export default function CheckInPage() {
         if (fileInputRefs.current[index]) {
           fileInputRefs.current[index]!.value = '';
         }
-        // toast.success('تم رفع الصورة بنجاح.');
+        // Remove toast.success('تم رفع الصورة بنجاح.');
       } catch (error: any) {
         let errorMessage = 'حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى.';
         if (error.message.includes('Rate limit')) {
@@ -2536,7 +2536,7 @@ export default function CheckInPage() {
         if (fileInputRefs.current[index]) {
           fileInputRefs.current[index]!.value = '';
         }
-        // toast.success('تم رفع الصور بنجاح.');
+        // Remove toast.success('تم رفع الصور بنجاح.');
       } catch (error: any) {
         let errorMessage = 'حدث خطأ أثناء رفع الصور. يرجى المحاولة مرة أخرى.';
         if (error.message.includes('Rate limit')) {
