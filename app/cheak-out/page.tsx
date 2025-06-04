@@ -61,7 +61,7 @@ interface FileSection {
 
 interface User {
   id: string;
-  name: string;
+  Name: string;
   EmID: number;
   role: string;
   branch: string;
