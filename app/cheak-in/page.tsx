@@ -2057,7 +2057,7 @@ export default function CheckInPage() {
       setShowToast(true);
       return;
     }
-
+  
     if (!/^\d+$/.test(contract.trim())) {
       setPreviousRecord(null);
       setHasExitRecord(false);
@@ -2066,16 +2066,17 @@ export default function CheckInPage() {
       setShowToast(true);
       return;
     }
-
+  
     setIsSearching(true);
     setUploadMessage('');
-
+  
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
-
+  
     try {
+      // Check for existing entry record
       const entryResponse = await fetch(
         `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=دخول`,
         {
@@ -2086,15 +2087,16 @@ export default function CheckInPage() {
           signal: abortControllerRef.current.signal,
         }
       );
-
+  
       if (!entryResponse.ok) {
         const errorData = await entryResponse.json().catch(() => ({}));
         throw new Error(errorData.message || `فشل في التحقق من سجل الدخول (حالة: ${entryResponse.status})`);
       }
-
-      const entryData: ApiResponse = await entryResponse.json();
-
-      if (entryData.results && entryData.results.length > 0) {
+  
+      const entryData = await entryResponse.json();
+  
+      // Handle entryData as an array
+      if (Array.isArray(entryData) && entryData.length > 0) {
         setPreviousRecord(null);
         setHasExitRecord(false);
         setIsContractVerified(true);
@@ -2106,7 +2108,8 @@ export default function CheckInPage() {
         setPlateSearch('');
         return;
       }
-
+  
+      // Check for exit record
       const exitResponse = await fetch(
         `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=خروج`,
         {
@@ -2117,16 +2120,17 @@ export default function CheckInPage() {
           signal: abortControllerRef.current.signal,
         }
       );
-
+  
       if (!exitResponse.ok) {
         const errorData = await exitResponse.json().catch(() => ({}));
         throw new Error(errorData.message || `فشل في التحقق من سجل الخروج (حالة: ${exitResponse.status})`);
       }
-
-      const exitData: ApiResponse = await exitResponse.json();
-
-      if (exitData.results && exitData.results.length > 0) {
-        const exitRecord = exitData.results[0];
+  
+      const exitData = await exitResponse.json();
+  
+      // Handle exitData as an array
+      if (Array.isArray(exitData) && exitData.length > 0) {
+        const exitRecord = exitData[0];
         setPreviousRecord(exitRecord);
         setHasExitRecord(true);
         setClientId(exitRecord.client_id);
@@ -2147,7 +2151,7 @@ export default function CheckInPage() {
         setPlate('');
         setPlateSearch('');
       }
-
+  
       setIsContractVerified(true);
     } catch (err: any) {
       if (err.name === 'AbortError') {
