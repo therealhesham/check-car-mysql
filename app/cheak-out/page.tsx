@@ -160,6 +160,8 @@ export default function UploadPage() {
   const [client_name, setClientName] = useState<string>('');
   const router = useRouter();
   const [isSignatureLocked, setIsSignatureLocked] = useState<boolean>(false);
+  const [clientIdError, setClientIdError] = useState<string>('');
+const [clientNameError, setClientNameError] = useState<string>('');
 
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const carInputRef = useRef<HTMLDivElement>(null);
@@ -286,6 +288,15 @@ export default function UploadPage() {
 
     fetchPlates();
   }, []);
+
+  const restrictToLettersAndSpaces = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const char = e.key;
+    const isLetterOrSpace = /^[a-zA-Z\u0600-\u06FF\s]$/.test(char);
+    const isBackspace = e.key === 'Backspace';
+    if (!isLetterOrSpace && !isBackspace) {
+      e.preventDefault();
+    }
+  };
 
   const restrictToNumbers = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const charCode = e.charCode;
@@ -838,6 +849,13 @@ getCar(selectedPlate)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (clientIdError) {
+      setUploadMessage('يرجى تصحيح رقم الهوية. يجب أن يكون 10 أرقام بالضبط.');
+      setShowToast(true);
+      return;
+    }
+    
     if (!contract.trim() || !plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
       setShowToast(true);
@@ -1163,35 +1181,59 @@ getCar(selectedPlate)
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                    اسم العميل *
-                  </label>
-                  <input
-                    type="text"
-                    value={client_name}
-                    onChange={(e) => setClientName(e.target.value)}
-                    className={`w-full px-3 py-2 border ${
-                      hasExitRecord ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
-                    placeholder="أدخل اسم العميل"
-                    required
-                  />
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 mt-2">
-                    رقم الهوية *
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={client_id}
-                    onChange={(e) => setClientId(e.target.value)}
-                    onKeyPress={restrictToNumbers}
-                    className={`w-full px-3 py-2 border ${
-                      hasExitRecord ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
-                    placeholder="أدخل رقم الهوية"
-                    required
-                  />
-                </div>
+  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+    اسم العميل *
+  </label>
+  <input
+    type="text"
+    value={client_name}
+    onChange={(e) => {
+      const value = e.target.value;
+      const isValid = /^[a-zA-Z\u0600-\u06FF\s]*$/.test(value);
+      setClientName(value);
+      if (!isValid && value.length > 0) {
+        setClientNameError('اسم العميل يجب أن يحتوي على حروف ومسافات فقط.');
+      } else {
+        setClientNameError('');
+      }
+    }}
+    onKeyPress={restrictToLettersAndSpaces}
+    className={`w-full px-3 py-2 border ${
+      hasExitRecord || clientNameError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+    placeholder="أدخل اسم العميل"
+    required
+  />
+  {clientNameError && (
+    <p className="text-red-500 text-xs mt-1">{clientNameError}</p>
+  )}
+  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 mt-2">
+    رقم الهوية *
+  </label>
+  <input
+    type="text"
+    inputMode="numeric"
+    value={client_id}
+    onChange={(e) => {
+      const value = e.target.value;
+      setClientId(value);
+      if (value.length !== 10 && value.length > 0) {
+        setClientIdError('رقم الهوية يجب أن يكون 10 أرقام بالضبط.');
+      } else {
+        setClientIdError('');
+      }
+    }}
+    onKeyPress={restrictToNumbers}
+    className={`w-full px-3 py-2 border ${
+      hasExitRecord || clientIdError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+    placeholder="أدخل رقم الهوية"
+    required
+  />
+  {clientIdError && (
+    <p className="text-red-500 text-xs mt-1">{clientIdError}</p>
+  )}
+</div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     نوع العملية
