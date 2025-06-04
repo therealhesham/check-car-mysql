@@ -481,8 +481,8 @@ export default function CarsPage() {
               <h2 className="text-xl font-semibold text-gray-800">
                 {carNameMapping[`${car.manufacturer} ${car.model}`] || `${car.manufacturer} ${car.model}`}
               </h2>
-              <p className="text-gray-600">Plate: {car.plate || 'N/A'}</p>
-              <p className="text-gray-600">Year: {car.manufacturing_year || 'N/A'}</p>
+              <p className="text-gray-600">اللوحة: {car.plate || 'N/A'}</p>
+              <p className="text-gray-600">سنة التصنيع: {car.manufacturing_year || 'N/A'}</p>
               <div className="mt-4 flex space-x-3">
                 <button
                   onClick={() => handleEdit(car)}
