@@ -161,7 +161,7 @@ export default function UploadPage() {
   const router = useRouter();
   const [isSignatureLocked, setIsSignatureLocked] = useState<boolean>(false);
   const [clientIdError, setClientIdError] = useState<string>('');
-const [clientNameError, setClientNameError] = useState<string>('');
+  const [clientNameError, setClientNameError] = useState<string>('');
 
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const carInputRef = useRef<HTMLDivElement>(null);
@@ -477,7 +477,7 @@ const [clientNameError, setClientNameError] = useState<string>('');
   const compressImage = async (file: File): Promise<File> => {
     const options = {
       maxSizeMB: 4,
-      maxWidthOrHeight: 1920,
+      maxWidthOrHeight: 820,
       useWebWorker: true,
     };
 
@@ -486,6 +486,7 @@ const [clientNameError, setClientNameError] = useState<string>('');
       const modifiedFile = await addDateTimeToImage(compressedFile);
       return modifiedFile;
     } catch (error) {
+      console.log(error)
       throw new Error('فشل في معالجة الصورة: ' + error.message);
     }
   };
@@ -501,11 +502,11 @@ const [clientNameError, setClientNameError] = useState<string>('');
       ContentType: 'image/jpeg',
       ACL: 'public-read',
     };
-
     try {
       if (!file.type.startsWith('image/')) {
         throw new Error('الملف ليس صورة صالحة. يرجى رفع ملف بصيغة JPEG أو PNG.');
       }
+
       if (file.size > 32 * 1024 * 1024) {
         throw new Error('حجم الصورة كبير جدًا (الحد الأقصى 32 ميغابايت).');
       }
@@ -513,6 +514,7 @@ const [clientNameError, setClientNameError] = useState<string>('');
       const uploadResult = await s3.upload(params).promise();
       return uploadResult.Location;
     } catch (error: any) {
+      console.log(error)
       throw error;
     }
   };
@@ -527,12 +529,12 @@ const [clientNameError, setClientNameError] = useState<string>('');
       prevFiles.map((fileSection) =>
         fileSection.id === id
           ? {
-              ...fileSection,
-              previewUrls: [localPreviewUrl],
-              imageUrls: null,
-              isUploading: true,
-              uploadProgress: 0,
-            }
+            ...fileSection,
+            previewUrls: [localPreviewUrl],
+            imageUrls: null,
+            isUploading: true,
+            uploadProgress: 0,
+          }
           : fileSection
       )
     );
@@ -559,12 +561,12 @@ const [clientNameError, setClientNameError] = useState<string>('');
           prevFiles.map((fileSection) =>
             fileSection.id === id
               ? {
-                  ...fileSection,
-                  imageUrls: imageUrl,
-                  previewUrls: [imageUrl],
-                  isUploading: false,
-                  uploadProgress: 100,
-                }
+                ...fileSection,
+                imageUrls: imageUrl,
+                previewUrls: [imageUrl],
+                isUploading: false,
+                uploadProgress: 100,
+              }
               : fileSection
           )
         );
@@ -586,12 +588,12 @@ const [clientNameError, setClientNameError] = useState<string>('');
           prevFiles.map((fileSection) =>
             fileSection.id === id
               ? {
-                  ...fileSection,
-                  imageUrls: null,
-                  previewUrls: [],
-                  isUploading: false,
-                  uploadProgress: 0,
-                }
+                ...fileSection,
+                imageUrls: null,
+                previewUrls: [],
+                isUploading: false,
+                uploadProgress: 0,
+              }
               : fileSection
           )
         );
@@ -614,11 +616,11 @@ const [clientNameError, setClientNameError] = useState<string>('');
       prevFiles.map((fileSection) =>
         fileSection.id === id
           ? {
-              ...fileSection,
-              previewUrls: [...fileSection.previewUrls, ...localPreviewUrls],
-              isUploading: true,
-              uploadProgress: 0,
-            }
+            ...fileSection,
+            previewUrls: [...fileSection.previewUrls, ...localPreviewUrls],
+            isUploading: true,
+            uploadProgress: 0,
+          }
           : fileSection
       )
     );
@@ -646,18 +648,18 @@ const [clientNameError, setClientNameError] = useState<string>('');
           prevFiles.map((fileSection) =>
             fileSection.id === id
               ? {
-                  ...fileSection,
-                  imageUrls: [
-                    ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
-                    ...imageUrls,
-                  ],
-                  previewUrls: [
-                    ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
-                    ...imageUrls,
-                  ],
-                  isUploading: false,
-                  uploadProgress: 100,
-                }
+                ...fileSection,
+                imageUrls: [
+                  ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+                  ...imageUrls,
+                ],
+                previewUrls: [
+                  ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+                  ...imageUrls,
+                ],
+                isUploading: false,
+                uploadProgress: 100,
+              }
               : fileSection
           )
         );
@@ -680,10 +682,10 @@ const [clientNameError, setClientNameError] = useState<string>('');
           prevFiles.map((fileSection) =>
             fileSection.id === id
               ? {
-                  ...fileSection,
-                  isUploading: false,
-                  uploadProgress: 0,
-                }
+                ...fileSection,
+                isUploading: false,
+                uploadProgress: 0,
+              }
               : fileSection
           )
         );
@@ -778,17 +780,20 @@ const [clientNameError, setClientNameError] = useState<string>('');
     setCarSearch(selectedCar);
     setShowCarList(false);
   };
-const getCar = async(plate)=>{
-  // alert(plate)
-const getCarType = await fetch('/api/getlicense', { method: 'post' ,headers: {
-  'Content-Type': 'application/json'},body: JSON.stringify({plate:plate})});
-const data = await getCarType.json();
-setCarSearch(data.result.fields)
-setCar(data.result.fields);
-}
-// alert(car)
+  const getCar = async (plate) => {
+    // alert(plate)
+    const getCarType = await fetch('/api/getlicense', {
+      method: 'post', headers: {
+        'Content-Type': 'application/json'
+      }, body: JSON.stringify({ plate: plate })
+    });
+    const data = await getCarType.json();
+    setCarSearch(data.result.fields)
+    setCar(data.result.fields);
+  }
+  // alert(car)
   const handlePlateSelect = (selectedPlate: string) => {
-getCar(selectedPlate)
+    getCar(selectedPlate)
     setPlate(selectedPlate);
     setPlateSearch(selectedPlate);
     setShowPlateList(false);
@@ -796,24 +801,24 @@ getCar(selectedPlate)
   const handleSaveSignature = async () => {
     try {
       if (!signatureCanvasRef.current) return;
-  
+
       if (signatureCanvasRef.current.isEmpty()) {
         setUploadMessage('يرجى رسم التوقيع قبل الحفظ.');
         setShowToast(true);
         return;
       }
-  
+
       // الحصول على الـ canvas بعد القطع
       const rawCanvas = signatureCanvasRef.current.getCanvas();
       const trimmedCanvas = trimCanvas(rawCanvas);
-  
+
       // تحويل canvas إلى Blob
       const dataUrl = trimmedCanvas.toDataURL('image/png');
       const response = await fetch(dataUrl);
       const blob = await response.blob();
-  
+
       const signatureFile = new File([blob], `${uuidv4()}.png`, { type: 'image/png' });
-  
+
       // ضغط الصورة
       const options = {
         maxSizeMB: 4,
@@ -822,10 +827,10 @@ getCar(selectedPlate)
       };
       const compressedSignature = await imageCompression(signatureFile, options);
       const modifiedFile = await addDateTimeToImage(compressedSignature);
-  
+
       // رفع التوقيع إلى الخادم
       const uploadedSignatureUrl = await uploadImageToBackend(modifiedFile);
-  
+
       // تحديث الحالة
       setSignatureUrl(uploadedSignatureUrl);
       setIsSignatureLocked(true);
@@ -837,7 +842,7 @@ getCar(selectedPlate)
       setShowToast(true);
     }
   };
-  
+
   const handleClearSignature = () => {
     if (signatureCanvasRef.current) {
       signatureCanvasRef.current.clear();
@@ -855,38 +860,38 @@ getCar(selectedPlate)
       setShowToast(true);
       return;
     }
-    
+
     if (!contract.trim() || !plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
       setShowToast(true);
       return;
     }
-  
+
     if (!/^\d+$/.test(contract.trim())) {
       setUploadMessage('رقم العقد يجب أن يحتوي على أرقام فقط.');
       setShowToast(true);
       return;
     }
-  
+
     const contractNum = parseFloat(contract);
     if (isNaN(contractNum)) {
       setUploadMessage('رقم العقد يجب أن يكون رقمًا صالحًا.');
       setShowToast(true);
       return;
     }
-  
+
     if (hasExitRecord) {
       setUploadMessage('لا يمكن إضافة هذا التشييك لأنه تم تسجيل خروج لهذه السيارة لهذا العقد.');
       setShowToast(true);
       return;
     }
-  
+
     if (!signatureUrl) {
       setUploadMessage('يرجى حفظ التوقيع قبل إرسال البيانات.');
       setShowToast(true);
       return;
     }
-  
+
     const requiredImages = files.filter((fileSection) => fileSection.title !== 'other_images');
     const hasAnyRequiredImage = requiredImages.some((fileSection) => {
       if (fileSection.imageUrls === null) return false;
@@ -898,7 +903,7 @@ getCar(selectedPlate)
       setShowToast(true);
       return;
     }
-  
+
     const missingImages = requiredImages.filter((fileSection) => {
       if (fileSection.imageUrls === null) return true;
       if (Array.isArray(fileSection.imageUrls)) return fileSection.imageUrls.length === 0;
@@ -913,29 +918,29 @@ getCar(selectedPlate)
       setShowToast(true);
       return;
     }
-  
+
     const isAnyUploading = files.some((fileSection) => fileSection.isUploading);
     if (isAnyUploading) {
       setUploadMessage('يرجى الانتظار حتى يكتمل رفع جميع الصور.');
       setShowToast(true);
       return;
     }
-  
+
     if (!user || !user.Name || !user.branch) {
       setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       setShowToast(true);
       return;
     }
-  
+
     setIsUploading(true);
     setUploadProgress(10);
     setIsSuccess(false);
-  
+
     try {
       const airtableData = {
         fields: {} as Record<string, string | string[]>,
       };
-  
+
       airtableData.fields['السيارة'] = car;
       airtableData.fields['اللوحة'] = plate;
       airtableData.fields['العقد'] = contractNum.toString();
@@ -946,18 +951,18 @@ getCar(selectedPlate)
       airtableData.fields['meter_reading'] = meter_reading;
       airtableData.fields['client_name'] = client_name;
       airtableData.fields['signature_url'] = signatureUrl;
-  
+
       files.forEach((fileSection) => {
         if (fileSection.imageUrls) {
           airtableData.fields[fileSection.title] = fileSection.imageUrls;
         }
       });
-  
+
       setUploadProgress(30);
-  
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000);
-  
+
       try {
         const response = await fetch('/api/cheakout', {
           method: 'POST',
@@ -967,12 +972,12 @@ getCar(selectedPlate)
           body: JSON.stringify(airtableData),
           signal: controller.signal,
         });
-  
+
         clearTimeout(timeoutId);
         setUploadProgress(90);
-  
+
         const result = await response.json();
-  
+
         if (result.success) {
           setUploadProgress(100);
           setIsSuccess(true);
@@ -1049,7 +1054,7 @@ getCar(selectedPlate)
             </p>
             <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-              
+
                 <div ref={plateInputRef} className="relative">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     اللوحة *
@@ -1063,12 +1068,12 @@ getCar(selectedPlate)
                       type="text"
                       value={plateSearch}
                       onChange={(e) => {
-                        
+
                         setPlateSearch(e.target.value);
                         setShowPlateList(true);
 
                       }}
-                
+
                       onKeyDown={(e) => {
                         if (e.key === 'Backspace' || e.key === 'Delete') {
                           setPlateSearch('');
@@ -1113,17 +1118,17 @@ getCar(selectedPlate)
                   ) : (
                     <input
                       type="text"
-                      value={plateSearch?carSearch:""}
+                      value={plateSearch ? carSearch : ""}
                       // onChange={(e) => {
                       //   setCarSearch(e.target.value);
                       // color='gray'
-                      style={{backgroundColor: 'lightgray'}}
+                      style={{ backgroundColor: 'lightgray' }}
                       //   setShowCarList(true);
                       // }}
                       onFocus={() => setShowCarList(true)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                       // placeholder="اختر اللو"
-                 readOnly
+                      readOnly
                       required
                     />
                   )}
@@ -1156,9 +1161,8 @@ getCar(selectedPlate)
                     value={contract}
                     onChange={(e) => setContract(e.target.value)}
                     onKeyPress={restrictToNumbers}
-                    className={`w-full px-3 py-2 border ${
-                      hasExitRecord ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    className={`w-full px-3 py-2 border ${hasExitRecord ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                      } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                     placeholder="أدخل رقم العقد"
                     required
                   />
@@ -1173,67 +1177,64 @@ getCar(selectedPlate)
                     value={meter_reading}
                     onChange={(e) => setMeterReading(e.target.value)}
                     onKeyPress={restrictToNumbers}
-                    className={`w-full px-3 py-2 border ${
-                      hasExitRecord ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    className={`w-full px-3 py-2 border ${hasExitRecord ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                      } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                     placeholder="أدخل رقم قراءة العداد"
                     required
                   />
                 </div>
                 <div>
-  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-    اسم العميل *
-  </label>
-  <input
-    type="text"
-    value={client_name}
-    onChange={(e) => {
-      const value = e.target.value;
-      const isValid = /^[a-zA-Z\u0600-\u06FF\s]*$/.test(value);
-      setClientName(value);
-      if (!isValid && value.length > 0) {
-        setClientNameError('اسم العميل يجب أن يحتوي على حروف ومسافات فقط.');
-      } else {
-        setClientNameError('');
-      }
-    }}
-    onKeyPress={restrictToLettersAndSpaces}
-    className={`w-full px-3 py-2 border ${
-      hasExitRecord || clientNameError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
-    placeholder="أدخل اسم العميل"
-    required
-  />
-  {clientNameError && (
-    <p className="text-red-500 text-xs mt-1">{clientNameError}</p>
-  )}
-  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 mt-2">
-    رقم الهوية *
-  </label>
-  <input
-    type="text"
-    inputMode="numeric"
-    value={client_id}
-    onChange={(e) => {
-      const value = e.target.value;
-      setClientId(value);
-      if (value.length !== 10 && value.length > 0) {
-        setClientIdError('رقم الهوية يجب أن يكون 10 أرقام بالضبط.');
-      } else {
-        setClientIdError('');
-      }
-    }}
-    onKeyPress={restrictToNumbers}
-    className={`w-full px-3 py-2 border ${
-      hasExitRecord || clientIdError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
-    placeholder="أدخل رقم الهوية"
-    required
-  />
-  {clientIdError && (
-    <p className="text-red-500 text-xs mt-1">{clientIdError}</p>
-  )}
-</div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                    اسم العميل *
+                  </label>
+                  <input
+                    type="text"
+                    value={client_name}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const isValid = /^[a-zA-Z\u0600-\u06FF\s]*$/.test(value);
+                      setClientName(value);
+                      if (!isValid && value.length > 0) {
+                        setClientNameError('اسم العميل يجب أن يحتوي على حروف ومسافات فقط.');
+                      } else {
+                        setClientNameError('');
+                      }
+                    }}
+                    onKeyPress={restrictToLettersAndSpaces}
+                    className={`w-full px-3 py-2 border ${hasExitRecord || clientNameError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                      } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    placeholder="أدخل اسم العميل"
+                    required
+                  />
+                  {clientNameError && (
+                    <p className="text-red-500 text-xs mt-1">{clientNameError}</p>
+                  )}
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 mt-2">
+                    رقم الهوية *
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={client_id}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setClientId(value);
+                      if (value.length !== 10 && value.length > 0) {
+                        setClientIdError('رقم الهوية يجب أن يكون 10 أرقام بالضبط.');
+                      } else {
+                        setClientIdError('');
+                      }
+                    }}
+                    onKeyPress={restrictToNumbers}
+                    className={`w-full px-3 py-2 border ${hasExitRecord || clientIdError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                      } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    placeholder="أدخل رقم الهوية"
+                    required
+                  />
+                  {clientIdError && (
+                    <p className="text-red-500 text-xs mt-1">{clientIdError}</p>
+                  )}
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     نوع العملية
@@ -1244,7 +1245,7 @@ getCar(selectedPlate)
                 </div>
               </div>
 
-          
+
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
                 {files.map((fileSection, index) => (
                   <div key={fileSection.id} className="mb-3">
@@ -1255,9 +1256,8 @@ getCar(selectedPlate)
                     </div>
                     {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
                       <div
-                        className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-md p-2 ${
-                          fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
-                        }`}
+                        className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-md p-2 ${fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
+                          }`}
                       >
                         {fileSection.multiple ? (
                           <div className="grid grid-cols-2 gap-2">
@@ -1368,18 +1368,18 @@ getCar(selectedPlate)
                   التوقيع *
                 </label>
                 <div className="border-2 border-gray-300 dark:border-gray-600 rounded-md p-2">
-                  
+
                   <SignaturePad
                     ref={signatureCanvasRef}
                     penColor={isDarkMode ? 'white' : 'black'}
                     canvasProps={{
-                      className: `w-full h-32 bg-white dark:bg-gray-700 rounded ${
-                        isSignatureLocked ? 'pointer-events-none opacity-50' : ''
-                      }`,
-                      
+                      className: `w-full h-32 bg-white dark:bg-gray-700 rounded ${isSignatureLocked ? 'pointer-events-none opacity-50' : ''
+                        }`,
+
                     }}
-                    
-                    onEnd={() => {setIsSignatureEmpty(signatureCanvasRef.current?.isEmpty() || false)
+
+                    onEnd={() => {
+                      setIsSignatureEmpty(signatureCanvasRef.current?.isEmpty() || false)
                       // handleSaveSignature()
                     }
 
@@ -1390,7 +1390,7 @@ getCar(selectedPlate)
                       type="button"
                       onClick={handleClearSignature}
                       className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
-                      
+
                     >
                       مسح التوقيع
                     </button>
@@ -1419,9 +1419,8 @@ getCar(selectedPlate)
                 <button
                   type="submit"
                   disabled={isUploading || hasExitRecord || isLoadingCars || isLoadingPlates}
-                  className={`w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none text-lg font-medium ${
-                    isUploading || hasExitRecord || isLoadingCars || isLoadingPlates ? 'bg-gray-400' : ''
-                  }`}
+                  className={`w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none text-lg font-medium ${isUploading || hasExitRecord || isLoadingCars || isLoadingPlates ? 'bg-gray-400' : ''
+                    }`}
                 >
                   {isUploading ? 'جاري الرفع...' : 'رفع البيانات'}
                 </button>
@@ -1450,9 +1449,8 @@ getCar(selectedPlate)
 
         {showToast && (
           <div
-            className={`fixed top-5 right-5 px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in-out ${
-              uploadMessage.includes('بنجاح') ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-            }`}
+            className={`fixed top-5 right-5 px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in-out ${uploadMessage.includes('بنجاح') ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+              }`}
           >
             {uploadMessage}
           </div>
