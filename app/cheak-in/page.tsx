@@ -2902,7 +2902,7 @@ export default function CheckInPage() {
           sigCanvas.current?.clear();
           setTimeout(() => {
             router.push('/');
-          }, 2000);
+          }, 3000); // Increased delay to match toast duration
         } else {
           throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
         }
