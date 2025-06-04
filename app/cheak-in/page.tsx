@@ -2108,35 +2108,14 @@ export default function CheckInPage() {
         setPlateSearch('');
         return;
       }
-  
-      // Check for exit record
-      const exitResponse = await fetch(
-        `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=خروج`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          signal: abortControllerRef.current.signal,
-        }
-      );
-  
-      if (!exitResponse.ok) {
-        const errorData = await exitResponse.json().catch(() => ({}));
-        throw new Error(errorData.message || `فشل في التحقق من سجل الخروج (حالة: ${exitResponse.status})`);
-      }
-  
-      const exitData = await exitResponse.json();
-  
-      // Handle exitData as an array
+      
       if (Array.isArray(exitData) && exitData.length > 0) {
         const exitRecord = exitData[0];
         setPreviousRecord(exitRecord);
         setHasExitRecord(true);
         setClientId(exitRecord.client_id);
         setClientName(exitRecord.client_name);
-        setUploadMessage('تم العثور على سجل خروج سابق.');
-        setShowToast(true);
+        // Remove toast for success case
         setCar(exitRecord.car_model);
         setCarSearch(exitRecord.car_model);
         setPlate(exitRecord.plate_number);
@@ -2462,7 +2441,7 @@ export default function CheckInPage() {
         if (fileInputRefs.current[index]) {
           fileInputRefs.current[index]!.value = '';
         }
-        toast.success('تم رفع الصورة بنجاح.');
+        // toast.success('تم رفع الصورة بنجاح.');
       } catch (error: any) {
         let errorMessage = 'حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى.';
         if (error.message.includes('Rate limit')) {
@@ -2557,7 +2536,7 @@ export default function CheckInPage() {
         if (fileInputRefs.current[index]) {
           fileInputRefs.current[index]!.value = '';
         }
-        toast.success('تم رفع الصور بنجاح.');
+        // toast.success('تم رفع الصور بنجاح.');
       } catch (error: any) {
         let errorMessage = 'حدث خطأ أثناء رفع الصور. يرجى المحاولة مرة أخرى.';
         if (error.message.includes('Rate limit')) {
@@ -3565,20 +3544,20 @@ export default function CheckInPage() {
                                          </div>
                                        )}
                              
-                                       {showToast && (
-                                         <div
-                                           className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-md shadow-lg text-white flex items-center z-50 ${
-                                             isSuccess ? 'bg-green-600' : 'bg-red-600'
-                                           }`}
-                                         >
-                                           {isSuccess ? (
-                                             <FaCheckCircle className="mr-2 h-5 w-5" />
-                                           ) : (
-                                             <FaExclamationTriangle className="mr-2 h-5 w-5" />
-                                           )}
-                                           <span>{uploadMessage}</span>
-                                         </div>
-                                       )}
+                             {showToast && (
+  <div
+    className={`fixed top-5 right-5 px-4 py-2 rounded-md shadow-lg text-white flex items-center z-50 ${
+      isSuccess ? 'bg-green-600' : 'bg-red-600'
+    }`}
+  >
+    {isSuccess ? (
+      <FaCheckCircle className="mr-2 h-5 w-5" />
+    ) : (
+      <FaExclamationTriangle className="mr-2 h-5 w-5" />
+    )}
+    <span>{uploadMessage}</span>
+  </div>
+)}
                                      </div>
                                    </div>
                                  </div>
