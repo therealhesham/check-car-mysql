@@ -903,7 +903,7 @@ getCar(selectedPlate)
       return;
     }
   
-    if (!user || !user.name || !user.branch) {
+    if (!user || !user.Name || !user.branch) {
       setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       setShowToast(true);
       return;
@@ -922,7 +922,7 @@ getCar(selectedPlate)
       airtableData.fields['اللوحة'] = plate;
       airtableData.fields['العقد'] = contractNum.toString();
       airtableData.fields['نوع العملية'] = operationType;
-      airtableData.fields['الموظف'] = user.name;
+      airtableData.fields['الموظف'] = user.Name;
       airtableData.fields['الفرع'] = user.branch;
       airtableData.fields['client_id'] = client_id;
       airtableData.fields['meter_reading'] = meter_reading;
