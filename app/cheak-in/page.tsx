@@ -1960,6 +1960,7 @@ export default function CheckInPage() {
   const [isSignatureLocked, setIsSignatureLocked] = useState<boolean>(false);
   const [meterError, setMeterError] = useState<string>('');
   const router = useRouter();
+  const [shouldRedirect, setShouldRedirect] = useState<boolean>(false);
 
   const sigCanvas = useRef<SignaturePad>(null);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -1975,6 +1976,13 @@ export default function CheckInPage() {
       setUser(JSON.parse(storedUser));
     }
   }, []);
+  
+  useEffect(() => {
+    if (shouldRedirect && !showToast) {
+      // Redirect only after the toast has finished displaying
+      router.push('/');
+    }
+  }, [shouldRedirect, showToast, router]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -2857,7 +2865,6 @@ export default function CheckInPage() {
   
         clearTimeout(timeoutId);
   
-        const result = await response.json();
         if (result.success) {
           setIsSuccess(true);
           setShowToast(true);
@@ -2900,9 +2907,9 @@ export default function CheckInPage() {
             if (ref) ref.value = '';
           });
           sigCanvas.current?.clear();
-          setTimeout(() => {
-            router.push('/');
-          }, 3000); // Increased delay to match toast duration
+          // Instead of setTimeout with router.push, set shouldRedirect to true
+          setShouldRedirect(true);
+        
         } else {
           throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
         }
