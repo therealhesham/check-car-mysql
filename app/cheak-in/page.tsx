@@ -3270,13 +3270,18 @@ export default function CheckInPage() {
                                 </button>
                               </div>
                             )}
-                            {fileSection.isUploading && fileSection.uploadProgress < 100 && (
-                              <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-6">
-                              <div
-                                className="bg-blue-600 h-6 rounded-full transition-all duration-300 ease-in-out"
-                                style={{ width: `${fileSection.uploadProgress}%` }}
-                              ></div>
-                              </div>
+                            {signatureFile.isUploading && signatureFile.uploadProgress < 100 && (
+  <div className="mt-2 w-full">
+    <div className="relative w-full bg-gray-200 dark:bg-gray-600 rounded-full h-4 overflow-hidden">
+      <div
+        className="absolute top-0 left-0 h-full bg-blue-600 rounded-full transition-all duration-300 ease-in-out"
+        style={{ width: `${signatureFile.uploadProgress}%` }}
+      ></div>
+    </div>
+    <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
+      {signatureFile.uploadProgress}%
+    </span>
+  </div>
                                                          )}
                                                          <input
                                                            id={`file-input-${fileSection.id}`}
