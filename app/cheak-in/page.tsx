@@ -2294,6 +2294,17 @@ export default function CheckInPage() {
     }
   };
 
+  const throttle = (func: (...args: any[]) => void, limit: number) => {
+    let inThrottle: boolean;
+    return (...args: any[]) => {
+      if (!inThrottle) {
+        func(...args);
+        inThrottle = true;
+        setTimeout(() => (inThrottle = false), limit);
+      }
+    };
+  };
+  
   const uploadImageToBackend = async (
     file: File,
     fileSectionId: string,
@@ -2301,7 +2312,7 @@ export default function CheckInPage() {
   ): Promise<string> => {
     const fileName = `${uuidv4()}.jpg`;
     const buffer = Buffer.from(await file.arrayBuffer());
-
+  
     const params = {
       Bucket: DO_SPACE_NAME,
       Key: fileName,
@@ -2309,7 +2320,7 @@ export default function CheckInPage() {
       ContentType: 'image/jpeg',
       ACL: 'public-read',
     };
-
+  
     try {
       if (!file.type.startsWith('image/')) {
         throw new Error('الملف ليس صورة صالحة. يرجى رفع ملف بصيغة JPEG أو PNG.');
@@ -2317,14 +2328,18 @@ export default function CheckInPage() {
       if (file.size > 32 * 1024 * 1024) {
         throw new Error('حجم الصورة كبير جدًا (الحد الأقصى 32 ميغابايت).');
       }
-
+  
       const upload = s3.upload(params);
-
+  
+      const throttledOnProgress = throttle((percentage: number) => {
+        onProgress(percentage);
+      }, 100);
+  
       upload.on('httpUploadProgress', (progress) => {
         const percentage = Math.round((progress.loaded / progress.total) * 100);
-        onProgress(percentage);
+        throttledOnProgress(percentage);
       });
-
+  
       const result = await upload.promise();
       return result.Location;
     } catch (error: any) {
