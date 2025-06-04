@@ -3175,7 +3175,6 @@ export default function CheckInPage() {
                     <div className="grid grid-cols-1 gap-3">
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                          الصورة الجديدة:
                         </div>
                         {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
                           <div
@@ -3301,7 +3300,7 @@ export default function CheckInPage() {
                                                    </div>
                                                    <div className="min-w-0">
                                                      <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                                                       الصورة القديمة (تشييك الخروج):
+                                                       (تشييك الخروج):
                                                      </div>
                                                      {previousRecord && previousRecord[fileSection.title] ? (
                                                        <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 bg-gray-50 dark:bg-gray-700">
