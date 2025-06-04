@@ -104,7 +104,7 @@ export default function CarsPage() {
 
       <div className="container mx-auto max-w-7xl">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-extrabold text-gray-800">ادارة سيارات</h1>
+          <h1 className="text-4xl font-extrabold text-gray-800">ادارة السيارات</h1>
           <div className="flex items-center space-x-4">
             <input
               type="text"
@@ -132,11 +132,11 @@ export default function CarsPage() {
               <h2 className="text-xl font-semibold text-gray-800">
                 {car.manufacturer} {car.model}
               </h2>
-              <p className="text-gray-600">Owner: {car.owner_name || 'N/A'}</p>
-              <p className="text-gray-600">Plate: {car.plate || 'N/A'}</p>
-              <p className="text-gray-600">Year: {car.manufacturing_year || 'N/A'}</p>
-              <p className="text-gray-600">Color: {car.color || 'N/A'}</p>
-              <p className="text-gray-600">Premium: {car.premium ? `${car.premium.toFixed(2)} SAR ` : 'N/A'}</p>
+              {/* <p className="text-gray-600">Owner: {car.owner_name || 'N/A'}</p> */}
+              <p className="text-gray-600">رقم اللوحة : {car.plate || 'N/A'}</p>
+              <p className="text-gray-600">سنة الصنع: {car.manufacturing_year || 'N/A'}</p>
+              <p className="text-gray-600">اللون: {car.color || 'N/A'}</p>
+              {/* <p className="text-gray-600">Premium: {car.premium ? `${car.premium.toFixed(2)} SAR ` : 'N/A'}</p> */}
               <div className="mt-4 flex space-x-3">
                 <button
                   onClick={() => handleEdit(car)}
@@ -273,7 +273,7 @@ export default function CarsPage() {
                       placeholder="اللون"
                     />
                   </div>
-                  <div>
+                  {/* <div>
                     <label className="block text-sm font-medium text-gray-700">Sum Insured</label>
                     <input
                       type="number"
@@ -283,9 +283,9 @@ export default function CarsPage() {
                       className="mt-1 p-3 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                       placeholder="Enter sum insured"
                     />
-                  </div>
+                  </div> */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Premium</label>
+                    {/* <label className="block text-sm font-medium text-gray-700">Premium</label>
                     <input
                       type="number"
                       name="premium"
@@ -293,7 +293,7 @@ export default function CarsPage() {
                       onChange={handleInputChange}
                       className="mt-1 p-3 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                       placeholder="Enter premium"
-                    />
+                    /> */}
                   </div>
                 </div>
                 <div className="mt-6 flex justify-end space-x-3">
