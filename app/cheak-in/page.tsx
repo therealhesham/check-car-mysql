@@ -2108,14 +2108,34 @@ export default function CheckInPage() {
         setPlateSearch('');
         return;
       }
-      
+  
+      // Add fetch for exit record
+      const exitResponse = await fetch(
+        `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=خروج`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: abortControllerRef.current.signal,
+        }
+      );
+  
+      if (!exitResponse.ok) {
+        const errorData = await exitResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || `فشل في التحقق من سجل الخروج (حالة: ${exitResponse.status})`);
+      }
+  
+      const exitData = await exitResponse.json();
+  
+      // Handle exitData as an array
       if (Array.isArray(exitData) && exitData.length > 0) {
         const exitRecord = exitData[0];
         setPreviousRecord(exitRecord);
         setHasExitRecord(true);
         setClientId(exitRecord.client_id);
         setClientName(exitRecord.client_name);
-        // Remove toast for success case
+        // Remove toast for success case (as per your previous request)
         setCar(exitRecord.car_model);
         setCarSearch(exitRecord.car_model);
         setPlate(exitRecord.plate_number);
