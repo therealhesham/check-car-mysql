@@ -1753,7 +1753,6 @@
 //@ts-nocheck
 //@ts-ignore
 'use client';
-
 function trimCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
   const ctx = canvas.getContext('2d');
   const width = canvas.width;
@@ -1799,7 +1798,6 @@ import SignaturePad from 'react-signature-canvas';
 import { toast } from 'react-toastify';
 import { useRouter } from 'next/navigation';
 
-// دالة لتنظيف العناوين مع دعم الأحرف العربية وضمان التفرد
 const sanitizeTitle = (title: string, index: number) => {
   const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
   return `${cleanTitle}-${index}`;
@@ -1911,7 +1909,6 @@ export default function CheckInPage() {
     'fire_extinguisher',
     'meter',
     'other_images',
-    'signature_url',
   ];
 
   const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
@@ -1924,8 +1921,18 @@ export default function CheckInPage() {
     uploadProgress: 0,
   }));
 
-  const signatureCanvasRef = useRef<SignaturePad>(null);
+  const signatureSection: FileSection = {
+    id: `file-section-signature_url`,
+    imageUrls: null,
+    title: 'signature_url',
+    multiple: false,
+    previewUrls: [],
+    isUploading: false,
+    uploadProgress: 0,
+  };
+
   const [files, setFiles] = useState<FileSection[]>(initialFiles);
+  const [signatureFile, setSignatureFile] = useState<FileSection>(signatureSection);
   const [car, setCar] = useState<string>('');
   const [newMeterReading, setNewMeterReading] = useState('');
   const [carSearch, setCarSearch] = useState<string>('');
@@ -1951,15 +1958,16 @@ export default function CheckInPage() {
   const [client_id, setClientId] = useState('');
   const [client_name, setClientName] = useState('');
   const [isSignatureLocked, setIsSignatureLocked] = useState<boolean>(false);
-  const [isSignatureEmpty, setIsSignatureEmpty] = useState<boolean>(true);
+  const [meterError, setMeterError] = useState<string>('');
   const router = useRouter();
+
+  const sigCanvas = useRef<SignaturePad>(null);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const carInputRef = useRef<HTMLDivElement>(null);
   const plateInputRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const uploadQueue = useRef<Promise<void>>(Promise.resolve());
   const contractInputRef = useRef<HTMLDivElement>(null);
-  const [meterError, setMeterError] = useState<string>('');
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -2320,14 +2328,15 @@ export default function CheckInPage() {
     }
   };
 
-  const handleSignatureSave = async (fileSectionId: string) => {
-    if (!signatureCanvasRef.current || signatureCanvasRef.current.isEmpty()) {
+  const handleSignatureSave = async () => {
+    if (!sigCanvas.current || sigCanvas.current.isEmpty()) {
       setUploadMessage('يرجى رسم التوقيع أولاً.');
       setShowToast(true);
+      toast.error('يرجى رسم التوقيع أولاً.');
       return;
     }
 
-    const rawCanvas = signatureCanvasRef.current.getCanvas();
+    const rawCanvas = sigCanvas.current.getCanvas();
     const trimmedCanvas = trimCanvas(rawCanvas);
     const signatureDataUrl = trimmedCanvas.toDataURL('image/png');
 
@@ -2336,49 +2345,34 @@ export default function CheckInPage() {
 
     const localPreviewUrl = URL.createObjectURL(file);
 
-    setFiles((prevFiles) =>
-      prevFiles.map((fileSection) =>
-        fileSection.id === fileSectionId
-          ? {
-              ...fileSection,
-              previewUrls: [localPreviewUrl],
-              imageUrls: null,
-              isUploading: true,
-              uploadProgress: 0,
-            }
-          : fileSection
-      )
-    );
+    setSignatureFile((prev) => ({
+      ...prev,
+      previewUrls: [localPreviewUrl],
+      imageUrls: null,
+      isUploading: true,
+      uploadProgress: 0,
+    }));
 
     uploadQueue.current = uploadQueue.current.then(async () => {
       try {
         const compressedFile = await compressImage(file);
-        const imageUrl = await uploadImageToBackend(compressedFile, fileSectionId, (progress) => {
-          setFiles((prevFiles) =>
-            prevFiles.map((fileSection) =>
-              fileSection.id === fileSectionId
-                ? { ...fileSection, uploadProgress: progress }
-                : fileSection
-            )
-          );
+        const imageUrl = await uploadImageToBackend(compressedFile, signatureSection.id, (progress) => {
+          setSignatureFile((prev) => ({
+            ...prev,
+            uploadProgress: progress,
+          }));
         });
-        setFiles((prevFiles) =>
-          prevFiles.map((fileSection) =>
-            fileSection.id === fileSectionId
-              ? {
-                  ...fileSection,
-                  imageUrls: imageUrl,
-                  previewUrls: [imageUrl],
-                  isUploading: false,
-                  uploadProgress: 100,
-                }
-              : fileSection
-          )
-        );
-        URL.revokeObjectURL(localPreviewUrl);
+        setSignatureFile((prev) => ({
+          ...prev,
+          imageUrls: imageUrl,
+          previewUrls: [imageUrl],
+          isUploading: false,
+          uploadProgress: 100,
+        }));
         setIsSignatureLocked(true);
-        setUploadMessage('تم حفظ التوقيع بنجاح.');
-        setShowToast(true);
+        URL.revokeObjectURL(localPreviewUrl);
+        sigCanvas.current?.clear();
+        toast.success('تم حفظ التوقيع بنجاح.');
       } catch (error: any) {
         let errorMessage = 'حدث خطأ أثناء رفع التوقيع. يرجى المحاولة مرة أخرى.';
         if (error.message.includes('Rate limit')) {
@@ -2386,19 +2380,14 @@ export default function CheckInPage() {
         }
         setUploadMessage(errorMessage);
         setShowToast(true);
-        setFiles((prevFiles) =>
-          prevFiles.map((fileSection) =>
-            fileSection.id === fileSectionId
-              ? {
-                  ...fileSection,
-                  imageUrls: null,
-                  previewUrls: [],
-                  isUploading: false,
-                  uploadProgress: 0,
-                }
-              : fileSection
-          )
-        );
+        toast.error(errorMessage);
+        setSignatureFile((prev) => ({
+          ...prev,
+          imageUrls: null,
+          previewUrls: [],
+          isUploading: false,
+          uploadProgress: 0,
+        }));
         URL.revokeObjectURL(localPreviewUrl);
       }
     });
@@ -2454,6 +2443,7 @@ export default function CheckInPage() {
         if (fileInputRefs.current[index]) {
           fileInputRefs.current[index]!.value = '';
         }
+        toast.success('تم رفع الصورة بنجاح.');
       } catch (error: any) {
         let errorMessage = 'حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى.';
         if (error.message.includes('Rate limit')) {
@@ -2461,11 +2451,11 @@ export default function CheckInPage() {
         }
         setUploadMessage(errorMessage);
         setShowToast(true);
+        toast.error(errorMessage);
         setFiles((prevFiles) =>
           prevFiles.map((fileSection) =>
             fileSection.id === id
               ? {
-                  ...fileSection,
                   imageUrls: null,
                   previewUrls: [],
                   isUploading: false,
@@ -2508,10 +2498,10 @@ export default function CheckInPage() {
         const totalFiles = selectedFiles.length;
         let completedFiles = 0;
 
-        for (const file of selectedFiles) {
+        for (let file of selectedFiles) {
           const compressedFile = await compressImage(file);
           const imageUrl = await uploadImageToBackend(compressedFile, id, (progress) => {
-            completedFiles = completedFiles + (progress / 100 - (completedFiles / totalFiles));
+            completedFiles = completedFiles + (progress / 100 / totalFiles);
             const overallProgress = Math.round((completedFiles / totalFiles) * 100);
             setFiles((prevFiles) =>
               prevFiles.map((fileSection) =>
@@ -2522,7 +2512,6 @@ export default function CheckInPage() {
             );
           });
           imageUrls.push(imageUrl);
-          completedFiles = Math.min(completedFiles + 1, totalFiles);
         }
 
         setFiles((prevFiles) =>
@@ -2535,7 +2524,7 @@ export default function CheckInPage() {
                     ...imageUrls,
                   ],
                   previewUrls: [
-                    ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+                    ...(Array.isArray(fileSection.previewUrls) ? fileSection.previewUrls : []),
                     ...imageUrls,
                   ],
                   isUploading: false,
@@ -2549,6 +2538,7 @@ export default function CheckInPage() {
         if (fileInputRefs.current[index]) {
           fileInputRefs.current[index]!.value = '';
         }
+        toast.success('تم رفع الصور بنجاح.');
       } catch (error: any) {
         let errorMessage = 'حدث خطأ أثناء رفع الصور. يرجى المحاولة مرة أخرى.';
         if (error.message.includes('Rate limit')) {
@@ -2558,6 +2548,7 @@ export default function CheckInPage() {
         }
         setUploadMessage(errorMessage);
         setShowToast(true);
+        toast.error(errorMessage);
         setFiles((prevFiles) =>
           prevFiles.map((fileSection) =>
             fileSection.id === id
@@ -2601,6 +2592,53 @@ export default function CheckInPage() {
     if (e) {
       e.stopPropagation();
     }
+
+    if (fileId === signatureFile.id) {
+      const updatedPreviews = [...signatureFile.previewUrls];
+      const deletedPreviewUrl = updatedPreviews.splice(previewIndex, 1)[0];
+      let updatedImageUrls = signatureFile.imageUrls;
+
+      let fileKey: string | null = null;
+      if (deletedPreviewUrl) {
+        try {
+          const urlParts = deletedPreviewUrl.split('/');
+          fileKey = urlParts[urlParts.length - 1];
+        } catch (error) {
+          console.error('Error parsing URL:', error);
+        }
+      }
+
+      if (Array.isArray(updatedImageUrls)) {
+        updatedImageUrls = [...updatedImageUrls];
+        updatedImageUrls.splice(previewIndex, 1);
+      } else if (previewIndex === 0) {
+        updatedImageUrls = null;
+      }
+
+      if (fileKey) {
+        deleteFile(fileKey)
+          .then(() => {
+            setUploadMessage('تم حذف التوقيع بنجاح من السيرفر.');
+            setShowToast(true);
+            toast.success('تم حذف التوقيع بنجاح من السيرفر.');
+          })
+          .catch((error) => {
+            setUploadMessage(error.message);
+            setShowToast(true);
+            toast.error(error.message);
+          });
+      }
+
+      setSignatureFile({
+        ...signatureFile,
+        previewUrls: updatedPreviews,
+        imageUrls: updatedImageUrls,
+        isUploading: false,
+      });
+      setIsSignatureLocked(false);
+      return;
+    }
+
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) => {
         if (fileSection.id === fileId) {
@@ -2628,12 +2666,14 @@ export default function CheckInPage() {
           if (fileKey) {
             deleteFile(fileKey)
               .then(() => {
-                setUploadMessage(`تم حذف الصورة بنجاح من السيرفر.`);
+                setUploadMessage('تم حذف الصورة بنجاح من السيرفر.');
                 setShowToast(true);
+                toast.success('تم حذف الصورة بنجاح من السيرفر.');
               })
               .catch((error) => {
                 setUploadMessage(error.message);
                 setShowToast(true);
+                toast.error(error.message);
               });
           }
 
@@ -2652,11 +2692,6 @@ export default function CheckInPage() {
     if (fileInputRefs.current[index]) {
       fileInputRefs.current[index]!.value = '';
     }
-
-    if (fileId.includes('signature_url')) {
-      setIsSignatureLocked(false);
-      setIsSignatureEmpty(true);
-    }
   };
 
   const setInputRef = (index: number): RefCallback<HTMLInputElement> => {
@@ -2667,27 +2702,32 @@ export default function CheckInPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
     if (meterError) {
       setUploadMessage(meterError);
       setShowToast(true);
+      toast.error(meterError);
       return;
     }
 
     if (parseInt(newMeterReading) < parseInt(previousRecord?.meter_reading || '0')) {
-      setUploadMessage('قراءة العداد الجديدة يجب أن تكون أكبر من القراءة السابقة.');
+      setUploadMessage('قراءة العداد الجديدة يجب أن تكون أكبر من أو تساوي القراءة السابقة.');
       setShowToast(true);
+      toast.error('قراءة العداد الجديدة يجب أن تكون أكبر من أو تساوي القراءة السابقة.');
       return;
     }
 
     if (!contract.trim() || !car.trim() || !plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
       setShowToast(true);
+      toast.error('يرجى ملء جميع الحقول المطلوبة.');
       return;
     }
 
     if (!/^\d+$/.test(contract.trim())) {
       setUploadMessage('رقم العقد يجب أن يحتوي على أرقام فقط.');
       setShowToast(true);
+      toast.error('رقم العقد يجب أن يحتوي على أرقام فقط.');
       return;
     }
 
@@ -2695,18 +2735,25 @@ export default function CheckInPage() {
     if (isNaN(contractNum)) {
       setUploadMessage('رقم العقد يجب أن يكون رقمًا صالحًا.');
       setShowToast(true);
+      toast.error('رقم العقد يجب أن يكون رقمًا صالحًا.');
       return;
     }
 
     if (!hasExitRecord) {
       setUploadMessage('لا يمكن إرسال النموذج بدون سجل خروج سابق.');
       setShowToast(true);
+      toast.error('لا يمكن إرسال النموذج بدون سجل خروج سابق.');
       return;
     }
 
-    const requiredImages = files.filter(
-      (fileSection) => fileSection.title !== 'other_images' && fileSection.title !== 'signature_url'
-    );
+    if (!signatureFile.imageUrls) {
+      setUploadMessage('يرجى حفظ التوقيع قبل إرسال البيانات.');
+      setShowToast(true);
+      toast.error('يرجى حفظ التوقيع قبل إرسال البيانات.');
+      return;
+    }
+
+    const requiredImages = files.filter((fileSection) => fileSection.title !== 'other_images');
     const hasAnyRequiredImage = requiredImages.some((fileSection) => {
       if (fileSection.imageUrls === null) return false;
       if (Array.isArray(fileSection.imageUrls)) return fileSection.imageUrls.length > 0;
@@ -2715,13 +2762,7 @@ export default function CheckInPage() {
     if (!hasAnyRequiredImage) {
       setUploadMessage('يرجى رفع الصور المطلوبة.');
       setShowToast(true);
-      return;
-    }
-
-    const signatureSection = files.find((fileSection) => fileSection.title === 'signature_url');
-    if (!signatureSection?.imageUrls) {
-      setUploadMessage('يرجى حفظ التوقيع قبل إرسال البيانات.');
-      setShowToast(true);
+      toast.error('يرجى رفع الصور المطلوبة.');
       return;
     }
 
@@ -2737,19 +2778,26 @@ export default function CheckInPage() {
           .join(', ')}.`
       );
       setShowToast(true);
+      toast.error(
+        `يجب رفع صورة واحدة على الأقل لكل من: ${missingImages
+          .map((f) => fieldTitlesMap[f.title] || f.title)
+          .join(', ')}.`
+      );
       return;
     }
 
-    const isAnyUploading = files.some((fileSection) => fileSection.isUploading);
+    const isAnyUploading = files.some((fileSection) => fileSection.isUploading) || signatureFile.isUploading;
     if (isAnyUploading) {
-      setUploadMessage('يرجى الانتظار حتى يكتمل رفع جميع الصور.');
+      setUploadMessage('يرجى الانتظار حتى يكتمل رفع جميع الصور أو التوقيع.');
       setShowToast(true);
+      toast.error('يرجى الانتظار حتى يكتمل رفع جميع الصور أو التوقيع.');
       return;
     }
 
     if (!user || !user.Name || !user.branch) {
       setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       setShowToast(true);
+      toast.error('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       return;
     }
 
@@ -2764,12 +2812,6 @@ export default function CheckInPage() {
         client_name,
         meter_reading: newMeterReading,
       };
-      files.forEach((fileSection) => {
-        if (fileSection.imageUrls) {
-          airtableData.fields[fileSection.title] = fileSection.imageUrls;
-          console.log(`Field ${fileSection.title}:`, fileSection.imageUrls);
-        }
-      });
 
       airtableData.fields['السيارة'] = car.trim();
       airtableData.fields['اللوحة'] = plate.trim();
@@ -2777,6 +2819,7 @@ export default function CheckInPage() {
       airtableData.fields['نوع العملية'] = operationType;
       airtableData.fields['الموظف'] = user.Name;
       airtableData.fields['الفرع'] = user.branch;
+      airtableData.fields['signature_url'] = signatureFile.imageUrls as string;
 
       files.forEach((fileSection) => {
         if (fileSection.imageUrls) {
@@ -2804,6 +2847,7 @@ export default function CheckInPage() {
           setIsSuccess(true);
           setShowToast(true);
           setUploadMessage('تم بنجاح رفع التشييك');
+          toast.success('تم بنجاح رفع التشييك');
           setFiles(
             fieldTitles.map((title, index) => ({
               id: `file-section-${sanitizeTitle(title, index)}`,
@@ -2815,6 +2859,16 @@ export default function CheckInPage() {
               uploadProgress: 0,
             }))
           );
+          setSignatureFile({
+            id: `file-section-signature_url`,
+            imageUrls: null,
+            title: 'signature_url',
+            multiple: false,
+            previewUrls: [],
+            isUploading: false,
+            uploadProgress: 0,
+          });
+          setIsSignatureLocked(false);
           setCar('');
           setCarSearch('');
           setPlate('');
@@ -2827,12 +2881,10 @@ export default function CheckInPage() {
           setClientName('');
           setNewMeterReading('');
           setMeterError('');
-          setIsSignatureLocked(false);
-          setIsSignatureEmpty(true);
           fileInputRefs.current.forEach((ref) => {
             if (ref) ref.value = '';
           });
-          signatureCanvasRef.current?.clear();
+          sigCanvas.current?.clear();
           setTimeout(() => {
             router.push('/');
           }, 2000);
@@ -2843,8 +2895,12 @@ export default function CheckInPage() {
         clearTimeout(timeoutId);
         if (fetchError.name === 'AbortError') {
           setUploadMessage('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
+          toast.error('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
         } else {
           setUploadMessage(
+            `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}`
+          );
+          toast.error(
             `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}`
           );
         }
@@ -2853,6 +2909,7 @@ export default function CheckInPage() {
     } catch (error: any) {
       setUploadMessage(error.message || 'حدث خطأ أثناء تجهيز البيانات للرفع.');
       setShowToast(true);
+      toast.error(error.message || 'حدث خطأ أثناء تجهيز البيانات للرفع.');
     } finally {
       setIsUploading(false);
     }
@@ -2899,14 +2956,11 @@ export default function CheckInPage() {
   };
 
   const clearSignature = () => {
-    if (signatureCanvasRef.current) {
-      signatureCanvasRef.current.clear();
-      setIsSignatureEmpty(true);
-      const signatureSection = files.find((fileSection) => fileSection.title === 'signature_url');
-      if (signatureSection && signatureSection.imageUrls) {
-        removePreviewImage(signatureSection.id, 0);
-      }
+    sigCanvas.current?.clear();
+    if (signatureFile.imageUrls) {
+      removePreviewImage(signatureFile.id, 0);
     }
+    setIsSignatureLocked(false);
   };
 
   return (
@@ -2917,7 +2971,6 @@ export default function CheckInPage() {
           <h1 className="text-xl sm:text-2xl font-semibold text-center text-gray-900 dark:text-gray-100 mb-4">
             رفع بيانات تشييك الدخول
           </h1>
-          <p className="text-sm text-center mb-4 text-gray-600 dark:text-gray-300"></p>
           <form onSubmit={handleSubmit}>
             <div className="mb-6" ref={contractInputRef}>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
@@ -3135,413 +3188,376 @@ export default function CheckInPage() {
                   )}
                 </div>
               </div>
-              <div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
-                  {files
-                    .filter((fileSection) => fileSection.title !== 'signature_url')
-                    .map((fileSection, index) => (
-                      <div key={fileSection.id} className="mb-3">
-                        <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
-                          {fieldTitlesMap[fileSection.title] || fileSection.title}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
+                {files.map((fileSection, index) => (
+                  <div key={fileSection.id} className="mb-6">
+                    <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
+                      {fieldTitlesMap[fileSection.title] || fileSection.title}
+                    </div>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                          الصورة الجديدة:
                         </div>
-                        <div className="grid grid-cols-1 gap-3">
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                              الصورة الجديدة:
-                            </div>
-                            {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
-                              <div
-                                className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-md p-2 ${
-                                  fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
-                                }`}
-                              >
-                                {fileSection.multiple ? (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {fileSection.previewUrls.map((previewUrl, previewIndex) => (
-                                      <div key={previewIndex} className="relative h-20 sm:h-24">
-                                        <img
-                                          src={previewUrl}
-                                          alt={`صورة ${previewIndex + 1}`}
-                                          className="h-full w-full object-cover rounded cursor-pointer"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            openPreview(fileSection.previewUrls, previewIndex);
-                                          }}
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={(e) => removePreviewImage(fileSection.id, previewIndex, e)}
-                                          className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
-                                          aria-label="حذف الصورة"
-                                        >
-                                          <span className="text-lg font-bold">×</span>
-                                        </button>
-                                      </div>
-                                    ))}
-                                    <label
-                                      htmlFor={`file-input-${fileSection.id}`}
-                                      className="h-20 sm:h-24 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
-                                    >
-                                      <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
-                                    </label>
-                                  </div>
-                                ) : (
-                                  <div className="relative h-full w-full flex items-center justify-center">
+                        {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
+                          <div
+                            className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-lg p-2 ${
+                              fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
+                            }`}
+                          >
+                            {fileSection.multiple ? (
+                              <div className="grid grid-cols-2 gap-2">
+                                {fileSection.previewUrls.map((previewUrl, previewIndex) => (
+                                  <div key={previewIndex} className="relative h-20 sm:h-24">
                                     <img
-                                      src={fileSection.previewUrls[0]}
-                                      alt={fileSection.title}
-                                      className="max-h-full max-w-full object-contain rounded cursor-pointer"
+                                      src={previewUrl}
+                                      alt={`صورة ${previewIndex + 1}`}
+                                      className="h-full w-full object-cover rounded-md cursor-pointer"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        openPreview([fileSection.previewUrls[0]], 0);
+                                        openPreview(fileSection.previewUrls, previewIndex);
                                       }}
                                     />
                                     <button
                                       type="button"
-                                      onClick={(e) => removePreviewImage(fileSection.id, 0, e)}
-                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-md z-10"
+                                      onClick={(e) => removePreviewImage(fileSection.id, previewIndex, e)}
+                                      className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
                                       aria-label="حذف الصورة"
                                     >
                                       <span className="text-lg font-bold">×</span>
                                     </button>
                                   </div>
-                                )}
-                                {fileSection.isUploading && fileSection.uploadProgress < 100 && (
-                                  <div className="mt-2">
-                                    <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                                      <div
-                                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                                        style={{ width: `${fileSection.uploadProgress}%` }}
-                                      ></div>
-                                    </div>
-                                    <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
-                                      {fileSection.uploadProgress}%
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <label
-                                htmlFor={`file-input-${fileSection.id}`}
-                                className={`cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-2 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors flex flex-col items-center justify-center h-28 sm:h-32 ${
-                                  !hasExitRecord ? 'pointer-events-none opacity-50' : ''
-                                }`}
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-7 w-7 text-gray-400 dark:text-gray-500 mb-1"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
+                                ))}
+                                <label
+                                  htmlFor={`file-input-${fileSection.id}`}
+                                  className="h-20 sm:h-24 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                                  />
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                                  />
-                                </svg>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">
-                                  {fileSection.multiple ? 'انقر لاختيار عدة صور' : 'انقر لالتقاط صورة'}
-                                </span>
-                              </label>
-                            )}
-                            <input
-                              id={`file-input-${fileSection.id}`}
-                              ref={setInputRef(index)}
-                              type="file"
-                              accept="image/*"
-                              capture={fileSection.multiple ? undefined : 'environment'}
-                              multiple={fileSection.multiple}
-                              onChange={(e) =>
-                                fileSection.multiple
-                                  ? handleMultipleFileChange(fileSection.id, e)
-                                  : handleFileChange(fileSection.id, e)
-                              }
-                              className="hidden"
-                              disabled={!hasExitRecord}
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                              الصورة القديمة (تشييك الخروج):
-                            </div>
-                            {previousRecord && previousRecord[fileSection.title] ? (
-                              <div
-                                className={`relative border-2 border-gray-200 dark:border-gray-600 rounded-md p-2 ${
-                                  fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
-                                } bg-gray-50 dark:bg-gray-700`}
-                              >
-                                {fileSection.multiple ? (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {[previousRecord[fileSection.title]].flat().map((url: string, prevIndex: number) => (
-                                      <div key={prevIndex} className="relative h-20 sm:h-24">
-                                        <img
-                                          src={url}
-                                          alt={`صورة سابقة ${prevIndex + 1}`}
-                                          className="h-full w-full object-cover rounded cursor-pointer"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            openPreview([previousRecord[fileSection.title]].flat(), prevIndex);
-                                          }}
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="relative h-full w-full flex items-center justify-center">
-                                    <img
-                                      src={previousRecord[fileSection.title]}
-                                      alt={`${fileSection.title} - سابق`}
-                                      className="max-h-full max-w-full object-contain rounded cursor-pointer"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openPreview([previousRecord[fileSection.title]], 0);
-                                      }}
-                                    />
-                                  </div>
-                                )}
+                                  <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
+                                </label>
                               </div>
                             ) : (
-                              <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
-                                لا توجد صورة قديمة
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                  التوقيع *
-                </label>
-                {files
-                  .filter((fileSection) => fileSection.title === 'signature_url')
-                  .map((fileSection) => (
-                    <div key={fileSection.id} className="border-2 border-gray-300 dark:border-gray-600 rounded-md p-2">
-                      <div className="grid grid-cols-1 gap-3">
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                            التوقيع الجديد:
-                          </div>
-                          <div
-                            className={`relative rounded-md p-2 h-auto sm:h-auto ${
-                              !hasExitRecord ? 'pointer-events-none opacity-50' : ''
-                            }`}
-                          >
-                            {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
-                              <div className="relative h-32 w-full flex items-center justify-center">
+                              <div className="relative h-full w-full flex items-center justify-center">
                                 <img
                                   src={fileSection.previewUrls[0]}
-                                  alt="التوقيع"
-                                  className="max-h-full max-w-full object-contain rounded cursor-pointer"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openPreview([fileSection.previewUrls[0]], 0);
-                                  }}
+                                  alt={fileSection.title}
+                                  className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
+                                  onClick={() => openPreview([fileSection.previewUrls[0]], 0)}
                                 />
                                 <button
                                   type="button"
                                   onClick={(e) => removePreviewImage(fileSection.id, 0, e)}
-                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-md z-10"
-                                  aria-label="حذف التوقيع"
+                                  className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md z-10"
+                                  aria-label="حذف الصورة"
                                 >
                                   <span className="text-lg font-bold">×</span>
                                 </button>
                               </div>
-                            ) : (
-                              <div className="h-auto w-full flex flex-col items-center justify-center gap-3">
-                                <SignaturePad
-                                  ref={signatureCanvasRef}
-                                  backgroundColor='#ffffff'
-                                  penColor="black"
-                                  canvasProps={{
-                                    className: `border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md w-full h-32 ${
-                                      isSignatureLocked ? 'pointer-events-none opacity-50' : ''
-                                    }`,
-                                  }}
-                                  onEnd={() => {
-                                    setIsSignatureEmpty(signatureCanvasRef.current?.isEmpty() || false);
-                                  }}
-                                />
-                                <div className="flex justify-between w-full mt-2">
-                                  <button
-                                    type="button"
-                                    onClick={clearSignature}
-                                    className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
-                                    disabled={!hasExitRecord}
-                                  >
-                                    مسح التوقيع
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSignatureSave(fileSection.id)}
-                                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                                    disabled={isSignatureEmpty || isSignatureLocked || !hasExitRecord}
-                                  >
-                                    حفظ التوقيع
-                                  </button>
-                                </div>
-                              </div>
                             )}
                             {fileSection.isUploading && fileSection.uploadProgress < 100 && (
-                              <div className="mt-2">
-                                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                                  <div
-                                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                                    style={{ width: `${fileSection.uploadProgress}%` }}
-                                  ></div>
-                                </div>
-                                <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
-                                  {fileSection.uploadProgress}%
-                                </span>
+                              <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-6">
+                              <div
+                                className="bg-blue-600 h-6 rounded-full transition-all duration-300 ease-in-out"
+                                style={{ width: `${fileSection.uploadProgress}%` }}
+                              ></div>
                               </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                            التوقيع القديم (تشييك الخروج):
-                          </div>
-                          {previousRecord && previousRecord[fileSection.title] ? (
-                            <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-md p-2 h-32 bg-gray-50 dark:bg-gray-700">
-                              <div className="relative h-full w-full flex items-center justify-center">
-                                <img
-                                  src={previousRecord[fileSection.title]}
-                                  alt="التوقيع - سابق"
-                                  className="max-h-full max-w-full object-contain rounded cursor-pointer"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openPreview([previousRecord[fileSection.title]], 0);
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
-                              لا يوجد توقيع قديم
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-              <div className="mb-4 text-center mt-4">
-                <button
-                  type="submit"
-                  disabled={isUploading || !hasExitRecord}
-                  className={`w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none text-lg font-medium ${
-                    isUploading || !hasExitRecord ? 'bg-gray-400 cursor-not-allowed' : ''
-                  }`}
-                >
-                  {isUploading ? 'جاري الرفع...' : 'رفع البيانات'}
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      {(isUploading || isSuccess) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex flex-col items-center justify-center">
-            {isUploading ? (
-              <>
-                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500 mb-4"></div>
-                <span className="text-gray-600 dark:text-gray-300 text-lg">جاري الرفع...</span>
-              </>
-            ) : isSuccess ? (
-              <>
-                <FaCheckCircle className="text-green-500 text-5xl mb-4" />
-                <span className="text-gray-600 dark:text-gray-300 text-lg">تم الرفع بنجاح</span>
-              </>
-            ) : null}
-          </div>
-        </div>
-      )}
-
-      {showToast && (
-        <div
-          className={`fixed top-5 right-5 px-4 py-2 rounded-md shadow-lg z-50 animate-fade-in-out ${
-            uploadMessage.includes('بنجاح') ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-          }`}
-        >
-          {uploadMessage}
-        </div>
-      )}
-
-      {previewImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="relative bg-white dark:bg-gray-800 rounded-lg p-4 max-w-3xl w-full">
-            <button
-              onClick={closePreview}
-              className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-md"
-              aria-label="إغلاق المعاينة"
-            >
-              <span className="text-lg font-bold">×</span>
-            </button>
-            <div className="flex items-center justify-center">
-              {previewImages.length > 1 && (
-                <button
-                  onClick={goToPreviousImage}
-                  disabled={currentImageIndex === 0}
-                  className={`absolute left-4 p-2 bg-gray-200 dark:bg-gray-600 rounded-full ${
-                    currentImageIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-300 dark:hover:bg-gray-500'
-                  }`}
-                  aria-label="الصورة السابقة"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-gray-800 dark:text-gray-200"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              )}
-              <img src={previewImage} alt="معاينة الصورة" className="max-h-[70vh] max-w-full object-contain rounded" />
-              {previewImages.length > 1 && (
-                <button
-                  onClick={goToNextImage}
-                  disabled={currentImageIndex === previewImages.length - 1}
-                  className={`absolute right-4 p-2 bg-gray-200 dark:bg-gray-600 rounded-full ${
-                    currentImageIndex === previewImages.length - 1
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:bg-gray-300 dark:hover:bg-gray-500'
-                  }`}
-                  aria-label="الصورة التالية"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-gray-800 dark:text-gray-200"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            {previewImages.length > 1 && (
-              <div className="text-center mt-2 text-sm text-gray-600 dark:text-gray-300">
-                صورة {currentImageIndex + 1} من {previewImages.length}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+                                                         )}
+                                                         <input
+                                                           id={`file-input-${fileSection.id}`}
+                                                           type="file"
+                                                           accept="image/*"
+                                                           multiple={fileSection.multiple}
+                                                           onChange={(e) =>
+                                                             fileSection.multiple
+                                                               ? handleMultipleFileChange(fileSection.id, e)
+                                                               : handleFileChange(fileSection.id, e)
+                                                           }
+                                                           className="hidden"
+                                                           ref={setInputRef(index)}
+                                                           disabled={!hasExitRecord}
+                                                         />
+                                                       </div>
+                                                     ) : (
+                                                       <label
+                                                         htmlFor={`file-input-${fileSection.id}`}
+                                                         className={`relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 ${
+                                                           !hasExitRecord ? 'pointer-events-none opacity-50' : ''
+                                                         }`}
+                                                       >
+                                                         <span className="text-gray-500 dark:text-gray-400 text-sm text-center">
+                                                           انقر لرفع {fileSection.multiple ? 'صور' : 'صورة'}
+                                                         </span>
+                                                         <input
+                                                           id={`file-input-${fileSection.id}`}
+                                                           type="file"
+                                                           accept="image/*"
+                                                           multiple={fileSection.multiple}
+                                                           onChange={(e) =>
+                                                             fileSection.multiple
+                                                               ? handleMultipleFileChange(fileSection.id, e)
+                                                               : handleFileChange(fileSection.id, e)
+                                                           }
+                                                           className="hidden"
+                                                           ref={setInputRef(index)}
+                                                           disabled={!hasExitRecord}
+                                                         />
+                                                       </label>
+                                                     )}
+                                                     {fileSection.isUploading && fileSection.uploadProgress < 100 && (
+                                                       <div className="mt-2">
+                                                         <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+                                                           <div
+                                                             className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                                                             style={{ width: `${fileSection.uploadProgress}%` }}
+                                                           ></div>
+                                                         </div>
+                                                         <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
+                                                           {fileSection.uploadProgress}%
+                                                         </span>
+                                                       </div>
+                                                     )}
+                                                   </div>
+                                                   <div className="min-w-0">
+                                                     <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                                                       الصورة القديمة (تشييك الخروج):
+                                                     </div>
+                                                     {previousRecord && previousRecord[fileSection.title] ? (
+                                                       <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 bg-gray-50 dark:bg-gray-700">
+                                                         <div className="relative h-full w-full flex items-center justify-center">
+                                                           {Array.isArray(previousRecord[fileSection.title]) ? (
+                                                             <div className="grid grid-cols-2 gap-2 w-full h-full">
+                                                               {(previousRecord[fileSection.title] as string[]).map(
+                                                                 (url, imgIndex) => (
+                                                                   <img
+                                                                     key={imgIndex}
+                                                                     src={url}
+                                                                     alt={`صورة سابقة ${imgIndex + 1}`}
+                                                                     className="max-h-full max-w-full object-cover rounded-md cursor-pointer"
+                                                                     onClick={() =>
+                                                                       openPreview(
+                                                                         previousRecord[fileSection.title] as string[],
+                                                                         imgIndex
+                                                                       )
+                                                                     }
+                                                                   />
+                                                                 )
+                                                               )}
+                                                             </div>
+                                                           ) : (
+                                                             <img
+                                                               src={previousRecord[fileSection.title] as string}
+                                                               alt="صورة سابقة"
+                                                               className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
+                                                               onClick={() =>
+                                                                 openPreview([previousRecord[fileSection.title] as string], 0)
+                                                               }
+                                                             />
+                                                           )}
+                                                         </div>
+                                                       </div>
+                                                     ) : (
+                                                       <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
+                                                         لا توجد صورة قديمة
+                                                       </div>
+                                                     )}
+                                                   </div>
+                                                 </div>
+                                               </div>
+                                             ))}
+                                           </div>
+                             
+                                           <div className="mb-6 mt-6">
+                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                                               التوقيع *
+                                             </label>
+                                             <div className="grid grid-cols-1 gap-3">
+                                               <div className="min-w-0">
+                                                 <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                                                   التوقيع الجديد:
+                                                 </div>
+                                                 <div
+                                                   className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-md p-2 h-28 sm:h-32 ${
+                                                     !hasExitRecord ? 'pointer-events-none opacity-50' : ''
+                                                   }`}
+                                                 >
+                                                   {signatureFile.previewUrls && signatureFile.previewUrls.length > 0 ? (
+                                                     <div className="relative h-full w-full flex items-center justify-center">
+                                                       <img
+                                                         src={signatureFile.previewUrls[0]}
+                                                         alt="التوقيع"
+                                                         className="max-h-full max-w-full object-contain rounded cursor-pointer"
+                                                         onClick={(e) => {
+                                                           e.stopPropagation();
+                                                           openPreview([signatureFile.previewUrls[0]], 0);
+                                                         }}
+                                                       />
+                                                       <button
+                                                         type="button"
+                                                         onClick={(e) => removePreviewImage(signatureFile.id, 0, e)}
+                                                         className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-md z-10"
+                                                         aria-label="حذف التوقيع"
+                                                       >
+                                                         <span className="text-lg font-bold">×</span>
+                                                       </button>
+                                                     </div>
+                                                   ) : (
+                                                     <div className="h-full w-full flex flex-col items-center justify-center gap-3">
+                                                       <SignaturePad
+                                                         ref={sigCanvas}
+                                                         backgroundColor="#ffffff"
+                                                         penColor="black"
+                                                         canvasProps={{
+                                                           className: `border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md w-full h-full ${
+                                                             !hasExitRecord || isSignatureLocked
+                                                               ? 'pointer-events-none opacity-50'
+                                                               : ''
+                                                           }`,
+                                                         }}
+                                                       />
+                                                       <div>
+                                                         <button
+                                                           type="button"
+                                                           onClick={clearSignature}
+                                                           className="mt-2 px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600"
+                                                           disabled={!hasExitRecord}
+                                                         >
+                                                           مسح التوقيع
+                                                         </button>
+                                                         <button
+                                                           type="button"
+                                                           onClick={() => handleSignatureSave()}
+                                                           className="mt-2 ml-2 px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                                                           disabled={!hasExitRecord || isSignatureLocked}
+                                                         >
+                                                           حفظ التوقيع
+                                                         </button>
+                                                       </div>
+                                                     </div>
+                                                   )}
+                                                   {signatureFile.isUploading && signatureFile.uploadProgress < 100 && (
+                                                     <div className="mt-2">
+                                                       <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+                                                         <div
+                                                           className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                                                           style={{ width: `${signatureFile.uploadProgress}%` }}
+                                                         ></div>
+                                                       </div>
+                                                       <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
+                                                         {signatureFile.uploadProgress}%
+                                                       </span>
+                                                     </div>
+                                                   )}
+                                                 </div>
+                                               </div>
+                                               <div className="min-w-0">
+                                                 <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+                                                   التوقيع القديم (تشييك الخروج):
+                                                 </div>
+                                                 {previousRecord && previousRecord.signature_url ? (
+                                                   <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-md p-2 h-28 sm:h-32 bg-gray-50 dark:bg-gray-700">
+                                                     <div className="relative h-full w-full flex items-center justify-center">
+                                                       <img
+                                                         src={previousRecord.signature_url}
+                                                         alt="التوقيع - سابق"
+                                                         className="max-h-full max-w-full object-contain rounded cursor-pointer"
+                                                         onClick={(e) => {
+                                                           e.stopPropagation();
+                                                           openPreview([previousRecord.signature_url], 0);
+                                                         }}
+                                                       />
+                                                     </div>
+                                                   </div>
+                                                 ) : (
+                                                   <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
+                                                     لا يوجد توقيع قديم
+                                                   </div>
+                                                 )}
+                                               </div>
+                                             </div>
+                                           </div>
+                             
+                                           <div className="mb-4 text-center mt-4">
+                                             <button
+                                               type="submit"
+                                               disabled={isUploading || !hasExitRecord}
+                                               className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                                 isUploading || !hasExitRecord ? 'opacity-50 cursor-not-allowed' : ''
+                                               }`}
+                                             >
+                                               {isUploading ? (
+                                                 <span className="flex items-center">
+                                                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
+                                                   جارٍ الرفع...
+                                                 </span>
+                                               ) : (
+                                                 'إرسال'
+                                               )}
+                                             </button>
+                                           </div>
+                                         </div>
+                                       </form>
+                             
+                                       {previewImage && (
+                                         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                                           <div className="relative max-w-4xl w-full p-4">
+                                             <img
+                                               src={previewImage}
+                                               alt="معاينة الصورة"
+                                               className="max-h-[80vh] max-w-full object-contain mx-auto rounded-lg"
+                                             />
+                                             <button
+                                               onClick={closePreview}
+                                               className="absolute top-4 right-4 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-md"
+                                               aria-label="إغلاق المعاينة"
+                                             >
+                                               <span className="text-lg font-bold">×</span>
+                                             </button>
+                                             {previewImages.length > 1 && (
+                                               <>
+                                                 <button
+                                                   onClick={goToPreviousImage}
+                                                   disabled={currentImageIndex === 0}
+                                                   className={`absolute left-4 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-md ${
+                                                     currentImageIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
+                                                   }`}
+                                                   aria-label="الصورة السابقة"
+                                                 >
+                                                   <span className="text-2xl">&larr;</span>
+                                                 </button>
+                                                 <button
+                                                   onClick={goToNextImage}
+                                                   disabled={currentImageIndex === previewImages.length - 1}
+                                                   className={`absolute right-4 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-md ${
+                                                     currentImageIndex === previewImages.length - 1
+                                                       ? 'opacity-50 cursor-not-allowed'
+                                                       : 'hover:bg-blue-700'
+                                                   }`}
+                                                   aria-label="الصورة التالية"
+                                                 >
+                                                   <span className="text-2xl">&rarr;</span>
+                                                 </button>
+                                               </>
+                                             )}
+                                           </div>
+                                         </div>
+                                       )}
+                             
+                                       {showToast && (
+                                         <div
+                                           className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-md shadow-lg text-white flex items-center z-50 ${
+                                             isSuccess ? 'bg-green-600' : 'bg-red-600'
+                                           }`}
+                                         >
+                                           {isSuccess ? (
+                                             <FaCheckCircle className="mr-2 h-5 w-5" />
+                                           ) : (
+                                             <FaExclamationTriangle className="mr-2 h-5 w-5" />
+                                           )}
+                                           <span>{uploadMessage}</span>
+                                         </div>
+                                       )}
+                                     </div>
+                                   </div>
+                                 </div>
+                               );
+                             }
