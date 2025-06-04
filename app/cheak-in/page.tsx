@@ -3046,162 +3046,124 @@ export default function CheckInPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <div ref={carInputRef} className="relative">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                    السيارة *
-                  </label>
-                  <input
-                    type="text"
-                    value={carSearch}
-                    onChange={(e) => {
-                      setCarSearch(e.target.value);
-                      setShowCarList(true);
-                    }}
-                    onFocus={() => setShowCarList(true)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    placeholder="ابحث عن السيارة"
-                    required
-                    disabled={!hasExitRecord}
-                  />
-                  {showCarList && filteredCars.length > 0 && (
-                    <ul className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
-                      {filteredCars.map((carItem) => (
-                        <li
-                          key={carItem}
-                          onClick={() => handleCarSelect(carItem)}
-                          className="px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer text-sm text-gray-900 dark:text-gray-100"
-                        >
-                          {carItem}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {showCarList && carSearch && filteredCars.length === 0 && (
-                    <div className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg p-3 text-sm text-gray-500 dark:text-gray-400">
-                      لا توجد سيارات مطابقة
-                    </div>
-                  )}
-                </div>
-                <div ref={plateInputRef} className="relative">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                    اللوحة *
-                  </label>
-                  <input
-                    type="text"
-                    value={plateSearch}
-                    onChange={(e) => {
-                      setPlateSearch(e.target.value);
-                      setShowPlateList(true);
-                    }}
-                    onFocus={() => setShowPlateList(true)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    placeholder="ابحث عن اللوحة"
-                    required
-                    disabled={!hasExitRecord}
-                  />
-                  {showPlateList && filteredPlates.length > 0 && (
-                    <ul className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
-                      {filteredPlates.map((plateItem) => (
-                        <li
-                          key={plateItem}
-                          onClick={() => handlePlateSelect(plateItem)}
-                          className="px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer text-sm text-gray-900 dark:text-gray-100"
-                        >
-                          {plateItem}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {showPlateList && plateSearch && filteredPlates.length === 0 && (
-                    <div className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg p-3 text-sm text-gray-500 dark:text-gray-400">
-                      لا توجد لوحات مطابقة
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                    نوع العملية
-                  </label>
-                  <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
-                    {operationType}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                    الموظف
-                  </label>
-                  <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
-                    {user?.Name || 'غير متوفر'}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                    الفرع
-                  </label>
-                  <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
-                    {user?.branch || 'غير متوفر'}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                    هوية العميل
-                  </label>
-                  <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
-                    {client_id || 'غير متوفر'}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                    اسم العميل
-                  </label>
-                  <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
-                    {client_name || 'غير متوفر'}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                    قراءة العداد (القراءة السابقة: {previousRecord?.meter_reading || 'غير متوفر'})
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={newMeterReading}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setNewMeterReading(value);
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+  <div ref={carInputRef}>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+      السيارة *
+    </label>
+    <div
+      className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 ${
+        !hasExitRecord ? 'opacity-50' : ''
+      }`}
+    >
+      {carSearch || 'غير متوفر'}
+    </div>
+  </div>
+  <div ref={plateInputRef}>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+      اللوحة *
+    </label>
+    <div
+      className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 ${
+        !hasExitRecord ? 'opacity-50' : ''
+      }`}
+    >
+      {plateSearch || 'غير متوفر'}
+    </div>
+  </div>
+  <div>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+      نوع العملية
+    </label>
+    <div
+      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
+    >
+      {operationType}
+    </div>
+  </div>
+  <div>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+      الموظف
+    </label>
+    <div
+      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
+    >
+      {user?.Name || 'غير متوفر'}
+    </div>
+  </div>
+  <div>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+      الفرع
+    </label>
+    <div
+      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
+    >
+      {user?.branch || 'غير متوفر'}
+    </div>
+  </div>
+  <div>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+      هوية العميل
+    </label>
+    <div
+      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
+    >
+      {client_id || 'غير متوفر'}
+    </div>
+  </div>
+  <div>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+      اسم العميل
+    </label>
+    <div
+      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
+    >
+      {client_name || 'غير متوفر'}
+    </div>
+  </div>
+  <div className="mb-6">
+  <label className="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-1">
+    قراءة العداد (القراءة السابقة: {previousRecord?.meter_reading || 'غير متوفر'}) *
+  </label>
+  <input
+    type="text"
+    inputMode="numeric"
+    pattern="[0-9]*"
+    value={newMeterReading}
+    onChange={(e) => {
+      const value = e.target.value;
+      setNewMeterReading(value);
 
-                      if (value && previousRecord?.meter_reading) {
-                        const newReading = parseInt(value);
-                        const previousReading = parseInt(previousRecord.meter_reading);
-                        if (!isNaN(newReading) && !isNaN(previousReading)) {
-                          if (newReading < previousReading) {
-                            setMeterError('قراءة العداد الجديدة يجب أن تكون أكبر من أو تساوي القراءة السابقة.');
-                            toast.error('قراءة العداد الجديدة يجب أن تكون أكبر من أو تساوي القراءة السابقة.');
-                          } else {
-                            setMeterError('');
-                          }
-                        } else {
-                          setMeterError('يرجى إدخال رقم صالح.');
-                          toast.error('يرجى إدخال رقم صالح.');
-                        }
-                      } else {
-                        setMeterError('');
-                      }
-                    }}
-                    onKeyPress={restrictToNumbers}
-                    className={`w-full px-3 py-2 border ${
-                      meterError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
-                    placeholder="اكتب قراءة العداد"
-                    required
-                    disabled={!hasExitRecord}
-                  />
-                  {meterError && (
-                    <p className="text-red-500 text-xs mt-1">{meterError}</p>
-                  )}
-                </div>
+      if (value && previousRecord?.meter_reading) {
+        const newReading = parseInt(value);
+        const previousReading = parseInt(previousRecord.meter_reading);
+        if (!isNaN(newReading) && !isNaN(previousReading)) {
+          if (newReading < previousReading) {
+            setMeterError('قراءة العداد الجديدة يجب أن تكون أكبر من أو تساوي القراءة السابقة.');
+            toast.error('قراءة العداد الجديدة يجب أن تكون أكبر من أو تساوي القراءة السابقة.');
+          } else {
+            setMeterError('');
+          }
+        } else {
+          setMeterError('يرجى إدخال رقم صالح.');
+          toast.error('يرجى إدخال رقم صالح.');
+        }
+      } else {
+        setMeterError('');
+      }
+    }}
+    onKeyPress={restrictToNumbers}
+    className={`w-full px-3 py-2 border ${
+      meterError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+    } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+    placeholder="اكتب قراءة العداد"
+    required
+    disabled={!hasExitRecord}
+  />
+  {meterError && (
+    <p className="text-red-500 text-xs mt-1">{meterError}</p>
+  )}
+</div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
