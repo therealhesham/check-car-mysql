@@ -3371,114 +3371,116 @@ export default function CheckInPage() {
                                            </div>
                              
                                            <div className="mb-6 mt-6">
-                                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-                                               التوقيع *
-                                             </label>
-                                             <div className="grid grid-cols-1 gap-3">
-                                               <div className="min-w-0">
-                                                 <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                                                   التوقيع الجديد:
-                                                 </div>
-                                                 <div
-                                                   className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-md p-2 h-28 sm:h-32 ${
-                                                     !hasExitRecord ? 'pointer-events-none opacity-50' : ''
-                                                   }`}
-                                                 >
-                                                   {signatureFile.previewUrls && signatureFile.previewUrls.length > 0 ? (
-                                                     <div className="relative h-full w-full flex items-center justify-center">
-                                                       <img
-                                                         src={signatureFile.previewUrls[0]}
-                                                         alt="التوقيع"
-                                                         className="max-h-full max-w-full object-contain rounded cursor-pointer"
-                                                         onClick={(e) => {
-                                                           e.stopPropagation();
-                                                           openPreview([signatureFile.previewUrls[0]], 0);
-                                                         }}
-                                                       />
-                                                       <button
-                                                         type="button"
-                                                         onClick={(e) => removePreviewImage(signatureFile.id, 0, e)}
-                                                         className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-md z-10"
-                                                         aria-label="حذف التوقيع"
-                                                       >
-                                                         <span className="text-lg font-bold">×</span>
-                                                       </button>
-                                                     </div>
-                                                   ) : (
-                                                     <div className="h-full w-full flex flex-col items-center justify-center gap-3">
-                                                       <SignaturePad
-                                                         ref={sigCanvas}
-                                                         backgroundColor="#ffffff"
-                                                         penColor="black"
-                                                         canvasProps={{
-                                                           className: `border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md w-full h-full ${
-                                                             !hasExitRecord || isSignatureLocked
-                                                               ? 'pointer-events-none opacity-50'
-                                                               : ''
-                                                           }`,
-                                                         }}
-                                                       />
-                                                       <div>
-                                                         <button
-                                                           type="button"
-                                                           onClick={clearSignature}
-                                                           className="mt-2 px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600"
-                                                           disabled={!hasExitRecord}
-                                                         >
-                                                           مسح التوقيع
-                                                         </button>
-                                                         <button
-                                                           type="button"
-                                                           onClick={() => handleSignatureSave()}
-                                                           className="mt-2 ml-2 px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                                                           disabled={!hasExitRecord || isSignatureLocked}
-                                                         >
-                                                           حفظ التوقيع
-                                                         </button>
-                                                       </div>
-                                                     </div>
-                                                   )}
-                                                   {signatureFile.isUploading && signatureFile.uploadProgress < 100 && (
-                                                     <div className="mt-2">
-                                                       <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                                                         <div
-                                                           className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                                                           style={{ width: `${signatureFile.uploadProgress}%` }}
-                                                         ></div>
-                                                       </div>
-                                                       <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
-                                                         {signatureFile.uploadProgress}%
-                                                       </span>
-                                                     </div>
-                                                   )}
-                                                 </div>
-                                               </div>
-                                               <div className="min-w-0">
-                                                 <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                                                   التوقيع القديم (تشييك الخروج):
-                                                 </div>
-                                                 {previousRecord && previousRecord.signature_url ? (
-                                                   <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-md p-2 h-28 sm:h-32 bg-gray-50 dark:bg-gray-700">
-                                                     <div className="relative h-full w-full flex items-center justify-center">
-                                                       <img
-                                                         src={previousRecord.signature_url}
-                                                         alt="التوقيع - سابق"
-                                                         className="max-h-full max-w-full object-contain rounded cursor-pointer"
-                                                         onClick={(e) => {
-                                                           e.stopPropagation();
-                                                           openPreview([previousRecord.signature_url], 0);
-                                                         }}
-                                                       />
-                                                     </div>
-                                                   </div>
-                                                 ) : (
-                                                   <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
-                                                     لا يوجد توقيع قديم
-                                                   </div>
-                                                 )}
-                                               </div>
-                                             </div>
-                                           </div>
+  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+    التوقيع *
+  </label>
+  <div className="grid grid-cols-1 gap-3">
+    <div className="min-w-0">
+      <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
+        التوقيع الجديد:
+      </div>
+      <div
+        className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-md p-2 ${
+          !hasExitRecord ? 'pointer-events-none opacity-50' : ''
+        }`}
+      >
+        {signatureFile.previewUrls && signatureFile.previewUrls.length > 0 ? (
+          <div className="relative h-32 w-full flex items-center justify-center">
+            <img
+              src={signatureFile.previewUrls[0]}
+              alt="التوقيع"
+              className="max-h-full max-w-full object-contain rounded cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                openPreview([signatureFile.previewUrls[0]], 0);
+              }}
+            />
+            <button
+              type="button"
+              onClick={(e) => removePreviewImage(signatureFile.id, 0, e)}
+              className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-md z-10"
+              aria-label="حذف التوقيع"
+            >
+              <span className="text-lg font-bold">×</span>
+            </button>
+          </div>
+        ) : (
+          <div className="w-full flex flex-col items-center justify-center gap-3">
+            <div className="w-full h-32">
+              <SignaturePad
+                ref={sigCanvas}
+                backgroundColor="#ffffff"
+                penColor="black"
+                canvasProps={{
+                  className: `border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md w-full h-full ${
+                    !hasExitRecord || isSignatureLocked
+                      ? 'pointer-events-none opacity-50'
+                      : ''
+                  }`,
+                }}
+              />
+            </div>
+            <div className="flex justify-center gap-2">
+              <button
+                type="button"
+                onClick={clearSignature}
+                className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600"
+                disabled={!hasExitRecord}
+              >
+                مسح التوقيع
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSignatureSave()}
+                className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                disabled={!hasExitRecord || isSignatureLocked}
+              >
+                حفظ التوقيع
+              </button>
+            </div>
+          </div>
+        )}
+        {signatureFile.isUploading && signatureFile.uploadProgress < 100 && (
+          <div className="mt-2">
+            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+              <div
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${signatureFile.uploadProgress}%` }}
+              ></div>
+            </div>
+            <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
+              {signatureFile.uploadProgress}%
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+    <div className="min-w-0">
+      <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
+        التوقيع القديم (تشييك الخروج):
+      </div>
+      {previousRecord && previousRecord.signature_url ? (
+        <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-md p-2 h-32 bg-gray-50 dark:bg-gray-700">
+          <div className="relative h-full w-full flex items-center justify-center">
+            <img
+              src={previousRecord.signature_url}
+              alt="التوقيع - سابق"
+              className="max-h-full max-w-full object-contain rounded cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                openPreview([previousRecord.signature_url], 0);
+              }}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700">
+          لا يوجد توقيع قديم
+        </div>
+      )}
+    </div>
+  </div>
+</div>
                              
                                            <div className="mb-4 text-center mt-4">
                                              <button
