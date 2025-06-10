@@ -451,7 +451,7 @@ export default function CarsPage() {
         .cover {
             top: 0;
             position: absolute;
-            background-color: #4a90e2; /* لون أزرق غامق للغلاف */
+            background-color:rgb(235, 241, 248); /* لون أزرق غامق للغلاف */
             width: 100%;
             height: 100%;
             border-radius: 15px;
