@@ -9,7 +9,7 @@ interface Car {
     Ref?: number;
     make_no?: number;
     manufacturer?: string;
-    model_no?: string;
+    model_no?: number;
     model?: string;
     type_no?: string;
     Type?: string;
@@ -26,6 +26,7 @@ interface Car {
 
 export default function CarsPage() {
     const [groupedCars, setGroupedCars] = useState<Record<string, Car[]>>({});
+    const [selectedManufacturer, setSelectedManufacturer] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState<Partial<Car>>({});
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -41,6 +42,10 @@ export default function CarsPage() {
         );
         const data = await response.json();
         setGroupedCars(data.groupedCars || {});
+        // Reset selected manufacturer if it no longer exists after search
+        if (selectedManufacturer && !data.groupedCars[selectedManufacturer]) {
+            setSelectedManufacturer(null);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -72,6 +77,10 @@ export default function CarsPage() {
         const response = await fetch(`/api/CarsDetails?id=${id}`, { method: 'DELETE' });
         if (response.ok) {
             fetchCars();
+            // If the last car of a manufacturer is deleted, go back to manufacturer view
+            if (selectedManufacturer && groupedCars[selectedManufacturer]?.length === 1) {
+                setSelectedManufacturer(null);
+            }
         }
     };
 
@@ -82,12 +91,21 @@ export default function CarsPage() {
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearchQuery(e.target.value);
+        setSelectedManufacturer(null); // Reset to manufacturer view on search
     };
 
     const openAddModal = () => {
         setFormData({});
         setEditingId(null);
         setIsModalOpen(true);
+    };
+
+    const handleManufacturerClick = (manufacturer: string) => {
+        setSelectedManufacturer(manufacturer);
+    };
+
+    const handleBackClick = () => {
+        setSelectedManufacturer(null);
     };
 
     return (
@@ -114,46 +132,68 @@ export default function CarsPage() {
                     </div>
                 </div>
 
-                {/* Cars Grouped by Manufacturer */}
-                <div className="space-y-8">
-                    {Object.entries(groupedCars).map(([manufacturer, cars]) => (
-                        <div key={manufacturer}>
-                            <h2 className="text-2xl font-bold text-gray-800 mb-4">{manufacturer}</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {cars.map((car) => (
-                                    <div
-                                        key={car.id}
-                                        className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition duration-300"
-                                    >
-                                        <h3 className="text-xl font-semibold text-gray-800">
-                                            {car.manufacturer} {car.model}
-                                        </h3>
-                                        <p className="text-gray-600">رقم اللوحة: {car.plate || 'غير متوفر'}</p>
-                                        <p className="text-gray-600">سنة الصنع: {car.manufacturing_year || 'غير متوفر'}</p>
-                                        <p className="text-gray-600">اللون: {car.color || 'غير متوفر'}</p>
-                                        <div className="mt-4 flex space-x-3">
-                                            <button
-                                                onClick={() => handleEdit(car)}
-                                                className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition duration-200"
-                                            >
-                                                تعديل
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(car.id)}
-                                                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200"
-                                            >
-                                                حذف
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                {/* Manufacturer Cards or Cars List */}
+                {selectedManufacturer ? (
+                    <div>
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold text-gray-800">{selectedManufacturer}</h2>
+                            <button
+                                onClick={handleBackClick}
+                                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition duration-200"
+                            >
+                                العودة إلى الشركات
+                            </button>
                         </div>
-                    ))}
-                    {Object.keys(groupedCars).length === 0 && (
-                        <p className="text-gray-600 text-center">لا توجد سيارات مطابقة للبحث.</p>
-                    )}
-                </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {groupedCars[selectedManufacturer].map((car) => (
+                                <div
+                                    key={car.id}
+                                    className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition duration-300"
+                                >
+                                    <h3 className="text-xl font-semibold text-gray-800">
+                                        {car.manufacturer} {car.model}
+                                    </h3>
+
+
+
+                                    <p className="text-gray-600">اللوحة: {car.plate || 'N/A'}</p>
+                                    <p className="text-gray-600">سنة التصنيع: {car.manufacturing_year || 'N/A'}</p>
+                                    <div className="mt-4 flex space-x-3">
+                                        <button
+                                            onClick={() => handleEdit(car)}
+                                            className="bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 transition duration-200"
+                                        >
+                                            Edit
+                                        </button>
+                                    </div>
+                                    {/* 
+                                        <button
+                                            onClick={() => handleDelete(car.id)}
+                                            className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200"
+                                        >
+                                            حذف
+                                        </button> */}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {Object.keys(groupedCars).map((manufacturer) => (
+                            <div
+                                key={manufacturer}
+                                onClick={() => handleManufacturerClick(manufacturer)}
+                                className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition duration-300 cursor-pointer"
+                            >
+                                <h2 className="text-xl font-semibold text-gray-800">{manufacturer}</h2>
+                                <p className="text-gray-600">عدد السيارات: {groupedCars[manufacturer].length}</p>
+                            </div>
+                        ))}
+                        {Object.keys(groupedCars).length === 0 && (
+                            <p className="text-gray-600 text-center col-span-full">لا توجد شركات أو سيارات مطابقة للبحث.</p>
+                        )}
+                    </div>
+                )}
 
                 {/* Modal */}
                 {isModalOpen && (
@@ -204,7 +244,7 @@ export default function CarsPage() {
                                             name="model"
                                             value={formData.model || ''}
                                             onChange={handleInputChange}
-                                            className="mt-1 p-3 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
+                                            className="mt-1 p-3 border rounded-lg w own-full focus:ring-indigo-500 focus:border-indigo-500"
                                             placeholder="أدخل الموديل"
                                         />
                                     </div>
