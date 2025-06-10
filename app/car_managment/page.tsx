@@ -433,25 +433,25 @@ export default function CarsPage() {
     const StyledBookCard = styled.div`
         .book {
             position: relative;
-            border-radius: 15px; /* زيادة نصف القطر لجعل الحواف أكثر انسيابية */
-            width: 250px; /* زيادة العرض */
-            height: 350px; /* زيادة الارتفاع */
-            background-color: #f0f4f8; /* لون خلفية أفتح */
-            box-shadow: 2px 2px 15px rgba(0, 0, 0, 0.3); /* ظل أكثر وضوحًا */
+            border-radius: 15px;
+            width: 250px;
+            height: 350px;
+            background-color: #f0f4f8;
+            box-shadow: 2px 2px 15px rgba(0, 0, 0, 0.3);
             transform: preserve-3d;
             perspective: 2000px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #333; /* لون نص أغمق */
+            color: #333;
             cursor: pointer;
-            overflow: hidden; /* لضمان احتواء اللوجو داخل الكارد */
+            overflow: hidden;
         }
 
         .cover {
             top: 0;
             position: absolute;
-            background-color:rgb(235, 241, 248); /* لون أزرق غامق للغلاف */
+            background-color:rgb(227, 236, 247);
             width: 100%;
             height: 100%;
             border-radius: 15px;
@@ -462,7 +462,7 @@ export default function CarsPage() {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 10px; /* إضافة padding لتحسين المساحة */
+            padding: 10px;
         }
 
         .book:hover .cover {
@@ -471,15 +471,15 @@ export default function CarsPage() {
         }
 
         p {
-            font-size: 22px; /* زيادة حجم الخط */
+            font-size: 22px;
             font-weight: bolder;
-            margin: 0; /* إزالة الهوامش الافتراضية */
+            margin: 0;
         }
 
         .logo {
-            width: 50px; /* حجم اللوجو */
+            width: 50px;
             height: auto;
-            margin-right: 10px; /* مسافة بين اللوجو والنص */
+            margin-right: 10px;
         }
     `;
 
@@ -553,7 +553,7 @@ export default function CarsPage() {
                                     <p>{groupedCars[manufacturer].length}</p>
                                     <div className="cover">
                                         <img
-                                            src={`/images/${manufacturer.toLowerCase().replace(/ /g, '_')}.png`}
+                                            src={`/images/${manufacturer}.png`} // تعديل لاستخدام الاسم الأصلي
                                             alt={`${manufacturer} logo`}
                                             className="logo"
                                             onError={(e) => {
