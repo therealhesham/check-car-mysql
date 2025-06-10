@@ -1168,7 +1168,7 @@ const AddButton = ({ onClick }: { onClick: () => void }) => {
     <StyledButtonWrapper>
       <button className="Btn" onClick={onClick}>
         <div className="sign">+</div>
-        <div className="text">إضافة سيارة</div>
+        <div className="text" >إضافة سيارة</div>
       </button>
     </StyledButtonWrapper>
   );
@@ -1203,7 +1203,7 @@ const StyledButtonWrapper = styled.div`
 
   .text {
     position: absolute;
-    left: 0%;
+    right: 0%; /* تغيير من left: 0% إلى right: 0% */
     width: 0%;
     opacity: 0;
     color: white;
@@ -1211,6 +1211,7 @@ const StyledButtonWrapper = styled.div`
     font-weight: 500;
     transition-duration: 0.3s;
     white-space: nowrap;
+    text-align: right; /* محاذاة النص إلى اليمين */
   }
 
   .Btn:hover {
@@ -1229,7 +1230,7 @@ const StyledButtonWrapper = styled.div`
     opacity: 1;
     width: 70%;
     transition-duration: 0.3s;
-    padding-left: 20px;
+    padding-right: 20px; /* تغيير من padding-left إلى padding-right */
   }
 
   .Btn:active {
