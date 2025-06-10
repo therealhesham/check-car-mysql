@@ -438,7 +438,7 @@ interface Car {
 const StyledContainer = styled.div`
     .main-container {
         min-height: 100vh;
-        background-color: #f9fafb; /* خلفية فاتحة ونظيفة */
+        background-color: #f9fafb;
         padding: 2rem;
     }
 
@@ -453,7 +453,7 @@ const StyledContainer = styled.div`
     .title {
         font-size: 2.25rem;
         font-weight: 800;
-        color: #1e293b; /* رمادي غامق أنيق */
+        color: #1e293b;
     }
 
     .search-add-container {
@@ -461,7 +461,7 @@ const StyledContainer = styled.div`
         flex-direction: row;
         gap: 1rem;
         width: 100%;
-        max-width: 600px; /* عرض محدود للتناسق */
+        max-width: 600px;
         justify-content: center;
     }
 
@@ -479,7 +479,7 @@ const StyledContainer = styled.div`
 
     .search-input:focus {
         outline: none;
-        border-color: #6366f1; /* لون إنديجو عند التركيز */
+        border-color: #6366f1;
         box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
     }
 
@@ -490,9 +490,7 @@ const StyledContainer = styled.div`
         border: none;
         border-radius: 0.5rem;
         font-size: 1rem;
-        font
-
--weight: 600;
+        font-weight: 600;
         cursor: pointer;
         transition: background-color 0.3s, transform 0.2s;
     }
@@ -537,6 +535,7 @@ const StyledContainer = styled.div`
         padding: 1.5rem;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         transition: box-shadow 0.3s, transform 0.3s;
+        border: 1px solid #e2e8f0; /* إضافة حدود للكارد */
     }
 
     .car-card:hover {
@@ -574,6 +573,13 @@ const StyledContainer = styled.div`
     .edit-button:hover {
         background-color: #d97706;
     }
+
+    .cards-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        justify-content: center; /* توسيط الكروت أفقيًا */
+    }
 `;
 
 const StyledBookCard = styled.div`
@@ -593,6 +599,7 @@ const StyledBookCard = styled.div`
         cursor: pointer;
         overflow: hidden;
         transition: transform 0.3s, box-shadow 0.3s;
+        border: 1px solid #e2e8f0; /* إضافة حدود لكارد الشركة */
     }
 
     .book:hover {
@@ -634,6 +641,40 @@ const StyledBookCard = styled.div`
         font-weight: bolder;
         margin: 0;
         text-align: center;
+    }
+
+    .car-count {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #334155;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .book:hover .car-count {
+        opacity: 1;
+    }
+
+    .car-count-number {
+        display: block; /* النص الافتراضي (الرقم فقط) */
+    }
+
+    .book:hover .car-count-number {
+        display: none; /* إخفاء الرقم عند التحويم */
+    }
+
+    .car-count-text {
+        display: none; /* النص الكامل مخفي افتراضيًا */
+    }
+
+    .book:hover .car-count-text {
+        display: block; /* إظهار النص الكامل عند التحويم */
     }
 `;
 
@@ -889,7 +930,7 @@ export default function CarsPage() {
                             </div>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="cards-grid">
                             {Object.keys(groupedCars).map((manufacturer) => {
                                 const normalizedManufacturer = manufacturer.toLowerCase();
                                 return (
@@ -898,7 +939,10 @@ export default function CarsPage() {
                                         onClick={() => handleManufacturerClick(manufacturer)}
                                     >
                                         <div className="book">
-                                            <p>{groupedCars[manufacturer].length}</p>
+                                            <div className="car-count">
+                                                <span className="car-count-number">{groupedCars[manufacturer].length}</span>
+                                                <span className="car-count-text">عدد السيارات: {groupedCars[manufacturer].length}</span>
+                                            </div>
                                             <div className="cover">
                                                 <img
                                                     src={`/images/${normalizedManufacturer}.png`}
