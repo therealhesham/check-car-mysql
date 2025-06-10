@@ -1,5 +1,3 @@
-
-
 // 'use client';
 
 // import Navbar from '@/public/components/navbar';
@@ -100,26 +98,36 @@
 //         margin-bottom: 1.5rem;
 //     }
 
-//     .section-title {
+//     .manufacturer-logo {
+//         width: 60px;
+//         height: auto;
+//         object-fit: contain;
+//     }
+
+//     .manufacturer-logo-text {
 //         font-size: 1.5rem;
 //         font-weight: 700;
 //         color: #1e293b;
 //     }
 
 //     .back-button {
-//         padding: 0.5rem 1rem;
+//         display: flex;
+//         align-items: center;
+//         justify-content: center;
+//         width: 40px;
+//         height: 40px;
 //         background-color: #e2e8f0;
 //         color: #475569;
 //         border: none;
 //         border-radius: 0.5rem;
-//         font-size: 0.875rem;
-//         font-weight: 500;
+//         font-size: 1.25rem; /* حجم السهم */
 //         cursor: pointer;
-//         transition: background-color 0.3s;
+//         transition: background-color 0.3s, transform 0.2s;
 //     }
 
 //     .back-button:hover {
 //         background-color: #cbd5e1;
+//         transform: translateX(2px); /* حركة خفيفة لليمين */
 //     }
 
 //     .car-card {
@@ -168,7 +176,7 @@
 //     }
 
 //     .cards-section {
-//         border: 1px solid #e2e8f0; /* حدود حول قسم الكروت */
+//         border: 1px solid #e2e8f0;
 //         border-radius: 0.75rem;
 //         padding: 1.5rem;
 //         background-color: #ffffff;
@@ -248,7 +256,7 @@
 //         position: absolute;
 //         top: 50%;
 //         left: 50%;
-//         transform: translate(-50%, -50%); /* توسيط النص أفقيًا وعموديًا */
+//         transform: translate(-50%, -50%);
 //         font-size: 1rem;
 //         font-weight: 600;
 //         color: #334155;
@@ -507,9 +515,26 @@
 //                         {selectedManufacturer ? (
 //                             <div>
 //                                 <div className="section-header">
-//                                     <h2 className="section-title">{selectedManufacturer}</h2>
+//                                     <div>
+//                                         <img
+//                                             src={`/images/${selectedManufacturer}.png`}
+//                                             alt={`${selectedManufacturer} logo`}
+//                                             className="manufacturer-logo"
+//                                             onError={(e) => {
+//                                                 const img = e.target as HTMLImageElement;
+//                                                 img.style.display = 'none';
+//                                                 const textElement = img.nextElementSibling as HTMLElement;
+//                                                 if (textElement) {
+//                                                     textElement.style.display = 'block';
+//                                                 }
+//                                             }}
+//                                         />
+//                                         <span className="manufacturer-logo-text" style={{ display: 'none' }}>
+//                                             {selectedManufacturer}
+//                                         </span>
+//                                     </div>
 //                                     <button onClick={handleBackClick} className="back-button">
-//                                         العودة إلى الشركات
+//                                         ←
 //                                     </button>
 //                                 </div>
 //                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -705,6 +730,33 @@ import Navbar from '@/public/components/navbar';
 import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 
+// قاموس لتحويل أسماء السيارات إلى التنسيق العربي/الإنجليزي
+const carNameMapping: { [key: string]: string } = {
+  "Hyundai Accent": "هيونداي - اكسنت / Hyundai-Accent",
+  "Kia Carens": "كيا - كارينز / Kia-Carens",
+  "Hyundai Elantra": "هيونداي - النترا / Hyundai-Elantra",
+  "Hyundai I10": "هيونداي - جراند10 / Hyundai-I10",
+  "Hyundai Sonata": "هيونداي - سوناتا / Hyundai-Sonata",
+  "Toyota Yaris": "تويوتا - يارس / Toyota-Yaris",
+  "Hyundai Venue": "هيونداي - فينيو / Hyundai-Venue",
+  "Kia Pegas": "كيا - بيجاس / Kia-Pegas",
+  "Toyota Corolla": "تويوتا - كورولا / Toyota-Corolla",
+  "Hyundai Staria": "هيونداي - ستاريا / Hyundai-Staria",
+  "Kia K4": "كيا - كي 4 / Kia-K4",
+  "Hyundai Creta Jeep": "هيونداي - كريتا جيب / Hyundai-Creta Jeep",
+  "Suzuki Dzire": "سوزوكي - ديزاير / Suzuki-Dzire",
+  "Toyota Hilux": "تويوتا - هايلوكس / Toyota-Hilux",
+  "Toyota Veloz": "تويوتا - فيلوز / Toyota-Veloz",
+  "Toyota Raize": "تويوتا - رايز / Toyota-Raize",
+  "Great Wall Wingle": "جريت وول - وينجل / Great Wall-Wingle",
+  "Toyota Camry": "تويوتا - كامري / Toyota-Camry",
+  "Mitsubishi Attrage": "ميتسوبيشي - اتراج / Mitsubishi-Attrage",
+  "Great Wall Wingel 7": "جريت وول - وينجل 7 / Great Wall-Wingel 7",
+  "Nissan Sunny": "نيسان - صني / Nissan-Sunny",
+  "Lexus Es 250": "لكزس - ES 250 / Lexus-Es 250",
+  "Chery Tiggo 4 Pro": "شيري - تيجو 4 / Chery-Tiggo 4 Pro",
+};
+
 interface Car {
     id: number;
     owner_name?: string;
@@ -821,14 +873,14 @@ const StyledContainer = styled.div`
         color: #475569;
         border: none;
         border-radius: 0.5rem;
-        font-size: 1.25rem; /* حجم السهم */
+        font-size: 1.25rem;
         cursor: pointer;
         transition: background-color 0.3s, transform 0.2s;
     }
 
     .back-button:hover {
         background-color: #cbd5e1;
-        transform: translateX(2px); /* حركة خفيفة لليمين */
+        transform: translateX(2px);
     }
 
     .car-card {
@@ -837,7 +889,6 @@ const StyledContainer = styled.div`
         padding: 1.5rem;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         transition: box-shadow 0.3s, transform 0.3s;
-        border: 1px solid #e2e8f0;
     }
 
     .car-card:hover {
@@ -859,6 +910,7 @@ const StyledContainer = styled.div`
     .action-buttons {
         display: flex;
         gap: 0.75rem;
+        margin-top: 1rem;
     }
 
     .edit-button {
@@ -926,7 +978,7 @@ const StyledBookCard = styled.div`
         border-radius: 15px;
         cursor: pointer;
         transition: all 0.5s;
-        transform-origin: 0;
+        transform-origin: bottom;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         display: flex;
         align-items: center;
@@ -943,10 +995,10 @@ const StyledBookCard = styled.div`
         width: 100px;
         height: auto;
         max-height: 80%;
-        object-fit: contain;
+        object-fit: cover;
     }
 
-    .manufacturer-text {
+    .company-text {
         font-size: 22px;
         font-weight: bolder;
         margin: 0;
@@ -1002,13 +1054,13 @@ const StyledModal = styled.div`
 
     .modal-content {
         background-color: #ffffff;
-        border-radius: 0.75rem;
+        border-radius: 12px;
         padding: 2rem;
         width: 100%;
         max-width: 600px;
         max-height: 80vh;
         overflow-y: auto;
-        box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     }
 
     .modal-title {
@@ -1240,13 +1292,16 @@ export default function CarsPage() {
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {groupedCars[selectedManufacturer]?.map((car) => (
-                                        <div key={car.id} className="car-card">
-                                            <h3 className="car-title">
-                                                {car.manufacturer} {car.model}
-                                            </h3>
+                                        <div
+                                            key={car.id}
+                                            className="car-card"
+                                        >
+                                            <h2 className="car-title">
+                                                {carNameMapping[`${car.manufacturer} ${car.model}`] || `${car.manufacturer} ${car.model}`}
+                                            </h2>
                                             <p className="car-info">اللوحة: {car.plate || 'N/A'}</p>
                                             <p className="car-info">سنة التصنيع: {car.manufacturing_year || 'N/A'}</p>
-                                            <div className="action-buttons mt-4">
+                                            <div className="action-buttons">
                                                 <button
                                                     onClick={() => handleEdit(car)}
                                                     className="edit-button"
@@ -1286,7 +1341,7 @@ export default function CarsPage() {
                                                             }
                                                         }}
                                                     />
-                                                    <p className="manufacturer-text" style={{ display: 'none' }}>
+                                                    <p className="company-text" style={{ display: 'none' }}>
                                                         {manufacturer}
                                                     </p>
                                                 </div>
@@ -1309,7 +1364,9 @@ export default function CarsPage() {
                             <div className="modal-overlay">
                                 <div className="modal-content">
                                     <h2 className="modal-title">
-                                        {editingId ? 'تحرير السيارة' : 'إضافة سيارة جديدة'}
+                                        {editingId
+                                            ? `تحرير: ${carNameMapping[`${formData.manufacturer} ${formData.model}`] || `${formData.manufacturer} ${formData.model}`}`
+                                            : 'إضافة سيارة جديدة'}
                                     </h2>
                                     <form onSubmit={handleSubmit}>
                                         <div className="form-grid">
