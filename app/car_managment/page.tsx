@@ -725,7 +725,7 @@ const carNameMapping: { [key: string]: string } = {
     "Toyota Raize": "تويوتا - رايز / Toyota-Raize",
     "Great Wall Wingle": "جريت وول - وينجل / Great Wall-Wingle",
     "Toyota Camry": "تويوتا - كامري / Toyota-Camry",
-    "Mitsubishi Attrage": "ميتسوبيشي - اتراج / Mitsubishi-Attrage",
+    "mitsubishi Attrage": "ميتسوبيشي - اتراج / Mitsubishi-Attrage",
     "Great Wall Wingel 7": "جريت وول - وينجل 7 / Great Wall-Wingel 7",
     "Nissan Sunny": "نيسان - صني / Nissan-Sunny",
     "Lexus Es 250": "لكزس - ES 250 / Lexus-Es 250",
