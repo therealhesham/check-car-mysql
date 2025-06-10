@@ -2831,6 +2831,20 @@ export default function HomePage() {
               {/* <p className="text-sm text-gray-600">إضافة وحذف السيارات</p> */}
             </div>
           )}
+
+
+          {user.role === 'admin' && (
+            <div
+              onClick={() => router.push("/car_managment")}
+              className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer"
+            >
+              <div className="text-blue-600 mb-4">
+                <FaCarSide className="inline-block text-4xl" />
+              </div>
+              <h2 className="text-xl font-medium text-gray-800 mb-2">car managment</h2>
+              {/* <p className="text-sm text-gray-600">إضافة وحذف السيارات</p> */}
+            </div>
+          )}
         </div>
       </div>
 
