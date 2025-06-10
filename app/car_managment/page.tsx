@@ -705,6 +705,33 @@ import Navbar from '@/public/components/navbar';
 import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 
+// قاموس لتحويل أسماء السيارات إلى التنسيق العربي/الإنجليزي
+const carNameMapping: { [key: string]: string } = {
+    "Hyundai Accent": "هيونداي - اكسنت / Hyundai-Accent",
+    "Kia Carens": "كيا - كارينز / Kia-Carens",
+    "Hyundai Elantra": "هيونداي - النترا / Hyundai-Elantra",
+    "Hyundai I10": "هيونداي - جراند10 / Hyundai-I10",
+    "Hyundai Sonata": "هيونداي - سوناتا / Hyundai-Sonata",
+    "Toyota Yaris": "تويوتا - يارس / Toyota-Yaris",
+    "Hyundai Venue": "هيونداي - فينيو / Hyundai-Venue",
+    "Kia Pegas": "كيا - بيجاس / Kia-Pegas",
+    "Toyota Corolla": "تويوتا - كورولا / Toyota-Corolla",
+    "Hyundai Staria": "هيونداي - ستاريا / Hyundai-Staria",
+    "Kia K4": "كيا - كي 4 / Kia-K4",
+    "Hyundai Creta Jeep": "هيونداي - كريتا جيب / Hyundai-Creta Jeep",
+    "Suzuki Dzire": "سوزوكي - ديزاير / Suzuki-Dzire",
+    "Toyota Hilux": "تويوتا - هايلوكس / Toyota-Hilux",
+    "Toyota Veloz": "تويوتا - فيلوز / Toyota-Veloz",
+    "Toyota Raize": "تويوتا - رايز / Toyota-Raize",
+    "Great Wall Wingle": "جريت وول - وينجل / Great Wall-Wingle",
+    "Toyota Camry": "تويوتا - كامري / Toyota-Camry",
+    "Mitsubishi Attrage": "ميتسوبيشي - اتراج / Mitsubishi-Attrage",
+    "Great Wall Wingel 7": "جريت وول - وينجل 7 / Great Wall-Wingel 7",
+    "Nissan Sunny": "نيسان - صني / Nissan-Sunny",
+    "Lexus Es 250": "لكزس - ES 250 / Lexus-Es 250",
+    "Chery Tiggo 4 Pro": "شيري - تيجو 4 / Chery-Tiggo 4 Pro",
+};
+
 interface Car {
     id: number;
     owner_name?: string;
@@ -821,14 +848,14 @@ const StyledContainer = styled.div`
         color: #475569;
         border: none;
         border-radius: 0.5rem;
-        font-size: 1.25rem; /* حجم السهم */
+        font-size: 1.25rem;
         cursor: pointer;
         transition: background-color 0.3s, transform 0.2s;
     }
 
     .back-button:hover {
         background-color: #cbd5e1;
-        transform: translateX(2px); /* حركة خفيفة لليمين */
+        transform: translateX(2px);
     }
 
     .car-card {
@@ -859,6 +886,7 @@ const StyledContainer = styled.div`
     .action-buttons {
         display: flex;
         gap: 0.75rem;
+        margin-top: 1rem;
     }
 
     .edit-button {
@@ -1241,12 +1269,12 @@ export default function CarsPage() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {groupedCars[selectedManufacturer]?.map((car) => (
                                         <div key={car.id} className="car-card">
-                                            <h3 className="car-title">
-                                                {car.manufacturer} {car.model}
-                                            </h3>
+                                            <h2 className="car-title">
+                                                {carNameMapping[`${car.manufacturer} ${car.model}`] || `${car.manufacturer} ${car.model}`}
+                                            </h2>
                                             <p className="car-info">اللوحة: {car.plate || 'N/A'}</p>
                                             <p className="car-info">سنة التصنيع: {car.manufacturing_year || 'N/A'}</p>
-                                            <div className="action-buttons mt-4">
+                                            <div className="action-buttons">
                                                 <button
                                                     onClick={() => handleEdit(car)}
                                                     className="edit-button"
@@ -1309,7 +1337,9 @@ export default function CarsPage() {
                             <div className="modal-overlay">
                                 <div className="modal-content">
                                     <h2 className="modal-title">
-                                        {editingId ? 'تحرير السيارة' : 'إضافة سيارة جديدة'}
+                                        {editingId
+                                            ? `تحرير: ${carNameMapping[`${formData.manufacturer} ${formData.model}`] || `${formData.manufacturer} ${formData.model}`}`
+                                            : 'إضافة سيارة جديدة'}
                                     </h2>
                                     <form onSubmit={handleSubmit}>
                                         <div className="form-grid">
