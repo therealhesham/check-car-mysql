@@ -535,7 +535,7 @@ const StyledContainer = styled.div`
         padding: 1.5rem;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         transition: box-shadow 0.3s, transform 0.3s;
-        border: 1px solid #e2e8f0; /* إضافة حدود للكارد */
+        border: 1px solid #e2e8f0;
     }
 
     .car-card:hover {
@@ -574,11 +574,19 @@ const StyledContainer = styled.div`
         background-color: #d97706;
     }
 
+    .cards-section {
+        border: 1px solid #e2e8f0; /* حدود حول قسم الكروت */
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        background-color: #ffffff;
+        margin-top: 1.5rem;
+    }
+
     .cards-grid {
         display: flex;
         flex-wrap: wrap;
         gap: 1.5rem;
-        justify-content: center; /* توسيط الكروت أفقيًا */
+        justify-content: center;
     }
 `;
 
@@ -599,7 +607,7 @@ const StyledBookCard = styled.div`
         cursor: pointer;
         overflow: hidden;
         transition: transform 0.3s, box-shadow 0.3s;
-        border: 1px solid #e2e8f0; /* إضافة حدود لكارد الشركة */
+        border: 1px solid #e2e8f0;
     }
 
     .book:hover {
@@ -645,8 +653,9 @@ const StyledBookCard = styled.div`
 
     .car-count {
         position: absolute;
-        top: 10px;
-        left: 10px;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%); /* توسيط النص أفقيًا وعموديًا */
         font-size: 1rem;
         font-weight: 600;
         color: #334155;
@@ -662,19 +671,19 @@ const StyledBookCard = styled.div`
     }
 
     .car-count-number {
-        display: block; /* النص الافتراضي (الرقم فقط) */
+        display: block;
     }
 
     .book:hover .car-count-number {
-        display: none; /* إخفاء الرقم عند التحويم */
+        display: none;
     }
 
     .car-count-text {
-        display: none; /* النص الكامل مخفي افتراضيًا */
+        display: none;
     }
 
     .book:hover .car-count-text {
-        display: block; /* إظهار النص الكامل عند التحويم */
+        display: block;
     }
 `;
 
@@ -901,77 +910,79 @@ export default function CarsPage() {
                     </div>
 
                     {/* Manufacturer Cards or Cars List */}
-                    {selectedManufacturer ? (
-                        <div>
-                            <div className="section-header">
-                                <h2 className="section-title">{selectedManufacturer}</h2>
-                                <button onClick={handleBackClick} className="back-button">
-                                    العودة إلى الشركات
-                                </button>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {groupedCars[selectedManufacturer]?.map((car) => (
-                                    <div key={car.id} className="car-card">
-                                        <h3 className="car-title">
-                                            {car.manufacturer} {car.model}
-                                        </h3>
-                                        <p className="car-info">اللوحة: {car.plate || 'N/A'}</p>
-                                        <p className="car-info">سنة التصنيع: {car.manufacturing_year || 'N/A'}</p>
-                                        <div className="action-buttons mt-4">
-                                            <button
-                                                onClick={() => handleEdit(car)}
-                                                className="edit-button"
-                                            >
-                                                تعديل
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="cards-grid">
-                            {Object.keys(groupedCars).map((manufacturer) => {
-                                const normalizedManufacturer = manufacturer.toLowerCase();
-                                return (
-                                    <StyledBookCard
-                                        key={manufacturer}
-                                        onClick={() => handleManufacturerClick(manufacturer)}
-                                    >
-                                        <div className="book">
-                                            <div className="car-count">
-                                                <span className="car-count-number">{groupedCars[manufacturer].length}</span>
-                                                <span className="car-count-text">عدد السيارات: {groupedCars[manufacturer].length}</span>
-                                            </div>
-                                            <div className="cover">
-                                                <img
-                                                    src={`/images/${normalizedManufacturer}.png`}
-                                                    alt={`${manufacturer} logo`}
-                                                    className="logo"
-                                                    onError={(e) => {
-                                                        const img = e.target as HTMLImageElement;
-                                                        img.style.display = 'none';
-                                                        const textElement = img.nextElementSibling as HTMLElement;
-                                                        if (textElement) {
-                                                            textElement.style.display = 'block';
-                                                        }
-                                                    }}
-                                                />
-                                                <p className="manufacturer-text" style={{ display: 'none' }}>
-                                                    {manufacturer}
-                                                </p>
+                    <div className="cards-section">
+                        {selectedManufacturer ? (
+                            <div>
+                                <div className="section-header">
+                                    <h2 className="section-title">{selectedManufacturer}</h2>
+                                    <button onClick={handleBackClick} className="back-button">
+                                        العودة إلى الشركات
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {groupedCars[selectedManufacturer]?.map((car) => (
+                                        <div key={car.id} className="car-card">
+                                            <h3 className="car-title">
+                                                {car.manufacturer} {car.model}
+                                            </h3>
+                                            <p className="car-info">اللوحة: {car.plate || 'N/A'}</p>
+                                            <p className="car-info">سنة التصنيع: {car.manufacturing_year || 'N/A'}</p>
+                                            <div className="action-buttons mt-4">
+                                                <button
+                                                    onClick={() => handleEdit(car)}
+                                                    className="edit-button"
+                                                >
+                                                    تعديل
+                                                </button>
                                             </div>
                                         </div>
-                                    </StyledBookCard>
-                                );
-                            })}
-                            {Object.keys(groupedCars).length === 0 && (
-                                <p className="text-gray-600 text-center col-span-full">
-                                    لا توجد شركات أو سيارات مطابقة للبحث.
-                                </p>
-                            )}
-                        </div>
-                    )}
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="cards-grid">
+                                {Object.keys(groupedCars).map((manufacturer) => {
+                                    const normalizedManufacturer = manufacturer.toLowerCase();
+                                    return (
+                                        <StyledBookCard
+                                            key={manufacturer}
+                                            onClick={() => handleManufacturerClick(manufacturer)}
+                                        >
+                                            <div className="book">
+                                                <div className="car-count">
+                                                    <span className="car-count-number">{groupedCars[manufacturer].length}</span>
+                                                    <span className="car-count-text">عدد السيارات: {groupedCars[manufacturer].length}</span>
+                                                </div>
+                                                <div className="cover">
+                                                    <img
+                                                        src={`/images/${normalizedManufacturer}.png`}
+                                                        alt={`${manufacturer} logo`}
+                                                        className="logo"
+                                                        onError={(e) => {
+                                                            const img = e.target as HTMLImageElement;
+                                                            img.style.display = 'none';
+                                                            const textElement = img.nextElementSibling as HTMLElement;
+                                                            if (textElement) {
+                                                                textElement.style.display = 'block';
+                                                            }
+                                                        }}
+                                                    />
+                                                    <p className="manufacturer-text" style={{ display: 'none' }}>
+                                                        {manufacturer}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </StyledBookCard>
+                                    );
+                                })}
+                                {Object.keys(groupedCars).length === 0 && (
+                                    <p className="text-gray-600 text-center col-span-full">
+                                        لا توجد شركات أو سيارات مطابقة للبحث.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </div>
 
                     {/* Modal */}
                     {isModalOpen && (
