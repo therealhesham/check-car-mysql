@@ -1711,80 +1711,6 @@ interface Branch {
   Name: string;
 }
 
-interface BranchCheckboxListProps {
-  branches: Branch[];
-  selectedBranches: string[];
-  onChange: (selected: string[]) => void;
-}
-
-function BranchCheckboxList({ branches, selectedBranches, onChange }: BranchCheckboxListProps) {
-  const [selectAll, setSelectAll] = useState(
-    branches.length > 0 && branches.every((branch) => selectedBranches.includes(branch.Name))
-  );
-
-  useEffect(() => {
-    setSelectAll(
-      branches.length > 0 && branches.every((branch) => selectedBranches.includes(branch.Name))
-    );
-  }, [branches, selectedBranches]);
-
-  const handleSelectAll = () => {
-    if (selectAll) {
-      onChange([]); // إلغاء تحديد الكل
-    } else {
-      onChange(branches.map((branch) => branch.Name)); // تحديد الكل
-    }
-    setSelectAll(!selectAll);
-  };
-
-  const handleBranchChange = (branchName: string) => {
-    const newSelected = selectedBranches.includes(branchName)
-      ? selectedBranches.filter((name) => name !== branchName)
-      : [...selectedBranches, branchName];
-    onChange(newSelected);
-  };
-
-  return (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700 mb-1">الفروع</label>
-      <div className="border border-gray-200 rounded-md p-3 max-h-48 overflow-y-auto bg-white">
-        {branches.length === 0 ? (
-          <p className="text-sm text-gray-500">لا توجد فروع متاحة.</p>
-        ) : (
-          <>
-            <div className="flex items-center mb-2">
-              <input
-                type="checkbox"
-                id="select-all"
-                checked={selectAll}
-                onChange={handleSelectAll}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="select-all" className="mr-2 text-sm text-gray-700">
-                اختيار كل الفروع
-              </label>
-            </div>
-            {branches.map((branch) => (
-              <div key={branch.id} className="flex items-center mb-2">
-                <input
-                  type="checkbox"
-                  id={`branch-${branch.id}`}
-                  checked={selectedBranches.includes(branch.Name)}
-                  onChange={() => handleBranchChange(branch.Name)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor={`branch-${branch.id}`} className="mr-2 text-sm text-gray-700">
-                  {branch.Name}
-                </label>
-              </div>
-            ))}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 async function fetchBranches(): Promise<Branch[]> {
   try {
     const response = await fetch('/api/addbranch', {
@@ -3296,12 +3222,24 @@ export default function HomePage() {
                       <option value="employee">موظف</option>
                     </select>
                   </div>
-<<<<<<< HEAD
-                  <BranchCheckboxList
-  branches={branches}
-  selectedBranches={newEmployee.branch ? newEmployee.branch.split(',').map(branch => branch.trim()) : []}
-  onChange={(selected) => setNewEmployee({ ...newEmployee, branch: selected.join(',') })}
-/>
+                  <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">الفروع</label>
+        <select
+          multiple
+          value={selectedEmployee.branch.split(',')} // تحويل السلسلة إلى مصفوفة
+          onChange={(e) => {
+            const selectedBranches = Array.from(e.target.selectedOptions).map(option => option.value);
+            setSelectedEmployee({ ...selectedEmployee, branch: selectedBranches.join(',') });
+          }}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {branches.map((branch) => (
+            <option key={branch.id} value={branch.Name}>
+              {branch.Name}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
     <div className="flex justify-end gap-3 mt-3">
       <button
@@ -3394,14 +3332,24 @@ export default function HomePage() {
                       <option value="employee">موظف</option>
                     </select>
                   </div>
-<<<<<<< HEAD
-                  <BranchCheckboxList
-                   branches={branches}
-                   selectedBranches={
-                   newEmployee.branch ? newEmployee.branch.split(',').map((branch) => branch.trim()) : []
-    }
-    onChange={(selected) => setNewEmployee({ ...newEmployee, branch: selected.join(',') })}
-  />
+                  <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">الفروع</label>
+        <select
+          multiple
+          value={newEmployee.branch ? newEmployee.branch.split(',').map(branch => branch.trim()) : []}
+          onChange={(e) => {
+            const selectedBranches = Array.from(e.target.selectedOptions).map(option => option.value);
+            setNewEmployee({ ...newEmployee, branch: selectedBranches.join(',') });
+          }}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+        >
+          {branches.map((branch) => (
+            <option key={branch.id} value={branch.Name}>
+              {branch.Name}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
     <div className="flex justify-end gap-3 mt-3">
       <button
