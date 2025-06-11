@@ -2306,7 +2306,7 @@ export default function HomePage() {
     setSelectedBranch(branch);
     setNewBranchName(branch.Name);
     setIsAddBranchMode(false);
-    toast.info(`جاري تعد نگهط الفرع: ${branch.Name}`);
+    toast.info(`جاري تعديل بيانات الفرع: ${branch.Name}`);
   };
 
   const handleUpdateBranch = async () => {
@@ -2479,27 +2479,37 @@ export default function HomePage() {
     }
   };
 
+  
   const handleAddEmployee = async () => {
     if (user?.role !== 'admin') {
       toast.error('غير مصرح لك بتنفيذ هذا الإجراء.');
       return;
     }
-
+  
     if (!newEmployee.Name.trim() || !newEmployee.password.trim() || !newEmployee.branch.trim()) {
-      toast.error('الرجاء ملء جميع الحقول المطلوبة (الاسم، كلمة المرور، الفرع).');
+      toast.error('الرجاء ملء جميع الحقول المطلوبة (الاسم، كلمة المرور، الفروع).');
       return;
     }
-
+  
     if (!['admin', 'employee'].includes(newEmployee.role)) {
       toast.error('الدور يجب أن يكون إما admin أو employee.');
       return;
     }
-
+  
     if (isNaN(newEmployee.EmID) || newEmployee.EmID <= 0) {
       toast.error('معرف الموظف يجب أن يكون رقمًا صالحًا وأكبر من 0.');
       return;
     }
-
+  
+    // التحقق من أن الفروع المختارة موجودة في قائمة الفروع
+    const selectedBranches = newEmployee.branch.split(',').map(branch => branch.trim());
+    const validBranches = branches.map(branch => branch.Name);
+    const invalidBranches = selectedBranches.filter(branch => !validBranches.includes(branch));
+    if (invalidBranches.length > 0) {
+      toast.error('تم اختيار فروع غير صالحة: ' + invalidBranches.join(', '));
+      return;
+    }
+  
     try {
       const response = await fetch('/api/usermange', {
         method: 'POST',
@@ -2512,11 +2522,11 @@ export default function HomePage() {
             EmID: newEmployee.EmID,
             password: newEmployee.password.trim(),
             role: newEmployee.role,
-            branch: newEmployee.branch.trim(),
+            branch: newEmployee.branch.trim(), // سلسلة مفصولة بفواصل
           },
         }),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         if (errorData.error.includes('already exists')) {
@@ -2526,13 +2536,10 @@ export default function HomePage() {
         }
         return;
       }
-
+  
       const data = await response.json();
-      // setEmployees([...employees, { id: data.result.id, ...data.result.fields }]);
-      // setNewEmployee({ id: '', Name: '', EmID: 0, password: '', role: 'employee', branch: branches[0]?.Name || '' });
       setIsAddEmployeeMode(false);
-      settime(Date.now())
-
+      settime(Date.now());
       toast.success('تمت إضافة الموظف بنجاح!');
     } catch (err: any) {
       console.error('Error adding employee:', err);
@@ -3223,37 +3230,39 @@ export default function HomePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">الفرع</label>
-                    <select
-                      value={selectedEmployee.branch}
-                      onChange={(e) =>
-                        setSelectedEmployee({ ...selectedEmployee, branch: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {branches.map((branch) => (
-                        <option key={branch.id} value={branch.Name}>
-                          {branch.Name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-3 mt-3">
-                  <button
-                    onClick={() => setSelectedEmployee(null)}
-                    className="px-3 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
-                  >
-                    إلغاء
-                  </button>
-                  <button
-                    onClick={handleUpdateEmployee}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  >
-                    تحديث
-                  </button>
-                </div>
-              </div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">الفروع</label>
+        <select
+          multiple
+          value={selectedEmployee.branch.split(',')} // تحويل السلسلة إلى مصفوفة
+          onChange={(e) => {
+            const selectedBranches = Array.from(e.target.selectedOptions).map(option => option.value);
+            setSelectedEmployee({ ...selectedEmployee, branch: selectedBranches.join(',') });
+          }}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {branches.map((branch) => (
+            <option key={branch.id} value={branch.Name}>
+              {branch.Name}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+    <div className="flex justify-end gap-3 mt-3">
+      <button
+        onClick={() => setSelectedEmployee(null)}
+        className="px-3 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
+      >
+        إلغاء
+      </button>
+      <button
+        onClick={handleUpdateEmployee}
+        className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+      >
+        تحديث
+      </button>
+    </div>
+  </div>
             ) : isAddEmployeeMode ? (
               <div className="flex-1 overflow-y-auto">
                 <h3 className="text-lg font-medium text-gray-800 mb-2">إضافة موظف جديد</h3>
@@ -3297,35 +3306,39 @@ export default function HomePage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">الفرع</label>
-                    <select
-                      value={newEmployee.branch}
-                      onChange={(e) => setNewEmployee({ ...newEmployee, branch: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {branches.map((branch) => (
-                        <option key={branch.id} value={branch.Name}>
-                          {branch.Name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-3 mt-3">
-                  <button
-                    onClick={() => setIsAddEmployeeMode(false)}
-                    className="px-3 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
-                  >
-                    إلغاء
-                  </button>
-                  <button
-                    onClick={handleAddEmployee}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  >
-                    إضافة
-                  </button>
-                </div>
-              </div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">الفروع</label>
+        <select
+          multiple
+          value={newEmployee.branch ? newEmployee.branch.split(',').map(branch => branch.trim()) : []}
+          onChange={(e) => {
+            const selectedBranches = Array.from(e.target.selectedOptions).map(option => option.value);
+            setNewEmployee({ ...newEmployee, branch: selectedBranches.join(',') });
+          }}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+        >
+          {branches.map((branch) => (
+            <option key={branch.id} value={branch.Name}>
+              {branch.Name}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+    <div className="flex justify-end gap-3 mt-3">
+      <button
+        onClick={() => setIsAddEmployeeMode(false)}
+        className="px-3 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
+      >
+        إلغاء
+      </button>
+      <button
+        onClick={handleAddEmployee}
+        className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+      >
+        إضافة
+      </button>
+    </div>
+  </div>
             ) : (
               <div className="flex-1 flex flex-col">
                 <div className="flex justify-end items-center mb-3">
