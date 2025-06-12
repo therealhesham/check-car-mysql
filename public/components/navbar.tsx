@@ -547,13 +547,13 @@ const StyledWrapper = styled.div`
 
   .button-user:hover {
     height: 56px;
-    padding: 8px 20px 8px 8px;
+    padding: 8px 20px 8px 10px;
     background-color: var(--bg-hover-color);
     transition: var(--btn-transition);
   }
 
   .button-user:active {
-    transform: scale(0.99);
+    transform: scale(0.98);
   }
 
   .content-avatar {
@@ -590,7 +590,7 @@ const StyledWrapper = styled.div`
     right: 1px;
     bottom: 1px;
     border-radius: 50%;
-    outline: solid 2px var(--bg-color);
+    outline: 2px solid var(--bg-color);
     background-color: var(--online-status);
     transition: var(--btn-transition);
     animation: active-status 2s ease-in-out infinite;
@@ -601,7 +601,7 @@ const StyledWrapper = styled.div`
     height: 10px;
     right: 1px;
     bottom: 1px;
-    outline: solid 3px var(--bg-hover-color);
+    outline: 3px solid var(--bg-hover-color);
   }
 
   .notice-content {
@@ -724,7 +724,6 @@ export default function Navbar() {
         const parsedUser: User = JSON.parse(storedUser);
         console.log('Parsed user data:', parsedUser);
         setUser(parsedUser);
-        // تحديث قائمة الفروع
         const userBranches = parsedUser.branch
           ? parsedUser.branch.split(',').map((b: string) => b.trim()).filter((b: string) => b)
           : [];
@@ -760,9 +759,10 @@ export default function Navbar() {
       return;
     }
     if (user) {
-      const updatedUser = { ...user, selectedBranch };
+      const updatedUser: User = { ...user, selectedBranch };
       setUser(updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
+      console.log('Updated user:', updatedUser);
       setShowBranchModal(false);
     }
   };
@@ -787,9 +787,9 @@ export default function Navbar() {
             السجل
           </a>
           <a href="/cheak-in" className="hover:text-gray-400">
-            تشييك هيك
+            تشييك دخول
           </a>
-          <a href="/cheak-out" className="hover:text-gray-32">
+          <a href="/cheak-out" className="hover:text-gray-400">
             تشييك خروج
           </a>
           {/* زر المستخدم */}
@@ -799,7 +799,7 @@ export default function Navbar() {
                 <div className="status-user" />
                 <div className="avatar">
                   <svg className="user-img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                    <path d="M12,12.5c-3.04,0-5.5,1.73-5.5,3.5,0,1.9,2.46,3.5,5.5,3.5s5.5-1.6,5.5-3.5c0-1.9-2.46-3.5-5.5-3.5m0-.5c1.66,0,3-1.34,3-3s-1.34-3-3-3-3,1.34-3,3,1.34,3,3,3" />
+                    <path d="M12,12.5c-3.04,0-5.5,1.73-5.5,3.5s2.46,3.5,5.5,3.5,5.5-1.73,5.5-3.5-2.46-3.5-5.5-3.5Zm0-.5c1.66,0,3-1.34,3-3s-1.34-3-3-3-3,1.34-3,3,1.34,3,3,3Z" />
                   </svg>
                 </div>
               </div>
@@ -815,7 +815,7 @@ export default function Navbar() {
             <button className="Btn" onClick={handleLogout}>
               <div className="sign">
                 <svg viewBox="0 0 512 512">
-                  <path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9-18.7 0-33.9-15.2-33.9-33.9V319.9H192c-17.7 0-32-14.3-32-32v-64c0-17.7 14.3-32 32-32h128V129.9c0-18.7 15.2-33.9 33.9-33.9 9 0 17.6 3.6 24 9.9zM160 96H96c-17.7 0-32 14.3-32 32v256c0 17.7 14.3 32 32 32h64c17.7 0 32 14.3 32 32s-14.3 32-32 32H96c-53 0-96-43-96-96V128C0 75 43 32 96 32h64c17.7 0 32 14.3 32 32s-14.3 32-32 32z" />
+                  <path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z" />
                 </svg>
               </div>
               <div className="text">تسجيل الخروج</div>
@@ -855,7 +855,7 @@ export default function Navbar() {
             السجل
           </a>
           <a href="/cheak-in" className="block hover:text-gray-400">
-            تشييك هيك
+            تشييك دخول
           </a>
           <a href="/cheak-out" className="block hover:text-gray-400">
             تشييك خروج
@@ -867,7 +867,7 @@ export default function Navbar() {
                 <div className="status-user" />
                 <div className="avatar">
                   <svg className="user-img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                    <path d="M12,12.5c-3.04,0-5.5,1.73-5.5,3.5,0,1.9,2.46,3.5,5.5,3.5s5.5-1.6,5.5-3.5c0-1.9-2.46-3.5-5.5-3.5m0-.5c1.66,0,3-1.34,3-3s-1.34-3-3-3-3,1.34-3,3,1.34,3,3,3" />
+                    <path d="M12,12.5c-3.04,0-5.5,1.73-5.5,3.5s2.46,3.5,5.5,3.5,5.5-1.73,5.5-3.5-2.46-3.5-5.5-3.5Zm0-.5c1.66,0,3-1.34,3-3s-1.34-3-3-3-3,1.34-3,3,1.34,3,3,3Z" />
                   </svg>
                 </div>
               </div>
@@ -883,7 +883,7 @@ export default function Navbar() {
             <button className="Btn" onClick={handleLogout}>
               <div className="sign">
                 <svg viewBox="0 0 512 512">
-                  <path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9-18.7 0-33.9-15.2-33.9-33.9V319.9H192c-17.7 0-32-14.3-32-32v-64c0-17.7 14.3-32 32-32h128V129.9c0-18.7 15.2-33.9 33.9-33.9 9 0 17.6 3.6 24 9.9zM160 96H96c-17.7 0-32 14.3-32 32v256c0 17.7 14.3 32 32 32h64c17.7 0 32 14.3 32 32s-14.3 32-32 32H96c-53 0-96-43-96-96V128C0 75 43 32 96 32h64c17.7 0 32 14.3 32 32s-14.3 32-32 32z" />
+                  <path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z" />
                 </svg>
               </div>
               <div className="text">تسجيل الخروج</div>
