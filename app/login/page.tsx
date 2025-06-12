@@ -94,23 +94,31 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+// تعريف واجهة User لضمان أنواع الحقول
+interface User {
+  id: string;
+  Name: string;
+  EmID: number;
+  role: string;
+  branch: string;
+}
+
 export default function LoginPage() {
-  const [emId, setEmId] = useState<number | ''>('');
+  const [emId, setEmId] = useState<string | ''>('');
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showBranchModal, setShowBranchModal] = useState<boolean>(false);
-  // حالة لتخزين الفروع
   const [branches, setBranches] = useState<string[]>([]);
-  const [selectedBranch, setSelectedBranch] = useState<string>(''); // حالة لتخزين الفرع المختار
+  const [selectedBranch, setSelectedBranch] = useState<string>('');
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (typeof emId !== 'number') {
-      setError('يجب أن يكون معرف الموظف رقمًا');
+    if (!emId || isNaN(Number(emId))) {
+      setError('يجب أن يكون معرف الموظف رقمًا صحيحًا');
       return;
     }
 
@@ -119,25 +127,31 @@ export default function LoginPage() {
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emId, password }),
+        body: JSON.stringify({ emId: Number(emId), password }),
       });
 
       const data = await response.json();
-      if (data.success) {
-        console.log('Login successful:', data.user);
-        // تقسيم الفروع من user.branch
-        const userBranches = data.user.branch
+      console.log('API response:', data); // سجل لتصحيح الأخطاء
+
+      if (data.success && data.user) {
+        const user: User = data.user;
+        console.log('Login successful:', user);
+
+        // التحقق من وجود branch
+        const branch = typeof user.branch === 'string' ? user.branch : '';
+        const userBranches = branch
           .split(',')
-          .map((b: string) => b.trim())
-          .filter((b: string) => b);
+          .map((b: string) => b.trim()) // تحديد نوع b كـ string
+          .filter((b: string) => b); // تحديد نوع b كـ string
+
         setBranches(userBranches);
 
         if (userBranches.length > 1) {
-          // إذا كان هناك أكثر من فرع، اعرض النافذة المنبثقة
+          // تخزين بيانات المستخدم مؤقتًا
+          localStorage.setItem('user', JSON.stringify(user));
           setShowBranchModal(true);
         } else {
-          // إذا كان هناك فرع واحد، احفظه مباشرة
-          const userData = { ...data.user, selectedBranch: userBranches[0] || '' };
+          const userData = { ...user, selectedBranch: userBranches[0] || '' };
           localStorage.setItem('user', JSON.stringify(userData));
           router.push('/');
         }
@@ -152,14 +166,13 @@ export default function LoginPage() {
     }
   };
 
-  // دالة للتعامل مع اختيار الفرع
   const handleBranchSelection = () => {
     if (!selectedBranch) {
       setError('يرجى اختيار فرع.');
       return;
     }
 
-    // تحديث بيانات المستخدم في localStorage مع الفرع المختار
+    // تحديث بيانات المستخدم مع الفرع المختار
     const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
     const userData = { ...storedUser, selectedBranch };
     localStorage.setItem('user', JSON.stringify(userData));
@@ -178,9 +191,10 @@ export default function LoginPage() {
             </label>
             <input
               id="emId"
-              type="number"
+              type="text"
+              inputMode="numeric"
               value={emId}
-              onChange={(e) => setEmId(e.target.value ? parseInt(e.target.value) : '')}
+              onChange={(e) => setEmId(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
               required
               aria-required="true"
@@ -211,7 +225,6 @@ export default function LoginPage() {
         </form>
       </div>
 
-      {/* النافذة المنبثقة لاختيار الفرع */}
       {showBranchModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
@@ -235,6 +248,7 @@ export default function LoginPage() {
                 onClick={() => {
                   setShowBranchModal(false);
                   setIsLoading(false);
+                  localStorage.removeItem('user');
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
               >
