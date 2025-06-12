@@ -723,7 +723,7 @@ export default function Navbar() {
   // دالة تسجيل الخروج
   const handleLogout = () => {
     localStorage.removeItem('user');
-    router.push('/');
+    router.push('/login');
   };
 
   // إذا لم يتم تحميل بيانات المستخدم بعد، لا تعرض شيئًا
