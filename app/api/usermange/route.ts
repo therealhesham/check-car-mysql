@@ -119,17 +119,30 @@ export async function POST(req: NextRequest) {
     }
 
     // التحقق من صحة الفرع
-    const branchRegex = /^[ء-ي\s]+$/;
-    if (!branchRegex.test(data.fields.branch.trim())) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'اسم الفرع يجب أن يحتوي على حروف عربية ومسافات فقط.',
-          error: 'INVALID_BRANCH_FORMAT',
-        },
-        { status: 400 }
-      );
-    }
+const branchRegex = /^[ء-ي\s]+$/;
+const branches = data.fields.branch.split(',').map((b) => b.trim()).filter((b) => b);
+if (branches.length === 0) {
+  return NextResponse.json(
+    {
+      success: false,
+      message: 'يجب تحديد فرع واحد على الأقل.',
+      error: 'NO_BRANCH_SELECTED',
+    },
+    { status: 400 }
+  );
+}
+for (const branch of branches) {
+  if (!branchRegex.test(branch)) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'كل فرع يجب أن يحتوي على حروف عربية ومسافات فقط.',
+        error: 'INVALID_BRANCH_FORMAT',
+      },
+      { status: 400 }
+    );
+  }
+}
 
     // التحقق من الدور
     if (!['admin', 'employee'].includes(data.fields.role)) {
@@ -198,17 +211,31 @@ export async function PUT(req: NextRequest) {
     }
 
     // التحقق من صحة الفرع
-    const branchRegex = /^[ء-ي\s]+$/;
-    if (!branchRegex.test(data.fields.branch.trim())) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'اسم الفرع يجب أن يحتوي على حروف عربية ومسافات فقط.',
-          error: 'INVALID_BRANCH_FORMAT',
-        },
-        { status: 400 }
-      );
-    }
+    // التحقق من صحة الفرع
+const branchRegex = /^[ء-ي\s]+$/;
+const branches = data.fields.branch.split(',').map((b) => b.trim()).filter((b) => b);
+if (branches.length === 0) {
+  return NextResponse.json(
+    {
+      success: false,
+      message: 'يجب تحديد فرع واحد على الأقل.',
+      error: 'NO_BRANCH_SELECTED',
+    },
+    { status: 400 }
+  );
+}
+for (const branch of branches) {
+  if (!branchRegex.test(branch)) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'كل فرع يجب أن يحتوي على حروف عربية ومسافات فقط.',
+        error: 'INVALID_BRANCH_FORMAT',
+      },
+      { status: 400 }
+    );
+  }
+}
 
     // التحقق من الدور
     if (!['admin', 'employee'].includes(data.fields.role)) {
