@@ -435,6 +435,7 @@ interface User {
   EmID: number;
   role: string;
   branch: string;
+  selectedBranch: string;
 }
 
 // تنسيق StyledWrapper لكلا الزرين
@@ -720,9 +721,12 @@ export default function Navbar() {
     }
   }, [router]);
 
-  // دالة تسجيل الخروج
-  const handleLogout = () => {
+
+   // دالة تسجيل الخروج
+   const handleLogout = () => {
+    console.log('Logout clicked');
     localStorage.removeItem('user');
+    setUser(null);
     router.push('/login');
   };
 

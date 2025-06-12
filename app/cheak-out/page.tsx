@@ -65,6 +65,7 @@ interface User {
   EmID: number;
   role: string;
   branch: string;
+  selectedBranch: string; // إضافة selectedBranch إلى الواجهة
 }
 
 interface Car {
@@ -172,9 +173,17 @@ export default function UploadPage() {
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      if (!parsedUser.selectedBranch) {
+        // إذا لم يكن هناك فرع مختار، أعد التوجيه إلى تسجيل الدخول
+        router.push('/login');
+      }
+    } else {
+      router.push('/login');
     }
-  }, []);
+  }, [router]);
+
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -926,9 +935,10 @@ export default function UploadPage() {
       return;
     }
 
-    if (!user || !user.Name || !user.branch) {
-      setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
+    if (!user || !user.Name || !user.selectedBranch) {
+      setUploadMessage('بيانات الموظف أو الفرع غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       setShowToast(true);
+      router.push('/login');
       return;
     }
 
@@ -946,7 +956,7 @@ export default function UploadPage() {
       airtableData.fields['العقد'] = contractNum.toString();
       airtableData.fields['نوع العملية'] = operationType;
       airtableData.fields['الموظف'] = user.Name;
-      airtableData.fields['الفرع'] = user.branch;
+      airtableData.fields['الفرع'] = user.selectedBranch;
       airtableData.fields['client_id'] = client_id;
       airtableData.fields['meter_reading'] = meter_reading;
       airtableData.fields['client_name'] = client_name;
