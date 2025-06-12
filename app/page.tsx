@@ -1678,6 +1678,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import Select from 'react-select';
 
 interface User {
   id: string;
@@ -3157,313 +3158,337 @@ export default function HomePage() {
       )}
 
       {/* Employee Modal */}
-      {isEmployeeModalOpen && user.role === 'admin' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-4 w-[650px] h-[500px] flex flex-col relative">
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-xl font-semibold text-gray-800">إدارة الموظفين</h2>
-              <button
-                onClick={closeEmployeeModal}
-                className="text-gray-600 hover:text-gray-800 focus:outline-none"
-              >
-                <FaTimes className="text-2xl" />
-              </button>
-            </div>
-
-            {selectedEmployee ? (
-              <div className="flex-1 overflow-y-auto">
-                <h3 className="text-lg font-medium text-gray-800 mb-2">تعديل موظف</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">الاسم</label>
-                    <input
-                      type="text"
-                      value={selectedEmployee.Name}
-                      onChange={(e) =>
-                        setSelectedEmployee({ ...selectedEmployee, Name: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">معرف الموظف</label>
-                    <input
-                      type="number"
-                      value={selectedEmployee.EmID}
-                      onChange={(e) =>
-                        setSelectedEmployee({ ...selectedEmployee, EmID: parseInt(e.target.value) })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  {user?.EmID === 1 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">كلمة المرور</label>
-                      <input
-                        type="text"
-                        value={selectedEmployee.password}
-                        onChange={(e) =>
-                          setSelectedEmployee({ ...selectedEmployee, password: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">الدور</label>
-                    <select
-                      value={selectedEmployee.role}
-                      onChange={(e) =>
-                        setSelectedEmployee({ ...selectedEmployee, role: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="admin">مدير</option>
-                      <option value="employee">موظف</option>
-                    </select>
-                  </div>
-                  <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">الفروع</label>
-        <select
-          multiple
-          value={selectedEmployee.branch.split(',')} // تحويل السلسلة إلى مصفوفة
-          onChange={(e) => {
-            const selectedBranches = Array.from(e.target.selectedOptions).map(option => option.value);
-            setSelectedEmployee({ ...selectedEmployee, branch: selectedBranches.join(',') });
-          }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+     {/* Employee Modal */}
+{isEmployeeModalOpen && user.role === 'admin' && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg p-4 w-[650px] h-[500px] flex flex-col relative">
+      <div className="flex justify-between items-center mb-3">
+        <h2 className="text-xl font-semibold text-gray-800">إدارة الموظفين</h2>
+        <button
+          onClick={closeEmployeeModal}
+          className="text-gray-600 hover:text-gray-800 focus:outline-none"
         >
-          {branches.map((branch) => (
-            <option key={branch.id} value={branch.Name}>
-              {branch.Name}
-            </option>
-          ))}
-        </select>
+          <FaTimes className="text-2xl" />
+        </button>
       </div>
-    </div>
-    <div className="flex justify-end gap-3 mt-3">
-      <button
-        onClick={() => setSelectedEmployee(null)}
-        className="px-3 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
-      >
-        إلغاء
-      </button>
-      <button
-        onClick={handleUpdateEmployee}
-        className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-      >
-        تحديث
-      </button>
-    </div>
-  </div>
-// =======
-//                   <div>
-//                     <label className="block text-sm font-medium text-gray-700 mb-1">الفرع</label>
-//                     <select
-//                       value={selectedEmployee.branch}
-//                       onChange={(e) =>
-//                         setSelectedEmployee({ ...selectedEmployee, branch: e.target.value })
-//                       }
-//                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//                     >
-//                       {branches.map((branch) => (
-//                         <option key={branch.id} value={branch.Name}>
-//                           {branch.Name}
-//                         </option>
-//                       ))}
-//                     </select>
-//                   </div>
-//                 </div>
-//                 <div className="flex justify-end gap-3 mt-3">
-//                   <button
-//                     onClick={() => setSelectedEmployee(null)}
-//                     className="px-3 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
-//                   >
-//                     إلغاء
-//                   </button>
-//                   <button
-//                     onClick={handleUpdateEmployee}
-//                     className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-//                   >
-//                     تحديث
-//                   </button>
-//                 </div>
-//               </div>
-// >>>>>>> parent of ae4062e (تجربة السماح للمستخدم باكثر من فرع)
-//             ) : isAddEmployeeMode ? (
-//               <div className="flex-1 overflow-y-auto">
-//                 <h3 className="text-lg font-medium text-gray-800 mb-2">إضافة موظف جديد</h3>
-//                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-//                   <div>
-//                     <label className="block text-sm font-medium text-gray-700 mb-1">الاسم</label>
-//                     <input
-//                       type="text"
-//                       value={newEmployee.Name}
-//                       onChange={(e) => setNewEmployee({ ...newEmployee, Name: e.target.value })}
-//                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//                     />
-//                   </div>
-//                   <div>
-//                     <label className="block text-sm font-medium text-gray-700 mb-1">معرف الموظف</label>
-//                     <input
-//                       type="number"
-//                       value={newEmployee.EmID}
-//                       onChange={(e) => setNewEmployee({ ...newEmployee, EmID: parseInt(e.target.value) })}
-//                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//                     />
-//                   </div>
-//                   <div>
-//                     <label className="block text-sm font-medium text-gray-700 mb-1">كلمة المرور</label>
-//                     <input
-//                       type="text"
-//                       value={newEmployee.password}
-//                       onChange={(e) => setNewEmployee({ ...newEmployee, password: e.target.value })}
-//                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//                     />
-//                   </div>
-//                   <div>
-//                     <label className="block text-sm font-medium text-gray-700 mb-1">الدور</label>
-//                     <select
-//                       value={newEmployee.role}
-//                       onChange={(e) => setNewEmployee({ ...newEmployee, role: e.target.value })}
-//                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//                     >
-//                       <option value="admin">مدير</option>
-//                       <option value="employee">موظف</option>
-//                     </select>
-//                   </div>
-//                   <div>
-//         <label className="block text-sm font-medium text-gray-700 mb-1">الفروع</label>
-//         <select
-//           multiple
-//           value={newEmployee.branch ? newEmployee.branch.split(',').map(branch => branch.trim()) : []}
-//           onChange={(e) => {
-//             const selectedBranches = Array.from(e.target.selectedOptions).map(option => option.value);
-//             setNewEmployee({ ...newEmployee, branch: selectedBranches.join(',') });
-//           }}
-//           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
-//         >
-//           {branches.map((branch) => (
-//             <option key={branch.id} value={branch.Name}>
-//               {branch.Name}
-//             </option>
-//           ))}
-//         </select>
-//       </div>
-//     </div>
-//     <div className="flex justify-end gap-3 mt-3">
-//       <button
-//         onClick={() => setIsAddEmployeeMode(false)}
-//         className="px-3 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
-//       >
-//         إلغاء
-//       </button>
-//       <button
-//         onClick={handleAddEmployee}
-//         className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-//       >
-//         إضافة
-//       </button>
-//     </div>
-//   </div>
-// =======
-//                   <div>
-//                     <label className="block text-sm font-medium text-gray-700 mb-1">الفرع</label>
-//                     <select
-//                       value={newEmployee.branch}
-//                       onChange={(e) => setNewEmployee({ ...newEmployee, branch: e.target.value })}
-//                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//                     >
-//                       {branches.map((branch) => (
-//                         <option key={branch.id} value={branch.Name}>
-//                           {branch.Name}
-//                         </option>
-//                       ))}
-//                     </select>
-//                   </div>
-//                 </div>
-//                 <div className="flex justify-end gap-3 mt-3">
-//                   <button
-//                     onClick={() => setIsAddEmployeeMode(false)}
-//                     className="px-3 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
-//                   >
-//                     إلغاء
-//                   </button>
-//                   <button
-//                     onClick={handleAddEmployee}
-//                     className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-//                   >
-//                     إضافة
-//                   </button>
-//                 </div>
-//               </div>
-            ) : (
-              <div className="flex-1 flex flex-col">
-                <div className="flex justify-end items-center mb-3">
-                  <button
-                    onClick={() => setIsAddEmployeeMode(true)}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  >
-                    إضافة موظف جديد
-                  </button>
-                </div>
 
-                <div className="flex-1">
-                  <h3 className="text-lg font-medium text-gray-800 mb-2">قائمة الموظفين</h3>
-                  <div
-                    className="border border-gray-200 max-h-[300px] overflow-y-auto"
-                    style={{ borderRadius: 0 }}
-                  >
-                    {employees.length === 0 ? (
-                      <p className="text-sm text-gray-600 p-3">لا توجد موظفين متاحين.</p>
-                    ) : (
-                      <table className="min-w-full bg-white">
-                        <thead className="sticky top-0 bg-white">
-                          <tr>
-                            <th className="px-3 py-2 border-b text-right">الاسم</th>
-                            <th className="px-3 py-2 border-b text-right">معرف الموظف</th>
-                            <th className="px-3 py-2 border-b text-right">الدور</th>
-                            <th className="px-3 py-2 border-b text-right">الفرع</th>
-                            <th className="px-3 py-2 border-b text-right">إجراءات</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {employees
-                            .filter((employee) => user?.EmID === 1 || employee.EmID !== 1)
-                            .map((employee) => (
-                              <tr key={employee.id}>
-                                <td className="px-3 py-2 border-b text-right">{employee.Name}</td>
-                                <td className="px-3 py-2 border-b text-right">{employee.EmID}</td>
-                                <td className="px-3 py-2 border-b text-right">
-                                  {employee.role === 'admin' ? 'مدير' : 'موظف'}
-                                </td>
-                                <td className="px-3 py-2 border-b text-right">{employee.branch}</td>
-                                <td className="px-3 py-2 border-b text-right">
-                                  <button
-                                    onClick={() => handleEditEmployee(employee)}
-                                    className="text-blue-600 hover:underline mx-1"
-                                  >
-                                    تعديل
-                                  </button>
-                                  <button
-                                    onClick={() => confirmDeleteEmployee(employee.id)}
-                                    className="text-red-600 hover:underline mx-1"
-                                  >
-                                    حذف
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                </div>
+      {selectedEmployee ? (
+        <div className="flex-1 overflow-y-auto">
+          <h3 className="text-lg font-medium text-gray-800 mb-2">تعديل موظف</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">الاسم</label>
+              <input
+                type="text"
+                value={selectedEmployee.Name}
+                onChange={(e) =>
+                  setSelectedEmployee({ ...selectedEmployee, Name: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">معرف الموظف</label>
+              <input
+                type="number"
+                value={selectedEmployee.EmID}
+                onChange={(e) =>
+                  setSelectedEmployee({ ...selectedEmployee, EmID: parseInt(e.target.value) })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {user?.EmID === 1 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">كلمة المرور</label>
+                <input
+                  type="text"
+                  value={selectedEmployee.password}
+                  onChange={(e) =>
+                    setSelectedEmployee({ ...selectedEmployee, password: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
             )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">الدور</label>
+              <select
+                value={selectedEmployee.role}
+                onChange={(e) =>
+                  setSelectedEmployee({ ...selectedEmployee, role: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="admin">مدير</option>
+                <option value="employee">موظف</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">الفروع</label>
+              <Select
+                isMulti
+                value={selectedEmployee.branch
+                  .split(',')
+                  .filter((b) => b.trim())
+                  .map((branch) => ({
+                    value: branch,
+                    label: branch,
+                  }))}
+                onChange={(selectedOptions) => {
+                  const selectedBranches = selectedOptions
+                    ? selectedOptions.map((option) => option.value).join(',')
+                    : '';
+                  setSelectedEmployee({ ...selectedEmployee, branch: selectedBranches });
+                }}
+                options={branches.map((branch) => ({
+                  value: branch.Name,
+                  label: branch.Name,
+                }))}
+                className="basic-multi-select"
+                classNamePrefix="select"
+                placeholder="اختر الفروع..."
+                noOptionsMessage={() => "لا توجد فروع متاحة"}
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    borderColor: '#d1d5db',
+                    borderRadius: '0.375rem',
+                    padding: '0.25rem',
+                    '&:hover': {
+                      borderColor: '#3b82f6',
+                    },
+                    boxShadow: 'none',
+                  }),
+                  multiValue: (base) => ({
+                    ...base,
+                    backgroundColor: '#e5e7eb',
+                    borderRadius: '0.25rem',
+                  }),
+                  multiValueLabel: (base) => ({
+                    ...base,
+                    color: '#1f2937',
+                  }),
+                  multiValueRemove: (base) => ({
+                    ...base,
+                    color: '#6b7280',
+                    ':hover': {
+                      backgroundColor: '#dc2626',
+                      color: 'white',
+                    },
+                  }),
+                  menu: (base) => ({
+                    ...base,
+                    zIndex: 9999,
+                  }),
+                }}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 mt-3">
+            <button
+              onClick={() => setSelectedEmployee(null)}
+              className="px-3 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={handleUpdateEmployee}
+              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              تحديث
+            </button>
+          </div>
+        </div>
+      ) : isAddEmployeeMode ? (
+        <div className="flex-1 overflow-y-auto">
+          <h3 className="text-lg font-medium text-gray-800 mb-2">إضافة موظف جديد</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">الاسم</label>
+              <input
+                type="text"
+                value={newEmployee.Name}
+                onChange={(e) => setNewEmployee({ ...newEmployee, Name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">معرف الموظف</label>
+              <input
+                type="number"
+                value={newEmployee.EmID}
+                onChange={(e) => setNewEmployee({ ...newEmployee, EmID: parseInt(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">كلمة المرور</label>
+              <input
+                type="text"
+                value={newEmployee.password}
+                onChange={(e) => setNewEmployee({ ...newEmployee, password: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">الدور</label>
+              <select
+                value={newEmployee.role}
+                onChange={(e) => setNewEmployee({ ...newEmployee, role: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="admin">مدير</option>
+                <option value="employee">موظف</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">الفروع</label>
+              <Select
+                isMulti
+                value={
+                  newEmployee.branch
+                    ? newEmployee.branch
+                        .split(',')
+                        .filter((b) => b.trim())
+                        .map((branch) => ({
+                          value: branch,
+                          label: branch,
+                        }))
+                    : []
+                }
+                onChange={(selectedOptions) => {
+                  const selectedBranches = selectedOptions
+                    ? selectedOptions.map((option) => option.value).join(',')
+                    : '';
+                  setNewEmployee({ ...newEmployee, branch: selectedBranches });
+                }}
+                options={branches.map((branch) => ({
+                  value: branch.Name,
+                  label: branch.Name,
+                }))}
+                className="basic-multi-select"
+                classNamePrefix="select"
+                placeholder="اختر الفروع..."
+                noOptionsMessage={() => "لا توجد فروع متاحة"}
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    borderColor: '#d1d5db',
+                    borderRadius: '0.375rem',
+                    padding: '0.25rem',
+                    '&:hover': {
+                      borderColor: '#3b82f6',
+                    },
+                    boxShadow: 'none',
+                  }),
+                  multiValue: (base) => ({
+                    ...base,
+                    backgroundColor: '#e5e7eb',
+                    borderRadius: '0.25rem',
+                  }),
+                  multiValueLabel: (base) => ({
+                    ...base,
+                    color: '#1f2937',
+                  }),
+                  multiValueRemove: (base) => ({
+                    ...base,
+                    color: '#6b7280',
+                    ':hover': {
+                      backgroundColor: '#dc2626',
+                      color: 'white',
+                    },
+                  }),
+                  menu: (base) => ({
+                    ...base,
+                    zIndex: 9999,
+                  }),
+                }}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 mt-3">
+            <button
+              onClick={() => setIsAddEmployeeMode(false)}
+              className="px-3 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={handleAddEmployee}
+              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              إضافة
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col">
+          <div className="flex justify-end items-center mb-3">
+            <button
+              onClick={() => setIsAddEmployeeMode(true)}
+              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              إضافة موظف جديد
+            </button>
+          </div>
+
+          <div className="flex-1">
+            <h3 className="text-lg font-medium text-gray-800 mb-2">قائمة الموظفين</h3>
+            <div
+              className="border border-gray-200 max-h-[300px] overflow-y-auto"
+              style={{ borderRadius: 0 }}
+            >
+              {employees.length === 0 ? (
+                <p className="text-sm text-gray-600 p-3">لا توجد موظفين متاحين.</p>
+              ) : (
+                <table className="min-w-full bg-white">
+                  <thead className="sticky top-0 bg-white">
+                    <tr>
+                      <th className="px-3 py-2 border-b text-right">الاسم</th>
+                      <th className="px-3 py-2 border-b text-right">معرف الموظف</th>
+                      <th className="px-3 py-2 border-b text-right">الدور</th>
+                      <th className="px-3 py-2 border-b text-right">الفرع</th>
+                      <th className="px-3 py-2 border-b text-right">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {employees
+                      .filter((employee) => user?.EmID === 1 || employee.EmID !== 1)
+                      .map((employee) => (
+                        <tr key={employee.id}>
+                          <td className="px-3 py-2 border-b text-right">{employee.Name}</td>
+                          <td className="px-3 py-2 border-b text-right">{employee.EmID}</td>
+                          <td className="px-3 py-2 border-b text-right">
+                            {employee.role === 'admin' ? 'مدير' : 'موظف'}
+                          </td>
+                          <td className="px-3 py-2 border-b text-right">{employee.branch}</td>
+                          <td className="px-3 py-2 border-b text-right">
+                            <button
+                              onClick={() => handleEditEmployee(employee)}
+                              className="text-blue-600 hover:underline mx-1"
+                            >
+                              تعديل
+                            </button>
+                            <button
+                              onClick={() => confirmDeleteEmployee(employee.id)}
+                              className="text-red-600 hover:underline mx-1"
+                            >
+                              حذف
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
       )}
+    </div>
+  </div>
+)}
 
       {/* Car Modal */}
       {isCarModalOpen && user.role === 'admin' && (
