@@ -429,6 +429,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
 
+// واجهة User
 interface User {
   id: string;
   Name: string;
@@ -438,7 +439,7 @@ interface User {
   selectedBranch: string;
 }
 
-// تنسيق StyledWrapper لكلا الزرين
+// الأنماط (StyledWrapper)
 const StyledWrapper = styled.div`
   /* تنسيق زر تسجيل الخروج */
   .Btn {
@@ -534,7 +535,7 @@ const StyledWrapper = styled.div`
       0 3.63px 14.4706px rgba(0, 0, 0, 0.091), 0 22px 48px rgba(0, 0, 0, 0.14);
     background-color: var(--bg-color);
     border-radius: 68px;
-    cursor: default; /* تغيير المؤشر لعدم الإشارة إلى إمكانية النقر */
+    cursor: pointer; // تغيير المؤشر للإشارة إلى إمكانية النقر
     padding: 6px 10px 6px 6px;
     width: fit-content;
     height: 40px;
@@ -608,11 +609,11 @@ const StyledWrapper = styled.div`
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
-    padding-left: 10px; /* زيادة المسافة الداخلية */
-    padding-right: 10px; /* إضافة مسافة يمين للتناسق */
-    text-align: center; /* محاذاة النصوص إلى المنتصف */
+    padding-left: 10px;
+    padding-right: 10px;
+    text-align: center;
     color: var(--text-color);
-    min-width: 100px; /* ضمان عرض كافٍ للنصوص */
+    min-width: 100px;
   }
 
   .username {
@@ -621,9 +622,9 @@ const StyledWrapper = styled.div`
     opacity: 0;
     transform: translateY(-20px);
     transition: var(--btn-transition);
-    font-size: 14px; /* تصغير حجم النص قليلاً للتناسق */
-    width: 100%; /* جعل النص يأخذ العرض الكامل */
-    text-align: center; /* محاذاة النص إلى المنتصف */
+    font-size: 14px;
+    width: 100%;
+    text-align: center;
   }
 
   .user-id {
@@ -633,19 +634,19 @@ const StyledWrapper = styled.div`
     opacity: 0;
     transform: translateY(10px);
     transition: var(--btn-transition);
-    width: 100%; /* جعل النص يأخذ العرض الكامل */
-    text-align: center; /* محاذاة النص إلى المنتصف */
+    width: 100%;
+    text-align: center;
   }
 
   .label-user {
     display: flex;
     align-items: center;
-    justify-content: center; /* محاذاة النص إلى المنتصف */
+    justify-content: center;
     opacity: 1;
     transform: scaleY(1);
     transition: var(--btn-transition);
-    font-size: 14px; /* تصغير حجم النص للتناسق */
-    width: 100%; /* جعل النص يأخذ العرض الكامل */
+    font-size: 14px;
+    width: 100%;
   }
 
   .button-user:hover .username {
@@ -692,42 +693,72 @@ const StyledWrapper = styled.div`
 `;
 
 export default function Navbar() {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
+  const [showBranchModal, setShowBranchModal] = useState<boolean>(false);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>('');
   const router = useRouter();
 
   // دالة لتحديد نص الفرع بناءً على عدد الفروع ودور الموظف
   const getBranchDisplay = (branch: string, role: string) => {
     const branches = branch
       .split(',')
-      .map((b) => b.trim())
-      .filter((b) => b);
+      .map((b: string) => b.trim())
+      .filter((b: string) => b);
     if (branches.length > 1) {
-      return role === 'admin' ? 'مدير في عدة فروع' : 'موظف في عدة فروع';
+      return role === 'user' ? 'مدير في عدة فروع' : 'موظف في {user.selectedBranch}';
     }
-    return `${role === 'admin' ? 'مدير' : 'موظف'} في ${branches[0] || 'بدون فرع'}`;
+    return `${role === 'user' ? 'مدير' : 'موظف'} في ${branches[0] || 'بدون فرع'}`;
   };
 
   // استرجاع بيانات المستخدم من localStorage
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
+    const storedUser = localStorage.getItem('userData');
     console.log('Stored user:', storedUser);
     if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      console.log('Parsed user data:', parsedUser);
+      const parsedUser: User = JSON.parse(storedUser);
+      console.log('Parsed user:', parsedUser);
       setUser(parsedUser);
+      // تحديث قائمة الفروع
+      const userBranches = parsedUser.branch
+        ? parsedUser.branch.split(',').map((b: string) => b.trim()).filter((b: string) => b)
+        : [];
+      setBranches(userBranches);
+      setSelectedBranch(parsedUser.selectedBranch || '');
     } else {
       router.push('/login');
     }
   }, [router]);
 
-
-   // دالة تسجيل الخروج
-   const handleLogout = () => {
+  // دالة تسجيل الخروج
+  const handleLogout = () => {
     console.log('Logout clicked');
-    localStorage.removeItem('user');
+    localStorage.removeItem('userData');
     setUser(null);
-    router.push('/login');
+    router.push('/');
+  };
+
+  // دالة فتح نافذة تغيير الفرع
+  const handleOpenBranchModal = () => {
+    if (branches.length > 1) {
+      setShowBranchModal(true);
+    }
+  };
+
+  // دالة تأكيد اختيار الفرع
+  const handleBranchSelection = () => {
+    if (!selectedBranch) {
+      alert('يرجى اختيار فرع.');
+      return;
+    }
+
+    if (user) {
+      const updatedUser = { ...user, selectedBranch };
+      setUser(updatedUser);
+      localStorage.setItem('userData', JSON.stringify(updatedUser));
+      setShowBranchModal(false);
+    }
   };
 
   // إذا لم يتم تحميل بيانات المستخدم بعد، لا تعرض شيئًا
@@ -757,7 +788,7 @@ export default function Navbar() {
           </a>
           {/* زر المستخدم */}
           <StyledWrapper>
-            <button id="btn-user" className="button-user">
+            <button id="btn-user" className="button-user" onClick={handleOpenBranchModal}>
               <div className="content-avatar">
                 <div className="status-user" />
                 <div className="avatar">
@@ -767,8 +798,8 @@ export default function Navbar() {
                 </div>
               </div>
               <div className="notice-content">
-                <div className="username">{user?.Name}</div>
-                <div className="label-user">{user?.Name}</div>
+                <div className="username">{user.Name}</div>
+                <div className="label-user">{user.Name}</div>
                 <div className="user-id">{getBranchDisplay(user.branch, user.role)}</div>
               </div>
             </button>
@@ -778,7 +809,7 @@ export default function Navbar() {
             <button className="Btn" onClick={handleLogout}>
               <div className="sign">
                 <svg viewBox="0 0 512 512">
-                  <path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z" />
+                  <path d="M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l64 0c53 0 96-43 96-96l0-256c0-53-43-96-96-96l-64 0c-17.7 0-32 14.3-32 32s14.3 32 32 32z" />
                 </svg>
               </div>
               <div className="text">تسجيل الخروج</div>
@@ -825,7 +856,7 @@ export default function Navbar() {
           </a>
           {/* زر المستخدم */}
           <StyledWrapper>
-            <button id="btn-user" className="button-user">
+            <button id="btn-user" className="button-user" onClick={handleOpenBranchModal}>
               <div className="content-avatar">
                 <div className="status-user" />
                 <div className="avatar">
@@ -852,6 +883,46 @@ export default function Navbar() {
               <div className="text">تسجيل الخروج</div>
             </button>
           </StyledWrapper>
+        </div>
+      )}
+
+      {/* نافذة منبثقة لتغيير الفرع */}
+      {showBranchModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">تغيير الفرع</h2>
+            <select
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            >
+              <option value="">اختر الفرع</option>
+              {branches.map((branch, index) => (
+                <option key={index} value={branch}>
+                  {branch}
+                </option>
+              ))}
+            </select>
+            <div className="flex justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBranchModal(false);
+                  setSelectedBranch(user.selectedBranch || '');
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={handleBranchSelection}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                تأكيد
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </nav>
