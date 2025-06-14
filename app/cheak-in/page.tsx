@@ -1940,6 +1940,7 @@ interface User {
   EmID: number;
   role: string;
   branch: string;
+  selectedBranch?: string; // إضافة selectedBranch كحقل اختياري
 }
 
 export default function CheckInPage() {
@@ -2028,7 +2029,9 @@ export default function CheckInPage() {
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      const parsedUser = JSON.parse(storedUser);
+      console.log('Loaded user from localStorage:', parsedUser); // سجل للتصحيح
+      setUser(parsedUser);
     }
   }, []);
 
@@ -2835,7 +2838,7 @@ export default function CheckInPage() {
       return;
     }
   
-    if (!user || !user.Name || !user.branch) {
+    if (!user || !user.Name) {
       setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       setShowToast(true);
       toast.error('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
@@ -2847,6 +2850,16 @@ export default function CheckInPage() {
     setIsSuccess(false);
   
     try {
+      if (!user?.selectedBranch) {
+        setUploadMessage('يرجى تحديد فرع من خلال تسجيل الدخول أو اختيار فرع.');
+        setShowToast(true);
+        toast.error('يرجى تحديد فرع من خلال تسجيل الدخول أو اختيار فرع.');
+        return;
+      }
+  
+      const cleanSelectedBranch = (user.selectedBranch || '').split(',')[0].trim(); // تنظيف القيمة
+      console.log('Selected branch to upload:', cleanSelectedBranch); // سجل للتصحيح
+  
       const airtableData = {
         fields: {} as Record<string, string | string[]>,
         client_id,
@@ -2859,7 +2872,7 @@ export default function CheckInPage() {
       airtableData.fields['العقد'] = contractNum.toString();
       airtableData.fields['نوع العملية'] = operationType;
       airtableData.fields['الموظف'] = user.Name;
-      airtableData.fields['الفرع'] = user.branch;
+      airtableData.fields['الفرع'] = cleanSelectedBranch; // استخدام selectedBranch المنظف
       // Only include signature if it exists
       if (signatureFile.imageUrls) {
         airtableData.fields['signature_url'] = signatureFile.imageUrls as string;
@@ -2876,7 +2889,7 @@ export default function CheckInPage() {
       const timeoutId = setTimeout(() => controller.abort(), 120000);
   
       try {
-        const response = await fetch('/api/cheakout', { // Changed to match the updated API endpoint
+        const response = await fetch('/api/cheakout', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -2884,12 +2897,11 @@ export default function CheckInPage() {
           body: JSON.stringify(airtableData),
           signal: controller.signal,
         });
-
+  
         clearTimeout(timeoutId);
-
-        // Parse the response to get the result
+  
         const result = await response.json();
-
+  
         if (result.success) {
           setIsSuccess(true);
           setShowToast(true);
@@ -2959,7 +2971,6 @@ export default function CheckInPage() {
       setIsUploading(false);
     }
   };
-
   const handleCarSelect = (selectedCar: string) => {
     setCar(selectedCar);
     setCarSearch(selectedCar);
