@@ -1619,7 +1619,7 @@ export default function UploadPage() {
   const [plates, setPlates] = useState<Plate[]>([]);
   const [showPlateList, setShowPlateList] = useState<boolean>(false);
   const [contract, setContract] = useState<string>('');
-  const [operationType] = useState<string>('دخول'); // Changed to 'دخول' for check-in
+  const [operationType] = useState<string>('دخول'); // Check-in operation
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadMessage, setUploadMessage] = useState<string>('');
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -1637,10 +1637,9 @@ export default function UploadPage() {
   const [client_id, setClientId] = useState<string>('');
   const [client_name, setClientName] = useState<string>('');
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [branchSearch, setBranchSearch] = useState<string>('');
+  const [branchSearch, setBranchSearch] = useState<string>(''); // Displayed branch (from previous record or user selection)
   const [showBranchList, setShowBranchList] = useState<boolean>(false);
   const [isLoadingBranches, setIsLoadingBranches] = useState<boolean>(true);
-  const [previousBranch, setPreviousBranch] = useState<string>(''); // Store branch_name from previous record
   const router = useRouter();
   const [isSignatureLocked, setIsSignatureLocked] = useState<boolean>(false);
   const [clientIdError, setClientIdError] = useState<string>('');
@@ -1726,7 +1725,7 @@ export default function UploadPage() {
       setHasExitRecord(false);
       setUploadMessage('');
       setShowToast(false);
-      setPreviousBranch(''); // Clear previous branch when contract is empty
+      setBranchSearch(''); // Clear branch search when contract is empty
     }
   }, [contract]);
 
@@ -1832,7 +1831,7 @@ export default function UploadPage() {
       setHasExitRecord(false);
       setUploadMessage('رقم العقد مطلوب للبحث.');
       setShowToast(true);
-      setPreviousBranch('');
+      setBranchSearch('');
       return;
     }
 
@@ -1863,24 +1862,35 @@ export default function UploadPage() {
         const exitRecord = data.find((record: any) => record.operation_type === 'خروج');
         if (exitRecord) {
           setHasExitRecord(true);
-          setPreviousBranch(exitRecord.branch_name || ''); // Set branch_name from previous record
-          setBranchSearch(exitRecord.branch_name || ''); // Display branch_name in the input
-          setCar(exitRecord.car || '');
-          setCarSearch(exitRecord.car || '');
-          setPlate(exitRecord.plate || '');
-          setPlateSearch(exitRecord.plate || '');
+          setBranchSearch(exitRecord.branch_name || ''); // Set branch_name from previous record only
+          setCar(exitRecord.car_model || '');
+          setCarSearch(exitRecord.car_model || '');
+          setPlate(exitRecord.plate_number || '');
+          setPlateSearch(exitRecord.plate_number || '');
           setClientId(exitRecord.client_id || '');
           setClientName(exitRecord.client_name || '');
-          // Optionally set other fields from exitRecord if needed
+          setMeterReading(exitRecord.meter_reading || '');
         } else {
           setHasExitRecord(false);
-          setPreviousBranch('');
           setBranchSearch('');
+          setCar('');
+          setCarSearch('');
+          setPlate('');
+          setPlateSearch('');
+          setClientId('');
+          setClientName('');
+          setMeterReading('');
         }
       } else {
         setHasExitRecord(false);
-        setPreviousBranch('');
         setBranchSearch('');
+        setCar('');
+        setCarSearch('');
+        setPlate('');
+        setPlateSearch('');
+        setClientId('');
+        setClientName('');
+        setMeterReading('');
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -1889,7 +1899,7 @@ export default function UploadPage() {
       setUploadMessage(err.message || 'حدث خطأ أثناء جلب السجل السابق.');
       setShowToast(true);
       setHasExitRecord(false);
-      setPreviousBranch('');
+      setBranchSearch('');
     } finally {
       setIsSearching(false);
     }
@@ -2349,7 +2359,7 @@ export default function UploadPage() {
       localStorage.setItem('user', JSON.stringify(updatedUser));
       return updatedUser;
     });
-    setBranchSearch(selectedBranch);
+    setBranchSearch(selectedBranch); // Update branchSearch to reflect user selection
     setShowBranchList(false);
   };
 
@@ -2554,7 +2564,6 @@ export default function UploadPage() {
           setClientId('');
           setClientName('');
           setBranchSearch('');
-          setPreviousBranch('');
           setHasExitRecord(false);
           setSignatureUrl(null);
           setIsSignatureLocked(false);
@@ -2693,9 +2702,10 @@ export default function UploadPage() {
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                       placeholder="ابحث عن الفرع"
                       required
+                      readOnly={!hasExitRecord} // Make read-only when displaying previous record
                     />
                   )}
-                  {showBranchList && filteredBranches.length > 0 && (
+                  {hasExitRecord && showBranchList && filteredBranches.length > 0 && (
                     <ul className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
                       {filteredBranches.map((branchItem) => (
                         <li
@@ -2708,7 +2718,7 @@ export default function UploadPage() {
                       ))}
                     </ul>
                   )}
-                  {showBranchList && branchSearch && filteredBranches.length === 0 && (
+                  {hasExitRecord && showBranchList && branchSearch && filteredBranches.length === 0 && (
                     <div className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg p-3 text-sm text-gray-500 dark:text-gray-400">
                       لا توجد فروع مطابقة
                     </div>
@@ -2724,7 +2734,7 @@ export default function UploadPage() {
                     value={contract}
                     onChange={(e) => setContract(e.target.value)}
                     onKeyPress={restrictToNumbers}
-                    className={`w-full px-3 py-2 border ${hasExitRecord ? 'border-gray-300 dark:border-gray-600' : 'border-red-500'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    className={`w-full px-3 py-2 border ${!hasExitRecord ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                     placeholder="أدخل رقم العقد"
                     required
                   />
@@ -2739,7 +2749,7 @@ export default function UploadPage() {
                     value={meter_reading}
                     onChange={(e) => setMeterReading(e.target.value)}
                     onKeyPress={restrictToNumbers}
-                    className={`w-full px-3 py-2 border ${hasExitRecord ? 'border-gray-300 dark:border-gray-600' : 'border-red-500'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    className={`w-full px-3 py-2 border ${!hasExitRecord ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                     placeholder="أدخل رقم قراءة العداد"
                     required
                   />
@@ -2762,7 +2772,7 @@ export default function UploadPage() {
                       }
                     }}
                     onKeyPress={restrictToLettersAndSpaces}
-                    className={`w-full px-3 py-2 border ${hasExitRecord && !clientNameError ? 'border-gray-300 dark:border-gray-600' : 'border-red-500'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    className={`w-full px-3 py-2 border ${!hasExitRecord || clientNameError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                     placeholder="أدخل اسم العميل"
                     required
                   />
@@ -2786,7 +2796,7 @@ export default function UploadPage() {
                       }
                     }}
                     onKeyPress={restrictToNumbers}
-                    className={`w-full px-3 py-2 border ${hasExitRecord && !clientIdError ? 'border-gray-300 dark:border-gray-600' : 'border-red-500'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    className={`w-full px-3 py-2 border ${!hasExitRecord || clientIdError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                     placeholder="أدخل رقم الهوية"
                     required
                   />
