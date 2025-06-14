@@ -3244,184 +3244,176 @@ try {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
-                {files.map((fileSection, index) => (
-                  <div key={fileSection.id} className="mb-6">
-                    <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
-                      {fieldTitlesMap[fileSection.title] || fileSection.title}
-                    </div>
-                    <div className="grid grid-cols-1 gap-3">
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                        </div>
-                        {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
-                          <div
-                            className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-lg p-2 ${
-                              fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
-                            }`}
-                          >
-                            {fileSection.multiple ? (
-                              <div className="grid grid-cols-2 gap-2">
-                                {fileSection.previewUrls.map((previewUrl, previewIndex) => (
-                                  <div key={previewIndex} className="relative h-20 sm:h-24">
-                                    <img
-                                      src={previewUrl}
-                                      alt={`صورة ${previewIndex + 1}`}
-                                      className="h-full w-full object-cover rounded-md cursor-pointer"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        openPreview(fileSection.previewUrls, previewIndex);
-                                      }}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={(e) => removePreviewImage(fileSection.id, previewIndex, e)}
-                                      className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
-                                      aria-label="حذف الصورة"
-                                    >
-                                      <span className="text-lg font-bold">×</span>
-                                    </button>
-                                  </div>
-                                ))}
-                                <label
-                                  htmlFor={`file-input-${fileSection.id}`}
-                                  className="h-20 sm:h-24 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
-                                >
-                                  <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
-                                </label>
-                              </div>
-                            ) : (
-                              <div className="relative h-full w-full flex items-center justify-center">
-                                <img
-                                  src={fileSection.previewUrls[0]}
-                                  alt={fileSection.title}
-                                  className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
-                                  onClick={() => openPreview([fileSection.previewUrls[0]], 0)}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={(e) => removePreviewImage(fileSection.id, 0, e)}
-                                  className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md z-10"
-                                  aria-label="حذف الصورة"
-                                >
-                                  <span className="text-lg font-bold">×</span>
-                                </button>
-                              </div>
-                            )}
-                            {fileSection.isUploading && fileSection.uploadProgress < 100 && (
-                              <div className="mt-2">
-                                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                                  <div
-                                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                                    style={{ width: `${fileSection.uploadProgress}%` }}
-                                  ></div>
-                                </div>
-                                <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
-                                  {fileSection.uploadProgress}%
-                                </span>
-                              </div>
-                            )}
-                            <input
-                              id={`file-input-${fileSection.id}`}
-                              type="file"
-                              accept="image/*"
-                              multiple={fileSection.multiple}
-                              onChange={(e) =>
-                                fileSection.multiple
-                                  ? handleMultipleFileChange(fileSection.id, e)
-                                  : handleFileChange(fileSection.id, e)
-                              }
-                              className="hidden"
-                              ref={setInputRef(index)}
-                              disabled={!hasExitRecord}
-                            />
-                          </div>
-                        ) : (
-                          <label
-                            htmlFor={`file-input-${fileSection.id}`}
-                            className={`relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 ${
-                              !hasExitRecord ? 'pointer-events-none opacity-50' : ''
-                            }`}
-                          >
-                            <span className="text-gray-500 dark:text-gray-400 text-sm text-center">
-                              انقر لرفع {fileSection.multiple ? 'صور' : 'صورة'}
-                            </span>
-                            <input
-                              id={`file-input-${fileSection.id}`}
-                              type="file"
-                              accept="image/*"
-                              multiple={fileSection.multiple}
-                              onChange={(e) =>
-                                fileSection.multiple
-                                  ? handleMultipleFileChange(fileSection.id, e)
-                                  : handleFileChange(fileSection.id, e)
-                              }
-                              className="hidden"
-                              ref={setInputRef(index)}
-                              disabled={!hasExitRecord}
-                            />
-                          </label>
-                        )}
-                        {fileSection.isUploading && fileSection.uploadProgress < 100 && (
-                          <div className="mt-2">
-                            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                              <div
-                                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                                style={{ width: `${fileSection.uploadProgress}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
-                              {fileSection.uploadProgress}%
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-                          (تشييك الخروج):
-                        </div>
-                        {previousRecord && previousRecord[fileSection.title] ? (
-                          <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 bg-gray-50 dark:bg-gray-700">
-                            <div className="relative h-full w-full flex items-center justify-center">
-                              {Array.isArray(previousRecord[fileSection.title]) ? (
-                                <div className="grid grid-cols-2 gap-2 w-full h-full">
-                                  {(previousRecord[fileSection.title] as string[]).map(
-                                    (url, imgIndex) => (
-                                      <img
-                                        key={imgIndex}
-                                        src={url}
-                                        alt={`صورة سابقة ${imgIndex + 1}`}
-                                        className="max-h-full max-w-full object-cover rounded-md cursor-pointer"
-                                        onClick={() =>
-                                          openPreview(
-                                            previousRecord[fileSection.title] as string[],
-                                            imgIndex
-                                          )
-                                        }
-                                      />
-                                    )
-                                  )}
-                                </div>
-                              ) : (
-                                <img
-                                  src={previousRecord[fileSection.title] as string}
-                                  alt="صورة سابقة"
-                                  className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
-                                  onClick={() =>
-                                    openPreview([previousRecord[fileSection.title] as string], 0)
-                                  }
-                                />
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
-                            لا توجد صورة قديمة
-                          </div>
-                        )}
-                      </div>
-                    </div>
+              {files.map((fileSection, index) => (
+  <div key={fileSection.id} className="mb-6">
+    <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
+      {fieldTitlesMap[fileSection.title] || fileSection.title}
+    </div>
+    <div className="grid grid-cols-1 gap-3">
+      <div className="min-w-0">
+        <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"></div>
+        {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
+          <div
+            className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-lg p-2 ${
+              fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
+            }`}
+          >
+            {fileSection.multiple ? (
+              <div className="grid grid-cols-2 gap-2">
+                {fileSection.previewUrls.map((previewUrl, previewIndex) => (
+                  <div key={previewIndex} className="relative h-20 sm:h-24">
+                    <img
+                      src={previewUrl}
+                      alt={`صورة ${previewIndex + 1}`}
+                      className="h-full w-full object-cover rounded-md cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openPreview(fileSection.previewUrls, previewIndex);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => removePreviewImage(fileSection.id, previewIndex, e)}
+                      className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
+                      aria-label="حذف الصورة"
+                    >
+                      <span className="text-lg font-bold">×</span>
+                    </button>
                   </div>
                 ))}
+                <label
+                  htmlFor={`file-input-${fileSection.id}`}
+                  className="h-20 sm:h-24 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
+                >
+                  <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
+                </label>
+              </div>
+            ) : (
+              <div className="relative h-full w-full flex items-center justify-center">
+                <img
+                  src={fileSection.previewUrls[0]}
+                  alt={fileSection.title}
+                  className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
+                  onClick={() => openPreview([fileSection.previewUrls[0]], 0)}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => removePreviewImage(fileSection.id, 0, e)}
+                  className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md z-10"
+                  aria-label="حذف الصورة"
+                >
+                  <span className="text-lg font-bold">×</span>
+                </button>
+              </div>
+            )}
+            {fileSection.isUploading && fileSection.uploadProgress < 100 && (
+              <div className="mt-2">
+                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+                  <div
+                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                    style={{ width: `${fileSection.uploadProgress}%` }}
+                  ></div>
+                </div>
+                <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
+                  {fileSection.uploadProgress}%
+                </span>
+              </div>
+            )}
+            <input
+              id={`file-input-${fileSection.id}`}
+              type="file"
+              accept="image/*"
+              capture={fileSection.multiple ? undefined : 'environment'} // إضافة capture للحقول غير المتعددة
+              multiple={fileSection.multiple}
+              onChange={(e) =>
+                fileSection.multiple
+                  ? handleMultipleFileChange(fileSection.id, e)
+                  : handleFileChange(fileSection.id, e)
+              }
+              className="hidden"
+              ref={setInputRef(index)}
+              disabled={!hasExitRecord}
+            />
+          </div>
+        ) : (
+          <label
+            htmlFor={`file-input-${fileSection.id}`}
+            className={`relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 ${
+              !hasExitRecord ? 'pointer-events-none opacity-50' : ''
+            }`}
+          >
+            <span className="text-gray-500 dark:text-gray-400 text-sm text-center">
+              {fileSection.multiple ? 'انقر لرفع صور' : 'انقر لالتقاط صورة'}
+            </span>
+            <input
+              id={`file-input-${fileSection.id}`}
+              type="file"
+              accept="image/*"
+              capture={fileSection.multiple ? undefined : 'environment'} // إضافة capture للحقول غير المتعددة
+              multiple={fileSection.multiple}
+              onChange={(e) =>
+                fileSection.multiple
+                  ? handleMultipleFileChange(fileSection.id, e)
+                  : handleFileChange(fileSection.id, e)
+              }
+              className="hidden"
+              ref={setInputRef(index)}
+              disabled={!hasExitRecord}
+            />
+          </label>
+        )}
+        {fileSection.isUploading && fileSection.uploadProgress < 100 && (
+          <div className="mt-2">
+            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+              <div
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${fileSection.uploadProgress}%` }}
+              ></div>
+            </div>
+            <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
+              {fileSection.uploadProgress}%
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="min-w-0">
+        <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+          (تشييك الخروج):
+        </div>
+        {previousRecord && previousRecord[fileSection.title] ? (
+          <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 bg-gray-50 dark:bg-gray-700">
+            <div className="relative h-full w-full flex items-center justify-center">
+              {Array.isArray(previousRecord[fileSection.title]) ? (
+                <div className="grid grid-cols-2 gap-2 w-full h-full">
+                  {(previousRecord[fileSection.title] as string[]).map((url, imgIndex) => (
+                    <img
+                      key={imgIndex}
+                      src={url}
+                      alt={`صورة سابقة ${imgIndex + 1}`}
+                      className="max-h-full max-w-full object-cover rounded-md cursor-pointer"
+                      onClick={() => openPreview(previousRecord[fileSection.title] as string[], imgIndex)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <img
+                  src={previousRecord[fileSection.title] as string}
+                  alt="صورة سابقة"
+                  className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
+                  onClick={() => openPreview([previousRecord[fileSection.title] as string], 0)}
+                />
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
+            لا توجد صورة قديمة
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+))}
               </div>
              
               <div className="mb-6 mt-6">
