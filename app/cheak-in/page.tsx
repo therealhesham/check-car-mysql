@@ -2023,6 +2023,7 @@ export default function CheckInPage() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const uploadQueue = useRef<Promise<void>>(Promise.resolve());
   const contractInputRef = useRef<HTMLDivElement>(null);
+  const [branchName, setBranchName] = useState<string>('');
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -2166,6 +2167,8 @@ export default function CheckInPage() {
         setCarSearch(exitRecord.car_model || '');
         setPlate(exitRecord.plate_number || '');
         setPlateSearch(exitRecord.plate_number || '');
+        setBranchName(exitRecord.branch_name || ''); // استرجاع branch_name
+        console.log('Fetched branch_name:', exitRecord.branch_name); // سجل للتصحيح
       } else {
         setPreviousRecord(null);
         setHasExitRecord(false);
@@ -2175,6 +2178,9 @@ export default function CheckInPage() {
         setCarSearch('');
         setPlate('');
         setPlateSearch('');
+        setClientId('');
+        setClientName('');
+        setBranchName(''); // تنظيف branch_name
       }
   
       setIsContractVerified(true);
@@ -3118,10 +3124,10 @@ export default function CheckInPage() {
       الفرع
     </label>
     <div
-      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
-    >
-      {user?.branch || 'غير متوفر'}
-    </div>
+  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
+>
+  {branchName || 'غير متوفر'}
+</div>
   </div>
   <div>
     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
