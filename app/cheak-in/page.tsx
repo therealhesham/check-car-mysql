@@ -2162,7 +2162,6 @@ export default function CheckInPage() {
       const entryData = await entryResponse.json();
       console.log('Entry check response:', entryData); // سجل للتصحيح
   
-      // إذا وُجد سجل دخول، أوقف العملية
       if (Array.isArray(entryData) && entryData.length > 0) {
         setPreviousRecord(null);
         setHasExitRecord(false);
@@ -2928,7 +2927,7 @@ export default function CheckInPage() {
 const timeoutId = setTimeout(() => controller.abort(), 120000);
 
 try {
-  const response = await fetch('/api/cheakout', {
+  const response = await fetch('/api/cheakin', { // تغيير إلى /api/cheakin
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -2940,7 +2939,7 @@ try {
   clearTimeout(timeoutId);
 
   const result = await response.json();
-  console.log('Response from /api/cheakout:', result); // سجل للتصحيح
+  console.log('Response from /api/cheakin:', result); // سجل للتصحيح
 
   if (result.success) {
     setIsSuccess(true);
@@ -2986,8 +2985,8 @@ try {
     sigCanvas.current?.clear();
     setShouldRedirect(true);
   } else {
-    setUploadMessage(result.message || 'حدث خطأ أثناء رفع البيانات');
-    toast.error(result.message || 'حدث خطأ أثناء رفع البيانات');
+    setUploadMessage(result.message || result.error || 'حدث خطأ أثناء رفع البيانات');
+    toast.error(result.message || result.error || 'حدث خطأ أثناء رفع البيانات');
     setShowToast(true);
     return;
   }
