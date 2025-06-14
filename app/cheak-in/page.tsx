@@ -2142,6 +2142,44 @@ export default function CheckInPage() {
     abortControllerRef.current = new AbortController();
   
     try {
+      // التحقق من سجل دخول سابق
+      const entryResponse = await fetch(
+        `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=دخول`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: abortControllerRef.current.signal,
+        }
+      );
+  
+      if (!entryResponse.ok) {
+        const errorData = await entryResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || `فشل في التحقق من سجل الدخول (حالة: ${entryResponse.status})`);
+      }
+  
+      const entryData = await entryResponse.json();
+      console.log('Entry check response:', entryData); // سجل للتصحيح
+  
+      // إذا وُجد سجل دخول، أوقف العملية
+      if (Array.isArray(entryData) && entryData.length > 0) {
+        setPreviousRecord(null);
+        setHasExitRecord(false);
+        setIsContractVerified(true);
+        setUploadMessage('تم تسجيل عملية دخول لهذا العقد من قبل.');
+        setShowToast(true);
+        setCar('');
+        setCarSearch('');
+        setPlate('');
+        setPlateSearch('');
+        setClientId('');
+        setClientName('');
+        setBranchName('');
+        return;
+      }
+  
+      // التحقق من سجل خروج
       const exitResponse = await fetch(
         `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=خروج`,
         {
@@ -2159,6 +2197,7 @@ export default function CheckInPage() {
       }
   
       const exitData = await exitResponse.json();
+      console.log('Exit check response:', exitData); // سجل للتصحيح
   
       if (Array.isArray(exitData) && exitData.length > 0) {
         const exitRecord = exitData[0];
@@ -2170,8 +2209,7 @@ export default function CheckInPage() {
         setCarSearch(exitRecord.car_model || '');
         setPlate(exitRecord.plate_number || '');
         setPlateSearch(exitRecord.plate_number || '');
-        setBranchName(exitRecord.branch_name || ''); // استرجاع branch_name
-        console.log('Fetched branch_name:', exitRecord.branch_name); // سجل للتصحيح
+        setBranchName(exitRecord.branch_name || '');
       } else {
         setPreviousRecord(null);
         setHasExitRecord(false);
@@ -2183,7 +2221,7 @@ export default function CheckInPage() {
         setPlateSearch('');
         setClientId('');
         setClientName('');
-        setBranchName(''); // تنظيف branch_name
+        setBranchName('');
       }
   
       setIsContractVerified(true);
@@ -2191,6 +2229,7 @@ export default function CheckInPage() {
       if (err.name === 'AbortError') {
         return;
       }
+      console.error('Error fetching previous record:', err);
       setUploadMessage(err.message || 'حدث خطأ أثناء جلب السجل السابق.');
       setShowToast(true);
       setPreviousRecord(null);
@@ -2886,83 +2925,83 @@ export default function CheckInPage() {
   
       // Rest of the submission logic remains unchanged
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000);
-  
-      try {
-        const response = await fetch('/api/cheakout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(airtableData),
-          signal: controller.signal,
-        });
-  
-        clearTimeout(timeoutId);
-  
-        const result = await response.json();
-  
-        if (result.success) {
-          setIsSuccess(true);
-          setShowToast(true);
-          setUploadMessage('تم بنجاح رفع التشييك');
-          toast.success('تم بنجاح رفع التشييك');
-          setFiles(
-            fieldTitles.map((title, index) => ({
-              id: `file-section-${sanitizeTitle(title, index)}`,
-              imageUrls: null,
-              title: title,
-              multiple: title === 'other_images',
-              previewUrls: [],
-              isUploading: false,
-              uploadProgress: 0,
-            }))
-          );
-          setSignatureFile({
-            id: `file-section-signature_url`,
-            imageUrls: null,
-            title: 'signature_url',
-            multiple: false,
-            previewUrls: [],
-            isUploading: false,
-            uploadProgress: 0,
-          });
-          setIsSignatureLocked(false);
-          setCar('');
-          setCarSearch('');
-          setPlate('');
-          setPlateSearch('');
-          setContract('');
-          setPreviousRecord(null);
-          setHasExitRecord(false);
-          setIsContractVerified(false);
-          setClientId('');
-          setClientName('');
-          setNewMeterReading('');
-          setMeterError('');
-          fileInputRefs.current.forEach((ref) => {
-            if (ref) ref.value = '';
-          });
-          sigCanvas.current?.clear();
-          setShouldRedirect(true);
-        } else {
-          throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
-        }
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
-          setUploadMessage('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
-          toast.error('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
-        } else {
-          setUploadMessage(
-            `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}`
-          );
-          toast.error(
-            `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}`
-          );
-        }
-        setShowToast(true);
-      }
+const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+try {
+  const response = await fetch('/api/cheakout', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(airtableData),
+    signal: controller.signal,
+  });
+
+  clearTimeout(timeoutId);
+
+  const result = await response.json();
+  console.log('Response from /api/cheakout:', result); // سجل للتصحيح
+
+  if (result.success) {
+    setIsSuccess(true);
+    setShowToast(true);
+    setUploadMessage('تم بنجاح رفع التشييك');
+    toast.success('تم بنجاح رفع التشييك');
+    setFiles(
+      fieldTitles.map((title, index) => ({
+        id: `file-section-${sanitizeTitle(title, index)}`,
+        imageUrls: null,
+        title: title,
+        multiple: title === 'other_images',
+        previewUrls: [],
+        isUploading: false,
+        uploadProgress: 0,
+      }))
+    );
+    setSignatureFile({
+      id: `file-section-signature_url`,
+      imageUrls: null,
+      title: 'signature_url',
+      multiple: false,
+      previewUrls: [],
+      isUploading: false,
+      uploadProgress: 0,
+    });
+    setIsSignatureLocked(false);
+    setCar('');
+    setCarSearch('');
+    setPlate('');
+    setPlateSearch('');
+    setContract('');
+    setPreviousRecord(null);
+    setHasExitRecord(false);
+    setIsContractVerified(false);
+    setClientId('');
+    setClientName('');
+    setNewMeterReading('');
+    setMeterError('');
+    fileInputRefs.current.forEach((ref) => {
+      if (ref) ref.value = '';
+    });
+    sigCanvas.current?.clear();
+    setShouldRedirect(true);
+  } else {
+    setUploadMessage(result.message || 'حدث خطأ أثناء رفع البيانات');
+    toast.error(result.message || 'حدث خطأ أثناء رفع البيانات');
+    setShowToast(true);
+    return;
+  }
+} catch (fetchError: any) {
+  clearTimeout(timeoutId);
+  if (fetchError.name === 'AbortError') {
+    setUploadMessage('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
+    toast.error('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
+  } else {
+    setUploadMessage('فشلت عملية الرفع: يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.');
+    toast.error('فشلت عملية الرفع: يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.');
+  }
+  setShowToast(true);
+}
     } catch (error: any) {
       setUploadMessage(error.message || 'حدث خطأ أثناء تجهيز البيانات للرفع.');
       setShowToast(true);
