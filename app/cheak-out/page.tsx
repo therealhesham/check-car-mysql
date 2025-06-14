@@ -1793,7 +1793,8 @@ export default function UploadPage() {
         const exitRecord = data.find((record: any) => record.operation_type === 'خروج');
         if (exitRecord) {
           setHasExitRecord(true);
-          setBranchSearch(exitRecord.branch_name || '');
+          const cleanBranchName = exitRecord.branch_name ? exitRecord.branch_name.split(',')[0].trim() : ''; // تنظيف قيمة الفرع
+          setBranchSearch(cleanBranchName);
           setCar(exitRecord.car_model || '');
           setCarSearch(exitRecord.car_model || '');
           setPlate(exitRecord.plate_number || '');
@@ -2286,18 +2287,18 @@ export default function UploadPage() {
                     <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500">جاري تحميل...</div>
                   ) : (
                     <input
-                      type="text"
-                      value={branchSearch}
-                      onChange={(e) => {
-                        setBranchSearch(e.target.value);
-                        setShowBranchList(true);
-                      }}
-                      onFocus={() => setShowBranchList(true)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                      placeholder="ابحث عن الفرع"
-                      required
-                      readOnly={!hasExitRecord}
-                    />
+  type="text"
+  value={branchSearch}
+  onChange={(e) => {
+    setBranchSearch(e.target.value);
+    setShowBranchList(true);
+  }}
+  onFocus={() => setShowBranchList(true)}
+  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+  placeholder="ابحث عن الفرع"
+  required
+  readOnly={!hasExitRecord}
+/>
                   )}
                   {hasExitRecord && showBranchList && filteredBranches.length > 0 && (
                     <ul className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
