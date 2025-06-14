@@ -1537,7 +1537,7 @@ interface User {
   EmID: number;
   role: string;
   branch: string;
-  selectedBranch: string; // Added selectedBranch to the interface
+  selectedBranch: string;
 }
 
 interface Car {
@@ -1619,7 +1619,7 @@ export default function UploadPage() {
   const [plates, setPlates] = useState<Plate[]>([]);
   const [showPlateList, setShowPlateList] = useState<boolean>(false);
   const [contract, setContract] = useState<string>('');
-  const [operationType] = useState<string>('خروج');
+  const [operationType] = useState<string>('دخول'); // Changed to 'دخول' for check-in
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadMessage, setUploadMessage] = useState<string>('');
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -1640,6 +1640,7 @@ export default function UploadPage() {
   const [branchSearch, setBranchSearch] = useState<string>('');
   const [showBranchList, setShowBranchList] = useState<boolean>(false);
   const [isLoadingBranches, setIsLoadingBranches] = useState<boolean>(true);
+  const [previousBranch, setPreviousBranch] = useState<string>(''); // Store branch_name from previous record
   const router = useRouter();
   const [isSignatureLocked, setIsSignatureLocked] = useState<boolean>(false);
   const [clientIdError, setClientIdError] = useState<string>('');
@@ -1725,6 +1726,7 @@ export default function UploadPage() {
       setHasExitRecord(false);
       setUploadMessage('');
       setShowToast(false);
+      setPreviousBranch(''); // Clear previous branch when contract is empty
     }
   }, [contract]);
 
@@ -1786,7 +1788,7 @@ export default function UploadPage() {
     const fetchBranches = async () => {
       setIsLoadingBranches(true);
       try {
-        const response = await fetch('/api/branches', { method: 'GET' }); // Replace with your actual API endpoint
+        const response = await fetch('/api/branches', { method: 'GET' });
         const data = await response.json();
         if (data.success) {
           const fetchedBranches = data.results.map((record: any) => ({
@@ -1830,6 +1832,7 @@ export default function UploadPage() {
       setHasExitRecord(false);
       setUploadMessage('رقم العقد مطلوب للبحث.');
       setShowToast(true);
+      setPreviousBranch('');
       return;
     }
 
@@ -1857,16 +1860,27 @@ export default function UploadPage() {
 
       const data = await response.json();
       if (data.length > 0) {
-        const exitRecord = data.find((record) => record['operation_type'] === 'خروج');
+        const exitRecord = data.find((record: any) => record.operation_type === 'خروج');
         if (exitRecord) {
           setHasExitRecord(true);
-          setUploadMessage('لا يمكن إضافة هذا التشييك لأنه تم تسجيل خروج لهذه السيارة لهذا العقد.');
-          setShowToast(true);
+          setPreviousBranch(exitRecord.branch_name || ''); // Set branch_name from previous record
+          setBranchSearch(exitRecord.branch_name || ''); // Display branch_name in the input
+          setCar(exitRecord.car || '');
+          setCarSearch(exitRecord.car || '');
+          setPlate(exitRecord.plate || '');
+          setPlateSearch(exitRecord.plate || '');
+          setClientId(exitRecord.client_id || '');
+          setClientName(exitRecord.client_name || '');
+          // Optionally set other fields from exitRecord if needed
         } else {
           setHasExitRecord(false);
+          setPreviousBranch('');
+          setBranchSearch('');
         }
       } else {
         setHasExitRecord(false);
+        setPreviousBranch('');
+        setBranchSearch('');
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -1875,6 +1889,7 @@ export default function UploadPage() {
       setUploadMessage(err.message || 'حدث خطأ أثناء جلب السجل السابق.');
       setShowToast(true);
       setHasExitRecord(false);
+      setPreviousBranch('');
     } finally {
       setIsSearching(false);
     }
@@ -1979,10 +1994,10 @@ export default function UploadPage() {
                 reject(new Error('فشل في تحويل الصورة إلى Blob.'));
                 return;
               }
-              const modifiedFile = new File([blob], `${uuidv4()}.jpg`, { type: 'image/' });
+              const modifiedFile = new File([blob], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
               resolve(modifiedFile);
             },
-            'image/',
+            'image/jpeg',
             0.9
           );
         };
@@ -2011,8 +2026,8 @@ export default function UploadPage() {
       const compressedFile = await imageCompression(file, options);
       const modifiedFile = await addDateTimeToImage(compressedFile);
       return modifiedFile;
-    } catch (error) {
-      console.log(error)
+    } catch (error: any) {
+      console.log(error);
       throw new Error('فشل في معالجة الصورة: ' + error.message);
     }
   };
@@ -2040,7 +2055,7 @@ export default function UploadPage() {
       const uploadResult = await s3.upload(params).promise();
       return uploadResult.Location;
     } catch (error: any) {
-      console.log(error)
+      console.log(error);
       throw error;
     }
   };
@@ -2055,12 +2070,12 @@ export default function UploadPage() {
       prevFiles.map((fileSection) =>
         fileSection.id === id
           ? {
-            ...fileSection,
-            previewUrls: [localPreviewUrl],
-            imageUrls: null,
-            isUploading: true,
-            uploadProgress: 0,
-          }
+              ...fileSection,
+              previewUrls: [localPreviewUrl],
+              imageUrls: null,
+              isUploading: true,
+              uploadProgress: 0,
+            }
           : fileSection
       )
     );
@@ -2087,12 +2102,12 @@ export default function UploadPage() {
           prevFiles.map((fileSection) =>
             fileSection.id === id
               ? {
-                ...fileSection,
-                imageUrls: imageUrl,
-                previewUrls: [imageUrl],
-                isUploading: false,
-                uploadProgress: 100,
-              }
+                  ...fileSection,
+                  imageUrls: imageUrl,
+                  previewUrls: [imageUrl],
+                  isUploading: false,
+                  uploadProgress: 100,
+                }
               : fileSection
           )
         );
@@ -2114,12 +2129,12 @@ export default function UploadPage() {
           prevFiles.map((fileSection) =>
             fileSection.id === id
               ? {
-                ...fileSection,
-                imageUrls: null,
-                previewUrls: [],
-                isUploading: false,
-                uploadProgress: 0,
-              }
+                  ...fileSection,
+                  imageUrls: null,
+                  previewUrls: [],
+                  isUploading: false,
+                  uploadProgress: 0,
+                }
               : fileSection
           )
         );
@@ -2142,11 +2157,11 @@ export default function UploadPage() {
       prevFiles.map((fileSection) =>
         fileSection.id === id
           ? {
-            ...fileSection,
-            previewUrls: [...fileSection.previewUrls, ...localPreviewUrls],
-            isUploading: true,
-            uploadProgress: 0,
-          }
+              ...fileSection,
+              previewUrls: [...fileSection.previewUrls, ...localPreviewUrls],
+              isUploading: true,
+              uploadProgress: 0,
+            }
           : fileSection
       )
     );
@@ -2174,18 +2189,18 @@ export default function UploadPage() {
           prevFiles.map((fileSection) =>
             fileSection.id === id
               ? {
-                ...fileSection,
-                imageUrls: [
-                  ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
-                  ...imageUrls,
-                ],
-                previewUrls: [
-                  ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
-                  ...imageUrls,
-                ],
-                isUploading: false,
-                uploadProgress: 100,
-              }
+                  ...fileSection,
+                  imageUrls: [
+                    ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+                    ...imageUrls,
+                  ],
+                  previewUrls: [
+                    ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+                    ...imageUrls,
+                  ],
+                  isUploading: false,
+                  uploadProgress: 100,
+                }
               : fileSection
           )
         );
@@ -2208,10 +2223,10 @@ export default function UploadPage() {
           prevFiles.map((fileSection) =>
             fileSection.id === id
               ? {
-                ...fileSection,
-                isUploading: false,
-                uploadProgress: 0,
-              }
+                  ...fileSection,
+                  isUploading: false,
+                  uploadProgress: 0,
+                }
               : fileSection
           )
         );
@@ -2415,8 +2430,8 @@ export default function UploadPage() {
       return;
     }
 
-    if (hasExitRecord) {
-      setUploadMessage('لا يمكن إضافة هذا التشييك لأنه تم تسجيل خروج لهذه السيارة لهذا العقد.');
+    if (!hasExitRecord) {
+      setUploadMessage('لا يوجد سجل خروج لهذا العقد. يرجى التأكد من رقم العقد.');
       setShowToast(true);
       return;
     }
@@ -2482,7 +2497,7 @@ export default function UploadPage() {
       airtableData.fields['العقد'] = contractNum.toString();
       airtableData.fields['نوع العملية'] = operationType;
       airtableData.fields['الموظف'] = user.Name;
-      airtableData.fields['الفرع'] = user.selectedBranch;
+      airtableData.fields['الفرع'] = user.selectedBranch; // Use selectedBranch for check-in
       airtableData.fields['client_id'] = client_id;
       airtableData.fields['meter_reading'] = meter_reading;
       airtableData.fields['client_name'] = client_name;
@@ -2539,6 +2554,7 @@ export default function UploadPage() {
           setClientId('');
           setClientName('');
           setBranchSearch('');
+          setPreviousBranch('');
           setHasExitRecord(false);
           setSignatureUrl(null);
           setIsSignatureLocked(false);
@@ -2585,7 +2601,7 @@ export default function UploadPage() {
         <div className="flex justify-center items-center">
           <div className="w-full max-w-4xl p-3 sm:p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
             <h1 className="text-xl sm:text-2xl font-semibold text-center text-gray-900 dark:text-gray-100 mb-4">
-              رفع بيانات تشييك الخروج
+              رفع بيانات تشييك الدخول
             </h1>
             <p className="text-sm text-center mb-4 text-gray-600 dark:text-gray-300"></p>
             <form onSubmit={handleSubmit}>
@@ -2708,7 +2724,7 @@ export default function UploadPage() {
                     value={contract}
                     onChange={(e) => setContract(e.target.value)}
                     onKeyPress={restrictToNumbers}
-                    className={`w-full px-3 py-2 border ${hasExitRecord ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    className={`w-full px-3 py-2 border ${hasExitRecord ? 'border-gray-300 dark:border-gray-600' : 'border-red-500'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                     placeholder="أدخل رقم العقد"
                     required
                   />
@@ -2723,7 +2739,7 @@ export default function UploadPage() {
                     value={meter_reading}
                     onChange={(e) => setMeterReading(e.target.value)}
                     onKeyPress={restrictToNumbers}
-                    className={`w-full px-3 py-2 border ${hasExitRecord ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    className={`w-full px-3 py-2 border ${hasExitRecord ? 'border-gray-300 dark:border-gray-600' : 'border-red-500'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                     placeholder="أدخل رقم قراءة العداد"
                     required
                   />
@@ -2746,7 +2762,7 @@ export default function UploadPage() {
                       }
                     }}
                     onKeyPress={restrictToLettersAndSpaces}
-                    className={`w-full px-3 py-2 border ${hasExitRecord || clientNameError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    className={`w-full px-3 py-2 border ${hasExitRecord && !clientNameError ? 'border-gray-300 dark:border-gray-600' : 'border-red-500'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                     placeholder="أدخل اسم العميل"
                     required
                   />
@@ -2770,7 +2786,7 @@ export default function UploadPage() {
                       }
                     }}
                     onKeyPress={restrictToNumbers}
-                    className={`w-full px-3 py-2 border ${hasExitRecord || clientIdError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    className={`w-full px-3 py-2 border ${hasExitRecord && !clientIdError ? 'border-gray-300 dark:border-gray-600' : 'border-red-500'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                     placeholder="أدخل رقم الهوية"
                     required
                   />
@@ -2951,8 +2967,8 @@ export default function UploadPage() {
               <div className="mb-4 text-center mt-4">
                 <button
                   type="submit"
-                  disabled={isUploading || hasExitRecord || isLoadingCars || isLoadingPlates || isLoadingBranches}
-                  className={`w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none text-lg font-medium ${isUploading || hasExitRecord || isLoadingCars || isLoadingPlates || isLoadingBranches ? 'bg-gray-400' : ''}`}
+                  disabled={isUploading || !hasExitRecord || isLoadingCars || isLoadingPlates || isLoadingBranches}
+                  className={`w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none text-lg font-medium ${isUploading || !hasExitRecord || isLoadingCars || isLoadingPlates || isLoadingBranches ? 'bg-gray-400' : ''}`}
                 >
                   {isUploading ? 'جاري الرفع...' : 'رفع البيانات'}
                 </button>
