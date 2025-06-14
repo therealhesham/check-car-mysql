@@ -17,6 +17,7 @@
     "browser-image-compression": "^2.0.2",
     "formidable": "^3.5.2",
     "next": "15.2.5",
+    "normalize.css": "^8.0.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",

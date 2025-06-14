@@ -1513,6 +1513,7 @@ import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
 import SignaturePad from 'react-signature-canvas';
 import { useRouter } from 'next/navigation';
+import 'normalize.css';
 
 const sanitizeTitle = (title: string, index: number) => {
   const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
