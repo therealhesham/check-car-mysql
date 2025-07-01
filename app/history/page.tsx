@@ -84,7 +84,9 @@ export default function HistoryPage() {
   const [plates, setPlates] = useState<string[]>([]);
   const [branches, setBranches] = useState<string[]>([]);
   const pageSize = 50;
-
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [selectedImageList, setSelectedImageList] = useState<{ url: string; title: string }[]>([]);
+  
   const operationTypeRef = useRef<HTMLDivElement>(null);
   const carFilterRef = useRef<HTMLDivElement>(null);
   const plateFilterRef = useRef<HTMLDivElement>(null);
@@ -601,19 +603,24 @@ export default function HistoryPage() {
                         {allImages.length > 0 ? (
                           <div className="flex flex-col gap-2">
                             <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => setSelectedImage(allImages[0].url)}
-                                className="relative w-12 h-12"
-                              >
-                                <img
-  src={allImages[0].url}
-  alt={`${allImages[0].title}-${allImages[0].index}`}
-  className="object-cover w-full h-full rounded"
-  sizes="48px"
-  loading="lazy"
-  decoding="async"
-/>
-                              </button>
+                            <button
+  onClick={() => {
+    setSelectedImageList(allImages);
+    setSelectedImage(allImages[0].url);
+    setSelectedImageIndex(0);
+  }}
+  className="relative w-12 h-12"
+>
+  <img
+    src={allImages[0].url}
+    alt={`${allImages[0].title}-${allImages[0].index}`}
+    className="object-cover w-full h-full rounded"
+    sizes="48px"
+    loading="lazy"
+    decoding="async"
+  />
+</button>
+
                               {allImages.length > 1 && (
                                 <button
                                   onClick={() => toggleImages(record.id)}
@@ -629,10 +636,14 @@ export default function HistoryPage() {
                             <div
                               className={`flex flex-wrap gap-2 ${isExpanded ? 'block' : 'hidden'} sm:flex`}
                             >
-                              {allImages.slice(1).map((image) => (
+                              {allImages.slice(1).map((image, index) => (
   <button
     key={`${image.title}-${image.index}`}
-    onClick={() => setSelectedImage(image.url)}
+    onClick={() => {
+      setSelectedImageList(allImages);
+      setSelectedImage(image.url);
+      setSelectedImageIndex(index + 1); // +1 لأنك قطعت أول صورة
+    }}
     className="relative w-12 h-12"
   >
     <img
@@ -645,6 +656,7 @@ export default function HistoryPage() {
     />
   </button>
 ))}
+
                             </div>
                           </div>
                         ) : (
@@ -681,27 +693,59 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {selectedImage && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-start z-50 overflow-y-auto"
-          >
-            <div className="relative max-w-3xl w-full mt-16 mb-16">
-              <button
-                onClick={closeImageModal}
-                className="absolute top-4 right-4 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center"
-              >
-                <span className="text-xl">×</span>
-              </button>
-              <img
-  src={selectedImage}
-  alt="معاينة الصورة"
-  className="w-full h-auto rounded-lg"
-  loading="lazy"
-  decoding="async"
-/>
-            </div>
-          </div>
-        )}
+{selectedImage && selectedImageIndex !== null && (
+  <div className="fixed inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center z-50 overflow-y-auto">
+    <div className="relative max-w-3xl w-full mt-16 mb-16 flex items-center justify-center">
+      {/* زر الإغلاق */}
+      <button
+        onClick={closeImageModal}
+        className="absolute top-4 right-4 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center z-10"
+      >
+        <span className="text-xl">×</span>
+      </button>
+
+      {/* زر السابق */}
+      <button
+        onClick={() => {
+          if (selectedImageIndex! > 0) {
+            const newIndex = selectedImageIndex! - 1;
+            setSelectedImage(selectedImageList[newIndex].url);
+            setSelectedImageIndex(newIndex);
+          }
+        }}
+        disabled={selectedImageIndex === 0}
+        className="absolute left-2 sm:left-6 top-1/2 transform -translate-y-1/2 text-white text-3xl z-10 disabled:text-gray-500"
+      >
+        ‹
+      </button>
+
+      {/* الصورة */}
+      <img
+        src={selectedImage}
+        alt="معاينة الصورة"
+        className="max-w-full max-h-[80vh] rounded-lg"
+        loading="lazy"
+        decoding="async"
+      />
+
+      {/* زر التالي */}
+      <button
+        onClick={() => {
+          if (selectedImageIndex! < selectedImageList.length - 1) {
+            const newIndex = selectedImageIndex! + 1;
+            setSelectedImage(selectedImageList[newIndex].url);
+            setSelectedImageIndex(newIndex);
+          }
+        }}
+        disabled={selectedImageIndex === selectedImageList.length - 1}
+        className="absolute right-2 sm:right-6 top-1/2 transform -translate-y-1/2 text-white text-3xl z-10 disabled:text-gray-500"
+      >
+        ›
+      </button>
+    </div>
+  </div>
+)}
+
       </div>
     </div>
   );
