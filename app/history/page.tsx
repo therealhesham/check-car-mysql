@@ -753,7 +753,7 @@ export default function HistoryPage() {
           <button
             onClick={goToPrevImage}
             disabled={selectedImageIndex === 0}
-            className="absolute left-2 sm:left-6 top-1/2 transform -translate-y-1/2 text-white text-3xl z-10 disabled:text-gray-500"
+            className="absolute right-2 sm:left-6 top-1/2 transform -translate-y-1/2 text-white text-3xl z-10 disabled:text-gray-500"
           >
             ‹
           </button>
@@ -769,7 +769,7 @@ export default function HistoryPage() {
           <button
             onClick={goToNextImage}
             disabled={selectedImageIndex === selectedImageList.length - 1}
-            className="absolute right-2 sm:right-6 top-1/2 transform -translate-y-1/2 text-white text-3xl z-10 disabled:text-gray-500"
+            className="absolute left-2 sm:right-6 top-1/2 transform -translate-y-1/2 text-white text-3xl z-10 disabled:text-gray-500"
           >
             ›
           </button>
