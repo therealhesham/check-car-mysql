@@ -606,11 +606,13 @@ export default function HistoryPage() {
                                 className="relative w-12 h-12"
                               >
                                 <img
-                                  src={allImages[0].url}
-                                  alt={`${allImages[0].title}-${allImages[0].index}`}
-                                  className="object-cover w-full h-full rounded"
-                                  sizes="48px"
-                                />
+  src={allImages[0].url}
+  alt={`${allImages[0].title}-${allImages[0].index}`}
+  className="object-cover w-full h-full rounded"
+  sizes="48px"
+  loading="lazy"
+  decoding="async"
+/>
                               </button>
                               {allImages.length > 1 && (
                                 <button
@@ -628,20 +630,21 @@ export default function HistoryPage() {
                               className={`flex flex-wrap gap-2 ${isExpanded ? 'block' : 'hidden'} sm:flex`}
                             >
                               {allImages.slice(1).map((image) => (
-                                <button
-                                  key={`${image.title}-${image.index}`}
-                                  onClick={() => setSelectedImage(image.url)}
-                                  className="relative w-12 h-12"
-                                >
-                                  <img
-                                  
-                                    src={image.url}
-                                    alt={`${image.title}-${image.index}`}
-                                    className="object-cover w-full h-full rounded"
-                                    sizes="48px"
-                                  />
-                                </button>
-                              ))}
+  <button
+    key={`${image.title}-${image.index}`}
+    onClick={() => setSelectedImage(image.url)}
+    className="relative w-12 h-12"
+  >
+    <img
+      src={image.url}
+      alt={`${image.title}-${image.index}`}
+      className="object-cover w-full h-full rounded"
+      sizes="48px"
+      loading="lazy"
+      decoding="async"
+    />
+  </button>
+))}
                             </div>
                           </div>
                         ) : (
@@ -690,12 +693,12 @@ export default function HistoryPage() {
                 <span className="text-xl">×</span>
               </button>
               <img
-                src={selectedImage}
-                alt="معاينة الصورة"
-                className="w-full h-auto rounded-lg"
-                loading="lazy"
-                decoding="async"
-              />
+  src={selectedImage}
+  alt="معاينة الصورة"
+  className="w-full h-auto rounded-lg"
+  loading="lazy"
+  decoding="async"
+/>
             </div>
           </div>
         )}
