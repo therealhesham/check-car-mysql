@@ -878,7 +878,7 @@ export default function Navbar() {
               </div>
             </button>
           </StyledWrapper>
-          {/* زر تسجيل الخروج */}
+          {/* زر تسجيل الخروج */} 
           <StyledWrapper>
             <button className="Btn" onClick={handleLogout}>
               <div className="sign">
