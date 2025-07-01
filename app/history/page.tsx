@@ -86,6 +86,8 @@ export default function HistoryPage() {
   const pageSize = 50;
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [selectedImageList, setSelectedImageList] = useState<{ url: string; title: string }[]>([]);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
   
   const operationTypeRef = useRef<HTMLDivElement>(null);
   const carFilterRef = useRef<HTMLDivElement>(null);
@@ -305,9 +307,7 @@ export default function HistoryPage() {
     setPage(1);
   };
 
-  const closeImageModal = () => {
-    setSelectedImage(null);
-  };
+ 
 
   const toggleImages = (recordId: string) => {
     setExpandedRecords((prev) => ({
@@ -315,6 +315,7 @@ export default function HistoryPage() {
       [recordId]: !prev[recordId],
     }));
   };
+  
 
   const getAllImages = (record: Contract) => {
     const images: { url: string; title: string; index: number }[] = [];
@@ -327,6 +328,48 @@ export default function HistoryPage() {
     });
     return images;
   };
+  const closeImageModal = () => {
+    setSelectedImage(null);
+    setSelectedImageIndex(null);
+    setSelectedImageList([]);
+  };
+  
+  // التعامل مع السحب
+  const handleTouchEnd = (touchEndX: number) => {
+    if (touchStartX === null) return;
+    const deltaX = touchEndX - touchStartX;
+    if (deltaX > 50) goToPrevImage();
+    else if (deltaX < -50) goToNextImage();
+    setTouchStartX(null);
+  };
+  
+  const goToPrevImage = () => {
+    if (selectedImageIndex !== null && selectedImageIndex > 0) {
+      const newIndex = selectedImageIndex - 1;
+      setSelectedImage(selectedImageList[newIndex].url);
+      setSelectedImageIndex(newIndex);
+    }
+  };
+  
+  const goToNextImage = () => {
+    if (selectedImageIndex !== null && selectedImageIndex < selectedImageList.length - 1) {
+      const newIndex = selectedImageIndex + 1;
+      setSelectedImage(selectedImageList[newIndex].url);
+      setSelectedImageIndex(newIndex);
+    }
+  };
+  
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedImage) return;
+      if (e.key === 'ArrowLeft') goToPrevImage();
+      else if (e.key === 'ArrowRight') goToNextImage();
+      else if (e.key === 'Escape') closeImageModal();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImage, selectedImageIndex, selectedImageList]);
+  
 
   return (
     <div dir="rtl" className={`min-h-screen ${isDarkMode ? 'dark' : ''}`}>
@@ -694,57 +737,45 @@ export default function HistoryPage() {
         )}
 
 {selectedImage && selectedImageIndex !== null && (
-  <div className="fixed inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center z-50 overflow-y-auto">
-    <div className="relative max-w-3xl w-full mt-16 mb-16 flex items-center justify-center">
-      {/* زر الإغلاق */}
-      <button
-        onClick={closeImageModal}
-        className="absolute top-4 right-4 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center z-10"
+      <div
+        className="fixed inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center z-50 overflow-y-auto"
+        onTouchStart={(e) => setTouchStartX(e.touches[0].clientX)}
+        onTouchEnd={(e) => handleTouchEnd(e.changedTouches[0].clientX)}
       >
-        <span className="text-xl">×</span>
-      </button>
+        <div className="relative max-w-3xl w-full mt-16 mb-16 flex items-center justify-center">
+          <button
+            onClick={closeImageModal}
+            className="absolute top-4 right-4 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center z-10"
+          >
+            <span className="text-xl">×</span>
+          </button>
 
-      {/* زر السابق */}
-      <button
-        onClick={() => {
-          if (selectedImageIndex! > 0) {
-            const newIndex = selectedImageIndex! - 1;
-            setSelectedImage(selectedImageList[newIndex].url);
-            setSelectedImageIndex(newIndex);
-          }
-        }}
-        disabled={selectedImageIndex === 0}
-        className="absolute left-2 sm:left-6 top-1/2 transform -translate-y-1/2 text-white text-3xl z-10 disabled:text-gray-500"
-      >
-        ‹
-      </button>
+          <button
+            onClick={goToPrevImage}
+            disabled={selectedImageIndex === 0}
+            className="absolute left-2 sm:left-6 top-1/2 transform -translate-y-1/2 text-white text-3xl z-10 disabled:text-gray-500"
+          >
+            ‹
+          </button>
 
-      {/* الصورة */}
-      <img
-        src={selectedImage}
-        alt="معاينة الصورة"
-        className="max-w-full max-h-[80vh] rounded-lg"
-        loading="lazy"
-        decoding="async"
-      />
+          <img
+            src={selectedImage}
+            alt="معاينة الصورة"
+            className="max-w-full max-h-[80vh] rounded-lg"
+            loading="lazy"
+            decoding="async"
+          />
 
-      {/* زر التالي */}
-      <button
-        onClick={() => {
-          if (selectedImageIndex! < selectedImageList.length - 1) {
-            const newIndex = selectedImageIndex! + 1;
-            setSelectedImage(selectedImageList[newIndex].url);
-            setSelectedImageIndex(newIndex);
-          }
-        }}
-        disabled={selectedImageIndex === selectedImageList.length - 1}
-        className="absolute right-2 sm:right-6 top-1/2 transform -translate-y-1/2 text-white text-3xl z-10 disabled:text-gray-500"
-      >
-        ›
-      </button>
-    </div>
-  </div>
-)}
+          <button
+            onClick={goToNextImage}
+            disabled={selectedImageIndex === selectedImageList.length - 1}
+            className="absolute right-2 sm:right-6 top-1/2 transform -translate-y-1/2 text-white text-3xl z-10 disabled:text-gray-500"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+    )}
 
       </div>
     </div>
