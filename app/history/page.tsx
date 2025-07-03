@@ -317,13 +317,33 @@ export default function HistoryPage() {
   };
   
 
+  // const getAllImages = (record: Contract) => {
+  //   const images: { url: string; title: string; index: number }[] = [];
+  //   Object.keys(fieldTitles).forEach((field) => {
+  //     const fieldValue = record[field as keyof Contract] as string | null | undefined;
+  //     if (fieldValue) { // Check if fieldValue is a non-empty string
+  //       // console.log(`Field: ${field}, Value: ${fieldValue}`); // Debugging
+  //       images.push({ url: fieldValue, title: fieldTitles[field], index: 0 });
+  //     }
+  //   });
+  //   return images;
+  // };
+
   const getAllImages = (record: Contract) => {
     const images: { url: string; title: string; index: number }[] = [];
     Object.keys(fieldTitles).forEach((field) => {
       const fieldValue = record[field as keyof Contract] as string | null | undefined;
-      if (fieldValue) { // Check if fieldValue is a non-empty string
-        // console.log(`Field: ${field}, Value: ${fieldValue}`); // Debugging
-        images.push({ url: fieldValue, title: fieldTitles[field], index: 0 });
+      if (fieldValue) {
+        if (field === 'other_images') {
+          // تقسيم الروابط إذا كانت تحتوي على فواصل
+          const imageUrls = fieldValue.split(',').filter(url => url.trim().length > 0);
+          imageUrls.forEach((url, index) => {
+            images.push({ url: url.trim(), title: fieldTitles[field], index });
+          });
+        } else {
+          // للحقول الأخرى، أضف الصورة كما هي
+          images.push({ url: fieldValue, title: fieldTitles[field], index: 0 });
+        }
       }
     });
     return images;
