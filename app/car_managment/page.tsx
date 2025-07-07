@@ -412,7 +412,7 @@
 //     <StyledButtonWrapper>
 //       <button className="Btn" onClick={onClick}>
 //         <div className="sign">+</div>
-//         <div className="text" >إضافة سيارة</div>
+//         <div className="text">إضافة سيارة</div>
 //       </button>
 //     </StyledButtonWrapper>
 //   );
@@ -447,7 +447,7 @@
 
 //   .text {
 //     position: absolute;
-//     right: 0%; /* تغيير من left: 0% إلى right: 0% */
+//     right: 0%;
 //     width: 0%;
 //     opacity: 0;
 //     color: white;
@@ -455,7 +455,7 @@
 //     font-weight: 500;
 //     transition-duration: 0.3s;
 //     white-space: nowrap;
-//     text-align: right; /* محاذاة النص إلى اليمين */
+//     text-align: right;
 //   }
 
 //   .Btn:hover {
@@ -474,13 +474,75 @@
 //     opacity: 1;
 //     width: 70%;
 //     transition-duration: 0.3s;
-//     padding-right: 20px; /* تغيير من padding-left إلى padding-right */
+//     padding-right: 20px;
 //   }
 
 //   .Btn:active {
 //     transform: translate(2px, 2px);
 //   }
 // `;
+
+// // تنسيقات زر العودة إلى الأعلى
+// // تعريف واجهة للخصائص المخصصة
+// interface ScrollToTopButtonProps {
+//     visible: boolean;
+//   }
+  
+//   // تنسيقات زر العودة إلى الأعلى
+//   const StyledScrollToTopButton = styled.button<ScrollToTopButtonProps>`
+//     position: fixed;
+//     bottom: 2rem;
+//     right: 2rem;
+//     width: 50px;
+//     height: 50px;
+//     background-color: #6366f1;
+//     color: #ffffff;
+//     border: none;
+//     border-radius: 50%;
+//     display: flex;
+//     align-items: center;
+//     justify-content: center;
+//     font-size: 1.5rem;
+//     cursor: pointer;
+//     opacity: ${props => (props.visible ? 1 : 0)};
+//     visibility: ${props => (props.visible ? 'visible' : 'hidden')};
+//     transition: opacity 0.3s, visibility 0.3s, transform 0.3s;
+//     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+//     z-index: 1000;
+  
+//     &:hover {
+//       background-color: #4f46e5;
+//       transform: translateY(-3px);
+//     }
+  
+//     &:active {
+//       transform: translateY(0);
+//     }
+//   `;
+  
+//   // مكون زر العودة إلى الأعلى
+//   const ScrollToTopButton = () => {
+//     const [isVisible, setIsVisible] = useState(false);
+  
+//     useEffect(() => {
+//       const toggleVisibility = () => {
+//         setIsVisible(window.scrollY > 300);
+//       };
+  
+//       window.addEventListener('scroll', toggleVisibility);
+//       return () => window.removeEventListener('scroll', toggleVisibility);
+//     }, []);
+  
+//     const scrollToTop = () => {
+//       window.scrollTo({ top: 0, behavior: 'smooth' });
+//     };
+  
+//     return (
+//       <StyledScrollToTopButton visible={isVisible} onClick={scrollToTop}>
+//         ↑
+//       </StyledScrollToTopButton>
+//     );
+//   };
 
 // export default function CarsPage() {
 //   const [groupedCars, setGroupedCars] = useState<Record<string, Car[]>>({});
@@ -808,6 +870,8 @@
 //             </StyledModal>
 //           )}
 //         </div>
+//         {/* إضافة زر العودة إلى الأعلى */}
+//         <ScrollToTopButton />
 //       </StyledContainer>
 //     </div>
 //   );
@@ -818,6 +882,7 @@
 import Navbar from '@/public/components/navbar';
 import { useState, useEffect } from 'react';
 import styled from 'styled-components';
+import * as XLSX from 'xlsx';
 
 // قاموس لتحويل أسماء السيارات إلى التنسيق العربي/الإنجليزي
 const carNameMapping: { [key: string]: string } = {
@@ -1002,6 +1067,21 @@ const StyledContainer = styled.div`
     background-color: #d97706;
   }
 
+  .delete-button {
+    padding: 0.5rem 1rem;
+    background-color: #ef4444;
+    color: #ffffff;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+
+  .delete-button:hover {
+    background-color: #dc2626;
+  }
+
   .cards-section {
     border: 1px solid #e2e8f0;
     border-radius: 0.75rem;
@@ -1144,6 +1224,31 @@ const StyledModal = styled.div`
     margin-bottom: 1.5rem;
   }
 
+  .tabs-container {
+    display: flex;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 1.5rem;
+  }
+
+  .tab {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.3s;
+    border-bottom: 2px solid transparent;
+  }
+
+  .tab.active {
+    color: #6366f1;
+    border-bottom: 2px solid #6366f1;
+  }
+
+  .tab:hover {
+    color: #4f46e5;
+  }
+
   .form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1176,6 +1281,48 @@ const StyledModal = styled.div`
     outline: none;
     border-color: #6366f1;
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  }
+
+  .file-input {
+    padding: 0.5rem;
+  }
+
+  .error-message {
+    padding: 0.75rem;
+    background-color: #fee2e2;
+    color: #dc2626;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+  }
+
+  .success-message {
+    padding: 0.75rem;
+    background-color: #dcfce7;
+    color: #15803d;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+  }
+
+  .excel-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+  }
+
+  .excel-table th,
+  .excel-table td {
+    padding: 0.75rem;
+    border: 1px solid #e2e8f0;
+    text-align: right;
+    font-size: 0.875rem;
+    color: #334155;
+  }
+
+  .excel-table th {
+    background-color: #f8fafc;
+    font-weight: 600;
   }
 
   .modal-actions {
@@ -1217,9 +1364,35 @@ const StyledModal = styled.div`
     background-color: #4f46e5;
     transform: translateY(-2px);
   }
+
+  .submit-button:disabled {
+    background-color: #a5b4fc;
+    cursor: not-allowed;
+  }
+
+  .add-all-button {
+    padding: 0.5rem 1rem;
+    background-color: #22c55e;
+    color: #ffffff;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+  }
+
+  .add-all-button:hover {
+    background-color: #16a34a;
+    transform: translateY(-2px);
+  }
+
+  .add-all-button:disabled {
+    background-color: #86efac;
+    cursor: not-allowed;
+  }
 `;
 
-// مكون الزر الجديد
 const AddButton = ({ onClick }: { onClick: () => void }) => {
   return (
     <StyledButtonWrapper>
@@ -1295,67 +1468,63 @@ const StyledButtonWrapper = styled.div`
   }
 `;
 
-// تنسيقات زر العودة إلى الأعلى
-// تعريف واجهة للخصائص المخصصة
 interface ScrollToTopButtonProps {
-    visible: boolean;
+  visible: boolean;
+}
+
+const StyledScrollToTopButton = styled.button<ScrollToTopButtonProps>`
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 50px;
+  height: 50px;
+  background-color: #6366f1;
+  color: #ffffff;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  cursor: pointer;
+  opacity: ${(props) => (props.visible ? 1 : 0)};
+  visibility: ${(props) => (props.visible ? 'visible' : 'hidden')};
+  transition: opacity 0.3s, visibility 0.3s, transform 0.3s;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+
+  &:hover {
+    background-color: #4f46e5;
+    transform: translateY(-3px);
   }
-  
-  // تنسيقات زر العودة إلى الأعلى
-  const StyledScrollToTopButton = styled.button<ScrollToTopButtonProps>`
-    position: fixed;
-    bottom: 2rem;
-    right: 2rem;
-    width: 50px;
-    height: 50px;
-    background-color: #6366f1;
-    color: #ffffff;
-    border: none;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    cursor: pointer;
-    opacity: ${props => (props.visible ? 1 : 0)};
-    visibility: ${props => (props.visible ? 'visible' : 'hidden')};
-    transition: opacity 0.3s, visibility 0.3s, transform 0.3s;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
-  
-    &:hover {
-      background-color: #4f46e5;
-      transform: translateY(-3px);
-    }
-  
-    &:active {
-      transform: translateY(0);
-    }
-  `;
-  
-  // مكون زر العودة إلى الأعلى
-  const ScrollToTopButton = () => {
-    const [isVisible, setIsVisible] = useState(false);
-  
-    useEffect(() => {
-      const toggleVisibility = () => {
-        setIsVisible(window.scrollY > 300);
-      };
-  
-      window.addEventListener('scroll', toggleVisibility);
-      return () => window.removeEventListener('scroll', toggleVisibility);
-    }, []);
-  
-    const scrollToTop = () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const ScrollToTopButton = () => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const toggleVisibility = () => {
+      setIsVisible(window.scrollY > 300);
     };
-  
-    return (
-      <StyledScrollToTopButton visible={isVisible} onClick={scrollToTop}>
-        ↑
-      </StyledScrollToTopButton>
-    );
+
+    window.addEventListener('scroll', toggleVisibility);
+    return () => window.removeEventListener('scroll', toggleVisibility);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  return (
+    <StyledScrollToTopButton visible={isVisible} onClick={scrollToTop}>
+      ↑
+    </StyledScrollToTopButton>
+  );
+};
 
 export default function CarsPage() {
   const [groupedCars, setGroupedCars] = useState<Record<string, Car[]>>({});
@@ -1364,50 +1533,71 @@ export default function CarsPage() {
   const [formData, setFormData] = useState<Partial<Car>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const [activeTab, setActiveTab] = useState<'manual' | 'excel'>('manual');
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [newCars, setNewCars] = useState<Car[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
 
   useEffect(() => {
     fetchCars();
   }, [searchQuery]);
 
   const fetchCars = async () => {
-    const response = await fetch(`/api/car_managment?search=${encodeURIComponent(searchQuery)}`);
-    const data = await response.json();
+    try {
+      setError(null);
+      const response = await fetch(`/api/car_managment?search=${encodeURIComponent(searchQuery)}`);
+      if (!response.ok) throw new Error('فشل في جلب السيارات');
+      const data = await response.json();
 
-    const normalizedGroupedCars: Record<string, Car[]> = {};
-    Object.keys(data.groupedCars || {}).forEach((key) => {
-      const normalizedKey = key.toLowerCase();
-      normalizedGroupedCars[normalizedKey] = data.groupedCars[key].map((car: Car) => ({
-        ...car,
-        manufacturer: car.manufacturer ? car.manufacturer.toLowerCase() : car.manufacturer,
-      }));
-    });
+      const normalizedGroupedCars: Record<string, Car[]> = {};
+      Object.keys(data.groupedCars || {}).forEach((key) => {
+        const normalizedKey = key.toLowerCase();
+        normalizedGroupedCars[normalizedKey] = data.groupedCars[key].map((car: Car) => ({
+          ...car,
+          manufacturer: car.manufacturer ? car.manufacturer.toLowerCase() : car.manufacturer,
+        }));
+      });
 
-    setGroupedCars(normalizedGroupedCars);
-    if (selectedManufacturer && !normalizedGroupedCars[selectedManufacturer.toLowerCase()]) {
-      setSelectedManufacturer(null);
+      setGroupedCars(normalizedGroupedCars);
+      if (selectedManufacturer && !normalizedGroupedCars[selectedManufacturer.toLowerCase()]) {
+        setSelectedManufacturer(null);
+      }
+    } catch (err) {
+      setError('حدث خطأ أثناء جلب السيارات. حاول مرة أخرى.');
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const method = editingId ? 'PUT' : 'POST';
-    const normalizedFormData = {
-      ...formData,
-      manufacturer: formData.manufacturer ? formData.manufacturer.toLowerCase() : formData.manufacturer,
-    };
-    const body = editingId ? { id: editingId, ...normalizedFormData } : normalizedFormData;
+    try {
+      setError(null);
+      setSuccessMessage(null);
+      const method = editingId ? 'PUT' : 'POST';
+      const normalizedFormData = {
+        ...formData,
+        manufacturer: formData.manufacturer ? formData.manufacturer.toLowerCase() : formData.manufacturer,
+      };
+      const body = editingId ? { id: editingId, ...normalizedFormData } : normalizedFormData;
 
-    const response = await fetch('/api/CarsDetails', {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+      const response = await fetch('/api/CarsDetails', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
 
-    if (response.ok) {
+      if (!response.ok) throw new Error('فشل في إضافة/تحديث السيارة');
+
       setFormData({});
       setEditingId(null);
       setIsModalOpen(false);
+      setSuccessMessage(editingId ? 'تم تحديث السيارة بنجاح' : 'تم إضافة السيارة بنجاح');
       fetchCars();
+    } catch (err) {
+      setError('حدث خطأ أثناء إضافة/تحديث السيارة. حاول مرة أخرى.');
     }
   };
 
@@ -1415,15 +1605,26 @@ export default function CarsPage() {
     setFormData(car);
     setEditingId(car.id);
     setIsModalOpen(true);
+    setActiveTab('manual');
+    setExcelFile(null);
+    setNewCars([]);
+    setError(null);
+    setSuccessMessage(null);
   };
 
   const handleDelete = async (id: number) => {
-    const response = await fetch(`/api/CarsDetails?id=${id}`, { method: 'DELETE' });
-    if (response.ok) {
+    try {
+      setError(null);
+      setSuccessMessage(null);
+      const response = await fetch(`/api/CarsDetails?id=${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('فشل في حذف السيارة');
+      setSuccessMessage('تم حذف السيارة بنجاح');
       fetchCars();
       if (selectedManufacturer && groupedCars[selectedManufacturer.toLowerCase()]?.length === 1) {
         setSelectedManufacturer(null);
       }
+    } catch (err) {
+      setError('حدث خطأ أثناء حذف السيارة. حاول مرة أخرى.');
     }
   };
 
@@ -1442,6 +1643,11 @@ export default function CarsPage() {
     setFormData({});
     setEditingId(null);
     setIsModalOpen(true);
+    setActiveTab('manual');
+    setExcelFile(null);
+    setNewCars([]);
+    setError(null);
+    setSuccessMessage(null);
   };
 
   const handleManufacturerClick = (manufacturer: string) => {
@@ -1451,6 +1657,260 @@ export default function CarsPage() {
   const handleBackClick = () => {
     setSelectedManufacturer(null);
   };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    setSuccessMessage(null);
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+        setError('يرجى رفع ملف بصيغة Excel (.xlsx أو .xls)');
+        setExcelFile(null);
+        return;
+      }
+      setExcelFile(file);
+    } else {
+      setExcelFile(null);
+    }
+  };
+  
+  const handleExcelUpload = async () => {
+    if (!excelFile) {
+      setError('يرجى اختيار ملف Excel أولاً');
+      return;
+    }
+  
+    setIsLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+  
+    try {
+      const response = await fetch('/api/car_managment');
+      if (!response.ok) {
+        console.error('API response not OK:', response.status, response.statusText);
+        throw new Error('فشل في جلب السيارات الحالية');
+      }
+      const data: { groupedCars: Record<string, Car[]> } = await response.json();
+      console.log('Existing cars from API:', data.groupedCars);
+  
+      const existingPlates = Object.values(data.groupedCars)
+        .flat()
+        .map((car) => car.plate?.trim().toLowerCase())
+        .filter((plate): plate is string => !!plate);
+      console.log('Existing plates:', existingPlates);
+  
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[];
+        console.log('Raw Excel data:', jsonData);
+  
+        // Extract headers from the first row
+        const headers = jsonData[0] as string[];
+        const rows = jsonData.slice(1); // Skip header row
+  
+        const excelCars: Car[] = rows.map((row, index) => {
+          const rowData = headers.reduce((acc, header, i) => {
+            acc[header] = row[i];
+            return acc;
+          }, {} as Record<string, any>);
+  
+          return {
+            id: 0,
+            owner_name: (() => {
+              const normalizedKeys = Object.keys(rowData).reduce((acc, key) => {
+                const normalized = key.trim().toLowerCase().replace(/\s+/g, '_');
+                acc[normalized] = rowData[key];
+                return acc;
+              }, {} as Record<string, any>);
+            
+              return normalizedKeys['owner_name'] || undefined;
+            })(),
+            
+            specification_policy: rowData['Specification-Policy No'] || undefined,
+            Ref: rowData.Ref ? parseInt(rowData.Ref) : undefined,
+            make_no: rowData['Make No'] || undefined,
+            manufacturer: rowData.Make ? String(rowData.Make).trim().toLowerCase() : undefined,
+            model_no: rowData['Model No'] || undefined,
+            model: rowData.Model ? String(rowData.Model).trim().toLowerCase() : undefined,
+            type_no: rowData['Type No'] || undefined,
+            Type: rowData.Type || undefined,
+            seats: rowData.Seats ? parseInt(rowData.Seats) : undefined,
+            manufacturing_year: rowData.Year ? parseInt(rowData.Year) : undefined,
+            plate: rowData.Plate ? String(rowData.Plate).trim() : undefined, // Changed from plate to Plate
+            sequance: rowData.Sequence ? parseInt(rowData.Sequence) : undefined,
+            chassis: rowData.Chassis || undefined,
+            excess: rowData.Excess ? parseInt(rowData.Excess) : undefined,
+            color: (() => {
+              const normalizedKeys = Object.keys(rowData).reduce((acc, key) => {
+                const normalized = key.trim().toLowerCase().replace(/\s+/g, '_');
+                acc[normalized] = rowData[key];
+                return acc;
+              }, {} as Record<string, any>);
+            
+              return (
+                normalizedKeys['color'] ||
+                normalizedKeys['اللون'] ||
+                normalizedKeys['لون'] ||
+                undefined
+              );
+            })(),
+            
+            sum_insured: rowData['Sum Insured/ السعر'] || rowData['Sum Insured'] || rowData['sum insured'] || rowData['SUM INSURED'] ? parseFloat(String(rowData['Sum Insured/ السعر'] || rowData['Sum Insured'] || rowData['sum insured'] || rowData['SUM INSURED']).trim()) : undefined,
+            premium: rowData.premium ? parseFloat(rowData.premium) : undefined,
+          };
+        });
+  
+        console.log('Parsed Excel cars:', excelCars);
+  
+        const newCars = excelCars.filter(
+          (car) => car.plate && !existingPlates.includes(car.plate.trim().toLowerCase())
+        );
+        console.log('New cars filtered:', newCars);
+  
+        if (newCars.length > 0) {
+          setNewCars(newCars);
+          setSuccessMessage(`تم العثور على ${newCars.length} سيارة جديدة`);
+        } else {
+          setNewCars([]);
+          setSuccessMessage('لم يتم العثور على سيارات جديدة في الملف');
+        }
+        setIsLoading(false);
+      };
+      reader.onerror = () => {
+        setError('حدث خطأ أثناء قراءة ملف Excel');
+        setIsLoading(false);
+      };
+      reader.readAsArrayBuffer(excelFile);
+    } catch (err) {
+      console.error('Error processing Excel file:', err);
+      setError('حدث خطأ أثناء معالجة الملف. حاول مرة أخرى.');
+      setIsLoading(false);
+    }
+  };
+  
+  const handleAddNewCars = async () => {
+    if (newCars.length === 0) {
+      setError('لا توجد سيارات جديدة لإضافتها');
+      return;
+    }
+  
+    setIsLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+  
+    try {
+      const addPromises = newCars.map((car) =>
+        fetch('/api/car_managment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            owner_name: car.owner_name,
+            specification_policy: car.specification_policy,
+            Ref: car.Ref,
+            make_no: car.make_no,
+            manufacturer: car.manufacturer,
+            model_no: car.model_no,
+            model: car.model,
+            type_no: car.type_no,
+            Type: car.Type,
+            seats: car.seats,
+            manufacturing_year: car.manufacturing_year,
+            plate: car.plate,
+            sequance: car.sequance,
+            chassis: car.chassis,
+            excess: car.excess,
+            color: car.color,
+            sum_insured: car.sum_insured,
+            premium: car.premium,
+          }),
+        }).then((res) => {
+          if (!res.ok) {
+            throw new Error(`فشل في إضافة السيارة ${car.plate || ''}`);
+          }
+          return res.json();
+        })
+      );
+  
+      await Promise.all(addPromises);
+  
+      setSuccessMessage('تم إضافة السيارات الجديدة بنجاح');
+      setNewCars([]);
+      setExcelFile(null);
+      setIsModalOpen(false);
+      fetchCars();
+    } catch (err) {
+      setError('حدث خطأ أثناء إضافة السيارات. حاول مرة أخرى.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // const handleExcelUpload = async () => {
+  //   if (!excelFile) {
+  //     setError('يرجى اختيار ملف Excel أولاً');
+  //     return;
+  //   }
+
+  //   setIsLoading(true);
+  //   setError(null);
+  //   setSuccessMessage(null);
+
+  //   const formData = new FormData();
+  //   formData.append('file', excelFile);
+
+  //   try {
+  //     const response = await fetch('/api/CarsDetails/check-excel', {
+  //       method: 'POST',
+  //       body: formData,
+  //     });
+
+  //     if (!response.ok) throw new Error('فشل في معالجة ملف Excel');
+
+  //     const data = await response.json();
+  //     if (data.newCars && data.newCars.length > 0) {
+  //       setNewCars(data.newCars);
+  //       setSuccessMessage(`تم العثور على ${data.newCars.length} سيارة جديدة`);
+  //     } else {
+  //       setNewCars([]);
+  //       setSuccessMessage('لم يتم العثور على سيارات جديدة في الملف');
+  //     }
+  //   } catch (err) {
+  //     setError('حدث خطأ أثناء معالجة ملف Excel. حاول مرة أخرى.');
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+
+  // const handleAddNewCars = async () => {
+  //   if (newCars.length === 0) {
+  //     setError('لا توجد سيارات جديدة لإضافتها');
+  //     return;
+  //   }
+
+  //   try {
+  //     setError(null);
+  //     setSuccessMessage(null);
+  //     const response = await fetch('/api/CarsDetails/bulk', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify(newCars),
+  //     });
+
+  //     if (!response.ok) throw new Error('فشل في إضافة السيارات');
+
+  //     setSuccessMessage('تم إضافة السيارات الجديدة بنجاح');
+  //     setNewCars([]);
+  //     setExcelFile(null);
+  //     setIsModalOpen(false);
+  //     fetchCars();
+  //   } catch (err) {
+  //     setError('حدث خطأ أثناء إضافة السيارات. حاول مرة أخرى.');
+  //   }
+  // };
 
   return (
     <div dir="rtl">
@@ -1470,6 +1930,18 @@ export default function CarsPage() {
               <AddButton onClick={openAddModal} />
             </div>
           </div>
+
+          {/* رسائل الخطأ والنجاح */}
+          {error && (
+            <div className="error-message" style={{ margin: '1rem' }}>
+              {error}
+            </div>
+          )}
+          {successMessage && (
+            <div className="success-message" style={{ margin: '1rem' }}>
+              {successMessage}
+            </div>
+          )}
 
           {/* Manufacturer Cards or Cars List */}
           <div className="cards-section">
@@ -1505,11 +1977,14 @@ export default function CarsPage() {
                         {carNameMapping[`${car.manufacturer} ${car.model}`] ||
                           `${car.manufacturer} ${car.model}`}
                       </h2>
-                      <p className="car-info">اللوحة: {car.plate || 'N/A'}</p>
-                      <p className="car-info">سنة التصنيع: {car.manufacturing_year || 'N/A'}</p>
+                      <p className="car-info">اللوحة: {car.plate || 'غير متوفر'}</p>
+                      <p className="car-info">سنة التصنيع: {car.manufacturing_year || 'غير متوفر'}</p>
                       <div className="action-buttons">
                         <button onClick={() => handleEdit(car)} className="edit-button">
                           تعديل
+                        </button>
+                        <button onClick={() => handleDelete(car.id)} className="delete-button">
+                          حذف
                         </button>
                       </div>
                     </div>
@@ -1568,122 +2043,220 @@ export default function CarsPage() {
                 <div className="modal-content">
                   <h2 className="modal-title">
                     {editingId
-                      ? `تحرير: ${
+                      ? `تعديل: ${
                           carNameMapping[`${formData.manufacturer} ${formData.model}`] ||
                           `${formData.manufacturer || ''} ${formData.model || ''}`
                         }`
                       : 'إضافة سيارة جديدة'}
                   </h2>
-                  <form onSubmit={handleSubmit}>
-                    <div className="form-grid">
-                      <div className="form-field">
-                        <label className="form-label">اسم المالك</label>
-                        <input
-                          type="text"
-                          name="owner_name"
-                          value={formData.owner_name || ''}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="أدخل اسم المالك"
-                        />
+
+                  {/* Tabs */}
+                  <div className="tabs-container">
+                    <div
+                      className={`tab ${activeTab === 'manual' ? 'active' : ''}`}
+                      onClick={() => setActiveTab('manual')}
+                    >
+                      إضافة يدوية
+                    </div>
+                    <div
+                      className={`tab ${activeTab === 'excel' ? 'active' : ''}`}
+                      onClick={() => setActiveTab('excel')}
+                    >
+                      رفع ملف Excel
+                    </div>
+                  </div>
+
+                  {/* رسائل الخطأ والنجاح */}
+                  {error && activeTab === 'excel' && (
+                    <div className="error-message">{error}</div>
+                  )}
+                  {successMessage && activeTab === 'excel' && (
+                    <div className="success-message">{successMessage}</div>
+                  )}
+
+                  {/* Manual Add Tab */}
+                  {activeTab === 'manual' && (
+                    <form onSubmit={handleSubmit}>
+                      <div className="form-grid">
+                        <div className="form-field">
+                          <label className="form-label">اسم المالك</label>
+                          <input
+                            type="text"
+                            name="owner_name"
+                            value={formData.owner_name || ''}
+                            onChange={handleInputChange}
+                            className="form-input"
+                            placeholder="أدخل اسم المالك"
+                          />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">مرجع</label>
+                          <input
+                            type="text"
+                            name="Ref"
+                            value={formData.Ref || ''}
+                            onChange={handleInputChange}
+                            className="form-input"
+                            placeholder="أدخل المرجع"
+                          />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">الشركة المصنعة</label>
+                          <input
+                            type="text"
+                            name="manufacturer"
+                            value={formData.manufacturer || ''}
+                            onChange={handleInputChange}
+                            className="form-input"
+                            placeholder="أدخل الشركة المصنعة"
+                          />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">الموديل</label>
+                          <input
+                            type="text"
+                            name="model"
+                            value={formData.model || ''}
+                            onChange={handleInputChange}
+                            className="form-input"
+                            placeholder="أدخل الموديل"
+                          />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">عدد المقاعد</label>
+                          <input
+                            type="number"
+                            name="seats"
+                            value={formData.seats || ''}
+                            onChange={handleInputChange}
+                            className="form-input"
+                            placeholder="أدخل عدد المقاعد"
+                          />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">سنة الصنع</label>
+                          <input
+                            type="number"
+                            name="manufacturing_year"
+                            value={formData.manufacturing_year || ''}
+                            onChange={handleInputChange}
+                            className="form-input"
+                            placeholder="أدخل سنة الصنع"
+                          />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">رقم اللوحة</label>
+                          <input
+                            type="text"
+                            name="plate"
+                            value={formData.plate || ''}
+                            onChange={handleInputChange}
+                            className="form-input"
+                            placeholder="أدخل رقم اللوحة"
+                          />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label">اللون</label>
+                          <input
+                            type="text"
+                            name="color"
+                            value={formData.color || ''}
+                            onChange={handleInputChange}
+                            className="form-input"
+                            placeholder="أدخل اللون"
+                          />
+                        </div>
                       </div>
-                      <div className="form-field">
-                        <label className="form-label">مرجع</label>
-                        <input
-                          type="text"
-                          name="Ref"
-                          value={formData.Ref || ''}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="أدخل المرجع"
-                        />
+                      <div className="modal-actions">
+                        <button
+                          type="button"
+                          onClick={() => setIsModalOpen(false)}
+                          className="cancel-button"
+                        >
+                          إلغاء
+                        </button>
+                        <button type="submit" className="submit-button">
+                          {editingId ? 'تحديث السيارة' : 'إضافة السيارة'}
+                        </button>
                       </div>
+                    </form>
+                  )}
+
+                  {/* Excel Upload Tab */}
+                  {activeTab === 'excel' && (
+                    <div>
                       <div className="form-field">
-                        <label className="form-label">الشركة المصنعة</label>
+                        <label className="form-label">رفع ملف Excel</label>
                         <input
-                          type="text"
-                          name="manufacturer"
-                          value={formData.manufacturer || ''}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="أدخل الشركة المصنعة"
+                          type="file"
+                          accept=".xlsx, .xls"
+                          onChange={handleFileChange}
+                          className="form-input file-input"
                         />
+                        <button
+                          onClick={handleExcelUpload}
+                          disabled={!excelFile || isLoading}
+                          className="submit-button"
+                          style={{ marginTop: '0.5rem' }}
+                        >
+                          {isLoading ? 'جاري التحميل...' : 'تحميل الملف'}
+                        </button>
                       </div>
-                      <div className="form-field">
-                        <label className="form-label">الموديل</label>
-                        <input
-                          type="text"
-                          name="model"
-                          value={formData.model || ''}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="أدخل الموديل"
-                        />
-                      </div>
-                      <div className="form-field">
-                        <label className="form-label">عدد المقاعد</label>
-                        <input
-                          type="number"
-                          name="seats"
-                          value={formData.seats || ''}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="أدخل عدد المقاعد"
-                        />
-                      </div>
-                      <div className="form-field">
-                        <label className="form-label">سنة الصنع</label>
-                        <input
-                          type="number"
-                          name="manufacturing_year"
-                          value={formData.manufacturing_year || ''}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="أدخل سنة الصنع"
-                        />
-                      </div>
-                      <div className="form-field">
-                        <label className="form-label">رقم اللوحة</label>
-                        <input
-                          type="text"
-                          name="plate"
-                          value={formData.plate || ''}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="أدخل رقم اللوحة"
-                        />
-                      </div>
-                      <div className="form-field">
-                        <label className="form-label">اللون</label>
-                        <input
-                          type="text"
-                          name="color"
-                          value={formData.color || ''}
-                          onChange={handleInputChange}
-                          className="form-input"
-                          placeholder="أدخل اللون"
-                        />
+
+                      {/* Display New Cars */}
+                      {newCars.length > 0 && (
+                        <div>
+                          <h3 className="form-label" style={{ marginTop: '1rem' }}>
+                            السيارات الجديدة المكتشفة
+                          </h3>
+                          <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            <table className="excel-table">
+                              <thead>
+                                <tr>
+                                  <th>الشركة المصنعة</th>
+                                  <th>الموديل</th>
+                                  <th>رقم اللوحة</th>
+                                  <th>سنة الصنع</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {newCars.map((car, index) => (
+                                  <tr key={index}>
+                                    <td>{car.manufacturer || 'غير متوفر'}</td>
+                                    <td>{car.model || 'غير متوفر'}</td>
+                                    <td>{car.plate || 'غير متوفر'}</td>
+                                    <td>{car.manufacturing_year || 'غير متوفر'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <button
+                            onClick={handleAddNewCars}
+                            className="add-all-button"
+                            style={{ marginTop: '1rem' }}
+                          >
+                            إضافة كل السيارات الجديدة
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="modal-actions">
+                        <button
+                          type="button"
+                          onClick={() => setIsModalOpen(false)}
+                          className="cancel-button"
+                        >
+                          إلغاء
+                        </button>
                       </div>
                     </div>
-                    <div className="modal-actions">
-                      <button
-                        type="button"
-                        onClick={() => setIsModalOpen(false)}
-                        className="cancel-button"
-                      >
-                        إلغاء
-                      </button>
-                      <button type="submit" className="submit-button">
-                        {editingId ? 'تحديث السيارة' : 'إضافة السيارة'}
-                      </button>
-                    </div>
-                  </form>
+                  )}
                 </div>
               </div>
             </StyledModal>
           )}
         </div>
-        {/* إضافة زر العودة إلى الأعلى */}
         <ScrollToTopButton />
       </StyledContainer>
     </div>
