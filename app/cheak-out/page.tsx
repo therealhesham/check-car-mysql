@@ -409,14 +409,14 @@ export default function UploadPage() {
     if (!file.type.startsWith('image/')) {
       throw new Error('الملف ليس صورة صالحة.');
     }
-
+  
     return new Promise((resolve, reject) => {
       const img = new Image();
       const reader = new FileReader();
-
+  
       reader.onload = (e) => {
         img.src = e.target?.result as string;
-
+  
         img.onload = () => {
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
@@ -424,12 +424,12 @@ export default function UploadPage() {
             reject(new Error('فشل في إنشاء سياق الرسم.'));
             return;
           }
-
+  
           canvas.width = img.width;
           canvas.height = img.height;
-
+  
           ctx.drawImage(img, 0, 0);
-
+  
           const now = new Date();
           const dateTimeString = now.toLocaleString('ar-SA', {
             calendar: 'gregory',
@@ -441,89 +441,95 @@ export default function UploadPage() {
             second: '2-digit',
             hour12: true,
           });
-
+  
           ctx.font = '40px Arial';
           ctx.fillStyle = 'white';
           ctx.strokeStyle = 'black';
           ctx.lineWidth = 3;
-
+  
           const text = dateTimeString;
           const textWidth = ctx.measureText(text).width;
           const padding = 20;
           const textX = canvas.width - textWidth - padding;
           const textY = 40;
-
+  
           ctx.strokeText(text, textX, textY);
           ctx.fillText(text, textX, textY);
-
+  
           canvas.toBlob(
             (blob) => {
               if (!blob) {
                 reject(new Error('فشل في تحويل الصورة إلى Blob.'));
                 return;
               }
-              const modifiedFile = new File([blob], `${uuidv4()}.jpg`, { type: 'image/' });
+              const modifiedFile = new File([blob], `${uuidv4()}.webp`, { type: 'image/webp' });
               resolve(modifiedFile);
             },
-            'image/',
-            0.9
+            'image/webp',
+            0.95 // زيادة الجودة إلى 0.95
           );
         };
-
+  
         img.onerror = () => {
           reject(new Error('فشل في تحميل الصورة.'));
         };
       };
-
+  
       reader.onerror = () => {
         reject(new Error('فشل في قراءة ملف الصورة.'));
       };
-
+  
       reader.readAsDataURL(file);
     });
   };
 
   const compressImage = async (file: File): Promise<File> => {
     const options = {
-      maxSizeMB: 4,
-      maxWidthOrHeight: 820,
+      maxSizeMB: 5, // زيادة الحد الأقصى لحجم الملف إلى 5 ميغابايت
+      maxWidthOrHeight: 1920, // زيادة الدقة القصوى إلى 1920 بكسل
       useWebWorker: true,
+      fileType: 'image/webp',
+      initialQuality: 0.95, // تحديد جودة أولية عالية
     };
-
+  
     try {
       const compressedFile = await imageCompression(file, options);
+      if (compressedFile.size > 32 * 1024 * 1024) {
+        throw new Error('حجم الصورة المضغوطة كبير جدًا (الحد الأقصى 32 ميغابايت).');
+      }
       const modifiedFile = await addDateTimeToImage(compressedFile);
       return modifiedFile;
     } catch (error) {
-      console.log(error)
+      console.error(error);
       throw new Error('فشل في معالجة الصورة: ' + error.message);
     }
   };
 
   const uploadImageToBackend = async (file: File): Promise<string> => {
-    const fileName = `${uuidv4()}.jpg`;
+    const fileName = `${uuidv4()}.webp`;
     const buffer = Buffer.from(await file.arrayBuffer());
-
+  
     const params = {
       Bucket: DO_SPACE_NAME,
       Key: fileName,
       Body: buffer,
-      ContentType: 'image/jpeg',
+      ContentType: 'image/webp',
       ACL: 'public-read',
     };
+  
     try {
       if (!file.type.startsWith('image/')) {
-        throw new Error('الملف ليس صورة صالحة. يرجى رفع ملف بصيغة JPEG أو PNG.');
+        throw new Error('الملف ليس صورة صالحة. يرجى رفع ملف بصيغة JPEG أو PNG أو WebP.');
       }
-
+  
       if (file.size > 32 * 1024 * 1024) {
         throw new Error('حجم الصورة كبير جدًا (الحد الأقصى 32 ميغابايت).');
       }
-
+  
       const uploadResult = await s3.upload(params).promise();
       return uploadResult.Location;
     } catch (error: any) {
-      console.log(error)
+      console.error(error);
       throw error;
     }
   };
@@ -810,37 +816,34 @@ export default function UploadPage() {
   const handleSaveSignature = async () => {
     try {
       if (!signatureCanvasRef.current) return;
-
+  
       if (signatureCanvasRef.current.isEmpty()) {
         setUploadMessage('يرجى رسم التوقيع قبل الحفظ.');
         setShowToast(true);
         return;
       }
-
-      // الحصول على الـ canvas بعد القطع
+  
       const rawCanvas = signatureCanvasRef.current.getCanvas();
       const trimmedCanvas = trimCanvas(rawCanvas);
-
-      // تحويل canvas إلى Blob
-      const dataUrl = trimmedCanvas.toDataURL('image/png');
+  
+      const dataUrl = trimmedCanvas.toDataURL('image/webp', 0.95); // زيادة الجودة إلى 0.95
       const response = await fetch(dataUrl);
       const blob = await response.blob();
-
-      const signatureFile = new File([blob], `${uuidv4()}.png`, { type: 'image/png' });
-
-      // ضغط الصورة
+  
+      const signatureFile = new File([blob], `${uuidv4()}.webp`, { type: 'image/webp' });
+  
       const options = {
-        maxSizeMB: 4,
-        maxWidthOrHeight: 1920,
+        maxSizeMB: 5, // زيادة الحد الأقصى لحجم التوقيع
+        maxWidthOrHeight: 1920, // زيادة الدقة القصوى
         useWebWorker: true,
+        fileType: 'image/webp',
+        initialQuality: 0.95, // جودة أولية عالية
       };
       const compressedSignature = await imageCompression(signatureFile, options);
       const modifiedFile = await addDateTimeToImage(compressedSignature);
-
-      // رفع التوقيع إلى الخادم
+  
       const uploadedSignatureUrl = await uploadImageToBackend(modifiedFile);
-
-      // تحديث الحالة
+  
       setSignatureUrl(uploadedSignatureUrl);
       setIsSignatureLocked(true);
       setUploadMessage('تم حفظ التوقيع بنجاح.');
