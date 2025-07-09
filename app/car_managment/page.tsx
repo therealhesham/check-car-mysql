@@ -1706,11 +1706,26 @@ export default function CarsPage() {
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[];
-        console.log('Raw Excel data:', jsonData);
-  
-        // Extract headers from the first row
-        const headers = jsonData[0] as string[];
-        const rows = jsonData.slice(1); // Skip header row
+
+       
+
+        let headerRowIndex = 0;
+
+        if (
+          excelFile?.name.includes('المملوكة لعبداللطيف جميل') // الملف الذي فيه صف إضافي
+        ) {
+          headerRowIndex = 2; // نتخطى صفين
+        } else {
+          headerRowIndex = 0; // الملف العادي
+        }
+        
+        const headers = jsonData[headerRowIndex] as string[];
+        const rows = jsonData.slice(headerRowIndex + 1);
+        
+
+        
+
+      
   
         const excelCars: Car[] = rows.map((row, index) => {
           const rowData = headers.reduce((acc, header, i) => {
