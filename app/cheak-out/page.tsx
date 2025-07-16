@@ -43,6 +43,8 @@ import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
 import SignaturePad from 'react-signature-canvas';
 import { useRouter } from 'next/navigation';
+import retry from 'async-retry';
+import { FiRefreshCw } from 'react-icons/fi';
 
 const sanitizeTitle = (title: string, index: number) => {
   const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
@@ -57,7 +59,9 @@ interface FileSection {
   previewUrls: string[];
   isUploading: boolean;
   uploadProgress: number;
+  failedUploads?: { index: number; previewUrl: string }[]; // لتتبع الصور الفاشلة في الأقسام المتعددة
 }
+
 
 interface User {
   id: string;
@@ -168,7 +172,7 @@ export default function UploadPage() {
   const carInputRef = useRef<HTMLDivElement>(null);
   const plateInputRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const uploadQueue = useRef<Promise<void>>(Promise.resolve());
+  // const uploadQueue = useRef<Promise<void>>(Promise.resolve());
   const signatureCanvasRef = useRef<SignaturePad>(null);
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -497,222 +501,356 @@ export default function UploadPage() {
       if (compressedFile.size > 32 * 1024 * 1024) {
         throw new Error('حجم الصورة المضغوطة كبير جدًا (الحد الأقصى 32 ميغابايت).');
       }
-      const modifiedFile = await addDateTimeToImage(compressedFile);
+      const modifiedFile = await addDateTimeToImage(compressedFile);uploadImageToBackendWithRetry
       return modifiedFile;
     } catch (error) {
       console.error(error);
       throw new Error('فشل في معالجة الصورة: ' + error.message);
     }
   };
-
-  const uploadImageToBackend = async (file: File): Promise<string> => {
-    const fileName = `${uuidv4()}.webp`;
-    const buffer = Buffer.from(await file.arrayBuffer());
   
-    const params = {
-      Bucket: DO_SPACE_NAME,
-      Key: fileName,
-      Body: buffer,
-      ContentType: 'image/webp',
-      ACL: 'public-read',
-    };
+  const uploadImageToBackendWithRetry = async (file: File, retries: number = 3): Promise<string> => {
+    return retry(
+      async () => {
+        const fileName = `${uuidv4()}.webp`;
+        const buffer = Buffer.from(await file.arrayBuffer());
   
-    try {
-      if (!file.type.startsWith('image/')) {
-        throw new Error('الملف ليس صورة صالحة. يرجى رفع ملف بصيغة JPEG أو PNG أو WebP.');
+        const params = {
+          Bucket: DO_SPACE_NAME,
+          Key: fileName,
+          Body: buffer,
+          ContentType: 'image/webp',
+          ACL: 'public-read',
+        };
+  
+        const uploadResult = await s3.upload(params).promise();
+        return uploadResult.Location;
+      },
+      {
+        retries,
+        factor: 2,
+        minTimeout: 1000,
+        maxTimeout: 5000,
+        onRetry: (error) => {
+          console.warn('Retrying upload due to:', error.message);
+        },
       }
-  
-      if (file.size > 32 * 1024 * 1024) {
-        throw new Error('حجم الصورة كبير جدًا (الحد الأقصى 32 ميغابايت).');
-      }
-  
-      const uploadResult = await s3.upload(params).promise();
-      return uploadResult.Location;
-    } catch (error: any) {
-      console.error(error);
-      throw error;
-    }
+    );
   };
+
+  const saveToLocalStorage = async (file: File, fileSectionId: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (file.size > 5 * 1024 * 1024) { // تحديد حد أقصى 5 ميغابايت
+        reject(new Error('حجم الصورة كبير جدًا للحفظ في localStorage (الحد الأقصى 5 ميغابايت).'));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          localStorage.setItem(`pending-upload-${fileSectionId}`, reader.result as string);
+          resolve();
+        } catch (error) {
+          reject(new Error('فشل في حفظ الصورة مؤقتًا بسبب قيود التخزين.'));
+        }
+      };
+      reader.onerror = () => reject(new Error('فشل في قراءة ملف الصورة.'));
+      reader.readAsDataURL(file);
+    });
+  };
+  
+  const getFromLocalStorage = (fileSectionId: string): string | null => {
+    return localStorage.getItem(`pending-upload-${fileSectionId}`);
+  };
+  
+  const clearFromLocalStorage = (fileSectionId: string): void => {
+    localStorage.removeItem(`pending-upload-${fileSectionId}`);
+  };
+
 
   const handleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-
+  
     const file = e.target.files[0];
     const localPreviewUrl = URL.createObjectURL(file);
-
+  
+    // تحديث واجهة المستخدم لعرض المعاينة
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) =>
         fileSection.id === id
           ? {
-            ...fileSection,
-            previewUrls: [localPreviewUrl],
-            imageUrls: null,
-            isUploading: true,
-            uploadProgress: 0,
-          }
+              ...fileSection,
+              previewUrls: [localPreviewUrl],
+              imageUrls: null,
+              isUploading: true,
+              uploadProgress: 0,
+              failedUploads: [{ index: 0, previewUrl: localPreviewUrl }],
+            }
           : fileSection
       )
     );
-
-    uploadQueue.current = uploadQueue.current.then(async () => {
-      try {
-        setFiles((prevFiles) =>
-          prevFiles.map((fileSection) =>
-            fileSection.id === id ? { ...fileSection, uploadProgress: 30 } : fileSection
-          )
-        );
-
-        const compressedFile = await compressImage(file);
-
-        setFiles((prevFiles) =>
-          prevFiles.map((fileSection) =>
-            fileSection.id === id ? { ...fileSection, uploadProgress: 60 } : fileSection
-          )
-        );
-
-        const imageUrl = await uploadImageToBackend(compressedFile);
-
-        setFiles((prevFiles) =>
-          prevFiles.map((fileSection) =>
-            fileSection.id === id
-              ? {
+  
+    // حفظ الصورة في localStorage كإجراء احتياطي
+    try {
+      await saveToLocalStorage(file, id);
+    } catch (error: any) {
+      setUploadMessage('فشل في حفظ الصورة مؤقتًا: ' + error.message);
+      setShowToast(true);
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id
+            ? { ...fileSection, previewUrls: [], isUploading: false, uploadProgress: 0, failedUploads: [] }
+            : fileSection
+        )
+      );
+      URL.revokeObjectURL(localPreviewUrl);
+      return;
+    }
+  
+    // محاولة ضغط الصورة ورفعها
+    try {
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id ? { ...fileSection, uploadProgress: 30 } : fileSection
+        )
+      );
+  
+      const compressedFile = await compressImage(file);
+  
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id ? { ...fileSection, uploadProgress: 60 } : fileSection
+        )
+      );
+  
+      const imageUrl = await uploadImageToBackendWithRetry(compressedFile);
+  
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id
+            ? {
                 ...fileSection,
                 imageUrls: imageUrl,
                 previewUrls: [imageUrl],
                 isUploading: false,
                 uploadProgress: 100,
+                failedUploads: [],
               }
-              : fileSection
-          )
-        );
-        URL.revokeObjectURL(localPreviewUrl);
-        const index = files.findIndex((fileSection) => fileSection.id === id);
-        if (fileInputRefs.current[index]) {
-          fileInputRefs.current[index]!.value = '';
-        }
-      } catch (error: any) {
-        let errorMessage = 'حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى.';
-        if (error.message.includes('Rate limit')) {
-          errorMessage = 'تم تجاوز حد رفع الصور. يرجى المحاولة مجددًا لاحقًا.';
-        } else if (error.message.includes('ضغط')) {
-          errorMessage = 'فشل في ضغط الصورة. يرجى المحاولة مرة أخرى.';
-        }
-        setUploadMessage(errorMessage);
-        setShowToast(true);
-        setFiles((prevFiles) =>
-          prevFiles.map((fileSection) =>
-            fileSection.id === id
-              ? {
-                ...fileSection,
-                imageUrls: null,
-                previewUrls: [],
-                isUploading: false,
-                uploadProgress: 0,
-              }
-              : fileSection
-          )
-        );
-        URL.revokeObjectURL(localPreviewUrl);
-        const index = files.findIndex((fileSection) => fileSection.id === id);
-        if (fileInputRefs.current[index]) {
-          fileInputRefs.current[index]!.value = '';
-        }
+            : fileSection
+        )
+      );
+  
+      clearFromLocalStorage(id); // إزالة الصورة من localStorage بعد الرفع الناجح
+      URL.revokeObjectURL(localPreviewUrl);
+  
+      const index = files.findIndex((fileSection) => fileSection.id === id);
+      if (fileInputRefs.current[index]) {
+        fileInputRefs.current[index]!.value = '';
       }
-    });
+    } catch (error: any) {
+      let errorMessage = 'حدث خطأ أثناء رفع الصورة. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.';
+      if (error.message.includes('Rate limit')) {
+        errorMessage = 'تم تجاوز حد رفع الصور. الصورة محفوظة مؤقتًا.';
+      } else if (error.message.includes('ضغط')) {
+        errorMessage = 'فشل في ضغط الصورة. الصورة محفوظة مؤقتًا.';
+      }
+      setUploadMessage(errorMessage);
+      setShowToast(true);
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id
+            ? { ...fileSection, isUploading: false, uploadProgress: 0 }
+            : fileSection
+        )
+      );
+    }
+  };
+
+  const retryUpload = async (fileSectionId: string, index?: number) => {
+    const uniqueId = index !== undefined ? `${fileSectionId}-${index}` : fileSectionId;
+    const dataUrl = getFromLocalStorage(uniqueId);
+    if (!dataUrl) {
+      setUploadMessage('لا توجد صورة محفوظة لإعادة المحاولة.');
+      setShowToast(true);
+      return;
+    }
+  
+    setFiles((prevFiles) =>
+      prevFiles.map((fileSection) =>
+        fileSection.id === fileSectionId
+          ? { ...fileSection, isUploading: true, uploadProgress: 0 }
+          : fileSection
+      )
+    );
+  
+    try {
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const file = new File([blob], `${uuidv4()}.webp`, { type: 'image/webp' });
+  
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === fileSectionId ? { ...fileSection, uploadProgress: 30 } : fileSection
+        )
+      );
+  
+      const compressedFile = await compressImage(file);
+  
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === fileSectionId ? { ...fileSection, uploadProgress: 60 } : fileSection
+        )
+      );
+  
+      const imageUrl = await uploadImageToBackendWithRetry(compressedFile);
+  
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) => {
+          if (fileSection.id === fileSectionId) {
+            if (fileSection.multiple) {
+              // تحديث الصورة في previewUrls بناءً على index
+              const updatedPreviewUrls = [...(fileSection.previewUrls || [])];
+              if (index !== undefined && updatedPreviewUrls[index]) {
+                updatedPreviewUrls[index] = imageUrl; // استبدال الصورة الفاشلة بالرابط الجديد
+              } else {
+                updatedPreviewUrls.push(imageUrl); // إضافة في حالة عدم وجود فهرس
+              }
+  
+              return {
+                ...fileSection,
+                imageUrls: [
+                  ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+                  imageUrl,
+                ],
+                previewUrls: updatedPreviewUrls,
+                isUploading: false,
+                uploadProgress: 100,
+                failedUploads: fileSection.failedUploads?.filter((failed) => failed.index !== index) || [],
+              };
+            } else {
+              return {
+                ...fileSection,
+                imageUrls: imageUrl,
+                previewUrls: [imageUrl],
+                isUploading: false,
+                uploadProgress: 100,
+                failedUploads: [],
+              };
+            }
+          }
+          return fileSection;
+        })
+      );
+  
+      clearFromLocalStorage(uniqueId);
+      setUploadMessage('تم إعادة رفع الصورة بنجاح.');
+      setShowToast(true);
+    } catch (error: any) {
+      setUploadMessage('فشل إعادة رفع الصورة: ' + error.message);
+      setShowToast(true);
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === fileSectionId
+            ? { ...fileSection, isUploading: false, uploadProgress: 0 }
+            : fileSection
+        )
+      );
+    }
   };
 
   const handleMultipleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-
+  
     const selectedFiles = Array.from(e.target.files);
     const localPreviewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
-
+    const startIndex = files.find((fileSection) => fileSection.id === id)?.previewUrls.length || 0;
+  
+    // تحديث واجهة المستخدم
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) =>
         fileSection.id === id
           ? {
-            ...fileSection,
-            previewUrls: [...fileSection.previewUrls, ...localPreviewUrls],
-            isUploading: true,
-            uploadProgress: 0,
-          }
+              ...fileSection,
+              previewUrls: [...fileSection.previewUrls, ...localPreviewUrls],
+              isUploading: true,
+              uploadProgress: 0,
+              failedUploads: [
+                ...(fileSection.failedUploads || []),
+                ...localPreviewUrls.map((url, idx) => ({ index: startIndex + idx, previewUrl: url })),
+              ],
+            }
           : fileSection
       )
     );
-
-    uploadQueue.current = uploadQueue.current.then(async () => {
+  
+    // معالجة كل صورة بشكل مستقل
+    const uploadPromises = selectedFiles.map(async (file, index) => {
+      const uniqueId = `${id}-${startIndex + index}`; // معرف فريد لكل صورة
+  
+      // حفظ الصورة في localStorage
       try {
-        const imageUrls: string[] = [];
-        const totalFiles = selectedFiles.length;
-        let currentProgress = 0;
-
-        for (const [index, file] of selectedFiles.entries()) {
-          currentProgress = ((index + 1) / totalFiles) * 100;
-          setFiles((prevFiles) =>
-            prevFiles.map((fileSection) =>
-              fileSection.id === id ? { ...fileSection, uploadProgress: currentProgress } : fileSection
-            )
-          );
-
-          const compressedFile = await compressImage(file);
-          const imageUrl = await uploadImageToBackend(compressedFile);
-          imageUrls.push(imageUrl);
-        }
-
-        setFiles((prevFiles) =>
-          prevFiles.map((fileSection) =>
-            fileSection.id === id
-              ? {
-                ...fileSection,
-                imageUrls: [
-                  ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
-                  ...imageUrls,
-                ],
-                previewUrls: [
-                  ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
-                  ...imageUrls,
-                ],
-                isUploading: false,
-                uploadProgress: 100,
-              }
-              : fileSection
-          )
-        );
-
-        localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-        const index = files.findIndex((fileSection) => fileSection.id === id);
-        if (fileInputRefs.current[index]) {
-          fileInputRefs.current[index]!.value = '';
-        }
+        await saveToLocalStorage(file, uniqueId);
       } catch (error: any) {
-        let errorMessage = 'حدث خطأ أثناء رفع الصور. يرجى المحاولة مرة أخرى.';
-        if (error.message.includes('Rate limit')) {
-          errorMessage = 'تم تجاوز حد رفع الصور. يرجى المحاولة مجددًا لاحقًا.';
-        } else if (error.message.includes('ضغط')) {
-          errorMessage = 'فشل في ضغط الصورة. يرجى المحاولة مرة أخرى.';
-        }
-        setUploadMessage(errorMessage);
+        setUploadMessage(`فشل في حفظ الصورة ${index + 1} مؤقتًا: ${error.message}`);
         setShowToast(true);
-        setFiles((prevFiles) =>
-          prevFiles.map((fileSection) =>
-            fileSection.id === id
-              ? {
-                ...fileSection,
-                isUploading: false,
-                uploadProgress: 0,
-              }
-              : fileSection
-          )
+        return { index: startIndex + index, url: null };
+      }
+  
+      try {
+        const compressedFile = await compressImage(file);
+        const imageUrl = await uploadImageToBackendWithRetry(compressedFile);
+  
+        clearFromLocalStorage(uniqueId); // إزالة الصورة بعد الرفع الناجح
+        return { index: startIndex + index, url: imageUrl };
+      } catch (error: any) {
+        setUploadMessage(
+          `فشل رفع الصورة ${index + 1}. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.`
         );
-        localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-        const index = files.findIndex((fileSection) => fileSection.id === id);
-        if (fileInputRefs.current[index]) {
-          fileInputRefs.current[index]!.value = '';
-        }
+        setShowToast(true);
+        return { index: startIndex + index, url: null };
       }
     });
+  
+    // انتظار نتائج الرفع
+    const results = await Promise.all(uploadPromises);
+  
+    // تصفية الروابط الناجحة
+    const successfulUrls = results
+      .filter((result): result is { index: number; url: string } => result.url !== null)
+      .map((result) => result.url);
+  
+    setFiles((prevFiles) =>
+      prevFiles.map((fileSection) =>
+        fileSection.id === id
+          ? {
+              ...fileSection,
+              imageUrls: [
+                ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+                ...successfulUrls,
+              ],
+              failedUploads: fileSection.failedUploads?.filter(
+                (failed) => !results.some((result) => result.url && result.index === failed.index)
+              ),
+              isUploading: false,
+              uploadProgress: 100,
+            }
+          : fileSection
+      )
+    );
+  
+    // إلغاء معاينات الصور الناجحة فقط
+    localPreviewUrls.forEach((url, index) => {
+      if (!results[index].url) {
+        // الاحتفاظ بمعاينة الصورة الفاشلة
+      } else {
+        URL.revokeObjectURL(url); // إلغاء المعاينة للصور الناجحة
+      }
+    });
+  
+    const index = files.findIndex((fileSection) => fileSection.id === id);
+    if (fileInputRefs.current[index]) {
+      fileInputRefs.current[index]!.value = '';
+    }
   };
-
   const deleteFile = (fileKey: string): Promise<void> => {
     return new Promise((resolve, reject) => {
       const params = {
@@ -731,58 +869,72 @@ export default function UploadPage() {
   };
 
   const removePreviewImage = async (fileId: string, previewIndex: number) => {
+    let fileKeyToDelete: string | null = null;
+  
+    // تحديث الحالة أولاً
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) => {
         if (fileSection.id === fileId) {
           const updatedPreviews = [...fileSection.previewUrls];
           const deletedPreviewUrl = updatedPreviews.splice(previewIndex, 1)[0];
           let updatedImageUrls = fileSection.imageUrls;
-
-          let fileKey: string | null = null;
+  
+          // فقط استخراج المفتاح هنا، بدون await
           if (deletedPreviewUrl) {
             try {
               const urlParts = deletedPreviewUrl.split('/');
-              fileKey = urlParts[urlParts.length - 1];
+              fileKeyToDelete = urlParts[urlParts.length - 1];
             } catch (error) {
-              console.error('Error parsing URL:', error);
+              
             }
           }
-
+  
           if (Array.isArray(updatedImageUrls)) {
             updatedImageUrls = [...updatedImageUrls];
             updatedImageUrls.splice(previewIndex, 1);
           } else if (previewIndex === 0) {
             updatedImageUrls = null;
           }
-
-          if (fileKey) {
-            deleteFile(fileKey)
-              .then(() => {
-                setUploadMessage(`تم حذف الصورة بنجاح من السيرفر.`);
-                setShowToast(true);
-              })
-              .catch((error) => {
-                setUploadMessage(error.message);
-                setShowToast(true);
-              });
+  
+          const updatedFailedUploads = fileSection.failedUploads
+            ? fileSection.failedUploads
+                .filter((failed) => failed.index !== previewIndex)
+                .map((failed, idx) => ({ ...failed, index: idx }))
+            : [];
+  
+          if (fileSection.multiple) {
+            clearFromLocalStorage(`${fileSection.id}-${previewIndex}`);
+          } else {
+            clearFromLocalStorage(fileSection.id);
           }
-
+  
           return {
             ...fileSection,
             previewUrls: updatedPreviews,
             imageUrls: updatedImageUrls,
-            isUploading: false,
+            failedUploads: updatedFailedUploads,
           };
         }
         return fileSection;
       })
     );
-
+  
+    // حذف الملف من السيرفر بعد التعديل
+    if (fileKeyToDelete) {
+      try {
+        await deleteFile(fileKeyToDelete);
+        
+      } catch (err) {
+        
+      }
+    }
+  
     const index = files.findIndex((fileSection) => fileSection.id === fileId);
     if (fileInputRefs.current[index]) {
       fileInputRefs.current[index]!.value = '';
     }
   };
+  
 
   const setInputRef = (index: number): RefCallback<HTMLInputElement> => {
     return (element: HTMLInputElement | null) => {
@@ -842,7 +994,7 @@ export default function UploadPage() {
       const compressedSignature = await imageCompression(signatureFile, options);
       const modifiedFile = await addDateTimeToImage(compressedSignature);
   
-      const uploadedSignatureUrl = await uploadImageToBackend(modifiedFile);
+      const uploadedSignatureUrl = await uploadImageToBackendWithRetry(modifiedFile);
   
       setSignatureUrl(uploadedSignatureUrl);
       setIsSignatureLocked(true);
@@ -1260,121 +1412,189 @@ export default function UploadPage() {
 
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
-                {files.map((fileSection, index) => (
-                  <div key={fileSection.id} className="mb-3">
-                    <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
-                      {fieldTitlesMap[fileSection.title] !== 'صور اخرى'
-                        ? fieldTitlesMap[fileSection.title] + ' *'
-                        : fieldTitlesMap[fileSection.title]}
-                    </div>
-                    {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
-                      <div
-                        className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-md p-2 ${fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
-                          }`}
-                      >
-                        {fileSection.multiple ? (
-                          <div className="grid grid-cols-2 gap-2">
-                            {fileSection.previewUrls.map((previewUrl, previewIndex) => (
-                              <div key={previewIndex} className="relative h-20 sm:h-24">
-                                <img
-                                  src={previewUrl}
-                                  alt={`صورة ${previewIndex + 1}`}
-                                  className="h-full w-full object-cover rounded"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => removePreviewImage(fileSection.id, previewIndex)}
-                                  className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
-                                  aria-label="حذف الصورة"
-                                >
-                                  <span className="text-lg font-bold">×</span>
-                                </button>
-                              </div>
-                            ))}
-                            <label
-                              htmlFor={`file-input-${fileSection.id}`}
-                              className="h-20 sm:h-24 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
-                            >
-                              <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
-                            </label>
-                          </div>
-                        ) : (
-                          <div className="relative h-full w-full flex items-center justify-center">
-                            <img
-                              src={fileSection.previewUrls[0]}
-                              alt={fileSection.title}
-                              className="max-h-full max-w-full object-contain rounded"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removePreviewImage(fileSection.id, 0)}
-                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-md z-10"
-                              aria-label="حذف الصورة"
-                            >
-                              <span className="text-lg font-bold">×</span>
-                            </button>
-                          </div>
-                        )}
-                        {fileSection.isUploading && (
-                          <div className="mt-2">
-                            <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                              <div
-                                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                                style={{ width: `${fileSection.uploadProgress}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block text-center">
-                              {Math.round(fileSection.uploadProgress)}%
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <label
-                        htmlFor={`file-input-${fileSection.id}`}
-                        className="cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-2 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors flex flex-col items-center justify-center h-28 sm:h-32"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-7 w-7 text-gray-400 dark:text-gray-500 mb-1"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                        </svg>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {fileSection.multiple ? 'انقر لاختيار عدة صور' : 'انقر لالتقاط صورة'}
-                        </span>
-                      </label>
-                    )}
-                    <input
-                      id={`file-input-${fileSection.id}`}
-                      ref={setInputRef(index)}
-                      type="file"
-                      accept="image/*"
-                      capture={fileSection.multiple ? undefined : 'environment'}
-                      multiple={fileSection.multiple}
-                      onChange={(e) =>
-                        fileSection.multiple
-                          ? handleMultipleFileChange(fileSection.id, e)
-                          : handleFileChange(fileSection.id, e)
-                      }
-                      className="hidden"
-                    />
-                  </div>
-                ))}
+              {files.map((fileSection, index) => (
+  <div key={fileSection.id} className="mb-3">
+    <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
+      {fieldTitlesMap[fileSection.title] !== 'صور اخرى'
+        ? fieldTitlesMap[fileSection.title] + ' *'
+        : fieldTitlesMap[fileSection.title]}
+    </div>
+    <div
+      className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-md p-2 ${
+        fileSection.multiple ? 'min-h-[112px] sm:min-h-[128px]' : 'h-20 sm:h-24'
+      }`}
+    >
+      {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
+        fileSection.multiple ? (
+          fileSection.title === 'other_images' ? (
+            <div className="grid grid-cols-2 gap-2">
+             {fileSection.previewUrls.map((previewUrl, previewIndex) => (
+  <div key={previewUrl} className="relative h-20 sm:h-24">
+    <img
+      src={previewUrl}
+      alt={`صورة ${previewIndex + 1}`}
+      className="h-full w-full object-cover rounded"
+    />
+                  <button
+                    type="button"
+                    onClick={() => removePreviewImage(fileSection.id, previewIndex)}
+                    className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
+                    aria-label="حذف الصورة"
+                  >
+                    <span className="text-lg font-bold">×</span>
+                  </button>
+                  {fileSection.failedUploads?.some((failed) => failed.index === previewIndex) && (
+                    <button
+                      type="button"
+                      onClick={() => retryUpload(fileSection.id, previewIndex)}
+                      className="absolute top-0 left-0 bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
+                      aria-label="إعادة محاولة رفع الصورة"
+                    >
+                      <FiRefreshCw className="text-sm" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <label
+                htmlFor={`file-input-${fileSection.id}`}
+                className="h-20 sm:h-24 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
+              >
+                <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
+              </label>
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-2 h-full">
+              {fileSection.previewUrls.map((previewUrl, previewIndex) => (
+                <div key={previewIndex} className="relative h-28 sm:h-32 w-full">
+                  <img
+                    src={previewUrl}
+                    alt={`صورة ${previewIndex + 1}`}
+                    className="h-full w-full object-cover rounded"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removePreviewImage(fileSection.id, previewIndex)}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md z-10"
+                    aria-label="حذف الصورة"
+                  >
+                    <span className="text-lg font-bold">×</span>
+                  </button>
+                  {fileSection.failedUploads?.some((failed) => failed.index === previewIndex) && (
+                    <button
+                      type="button"
+                      onClick={() => retryUpload(fileSection.id, previewIndex)}
+                      className="absolute top-1 left-1 bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md z-10"
+                      aria-label="إعادة محاولة رفع الصورة"
+                    >
+                      <FiRefreshCw className="text-sm" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {Array.from({ length: Math.max(0, 4 - fileSection.previewUrls.length) }).map((_, idx) => (
+                <div
+                  key={`empty-${idx}`}
+                  className="h-28 sm:h-32 w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center"
+                />
+              ))}
+              <label
+                htmlFor={`file-input-${fileSection.id}`}
+                className="h-28 sm:h-32 w-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 col-span-1"
+              >
+                <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
+              </label>
+            </div>
+          )
+        ) : (
+          <div className="relative h-full w-full flex items-center justify-center">
+            <img
+              src={fileSection.previewUrls[0]}
+              alt={fileSection.title}
+              className="max-h-full max-w-full object-contain rounded"
+            />
+            <button
+              type="button"
+              onClick={() => removePreviewImage(fileSection.id, 0)}
+              className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-md z-10"
+              aria-label="حذف الصورة"
+            >
+              <span className="text-lg font-bold">×</span>
+            </button>
+            {fileSection.failedUploads?.some((failed) => failed.index === 0) && (
+              <button
+                type="button"
+                onClick={() => retryUpload(fileSection.id)}
+                className="absolute top-1 left-1 bg-yellow-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-md z-10"
+                aria-label="إعادة محاولة رفع الصورة"
+              >
+                <FiRefreshCw className="text-sm" />
+              </button>
+            )}
+          </div>
+        )
+      ) : (
+        <div className="h-full w-full flex items-center justify-center">
+          <label
+            htmlFor={`file-input-${fileSection.id}`}
+            className="cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors flex flex-col items-center justify-center h-full w-full"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-7 w-7 text-gray-400 dark:text-gray-500 mb-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {fileSection.multiple ? 'انقر لاختيار عدة صور' : 'انقر لالتقاط صورة'}
+            </span>
+          </label>
+        </div>
+      )}
+      {fileSection.isUploading && (
+        <div className="mt-2">
+          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+            <div
+              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+              style={{ width: `${fileSection.uploadProgress}%` }}
+            ></div>
+          </div>
+          <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block text-center">
+            {Math.round(fileSection.uploadProgress)}%
+          </span>
+        </div>
+      )}
+    </div>
+    <input
+      id={`file-input-${fileSection.id}`}
+      ref={setInputRef(index)}
+      type="file"
+      accept="image/*"
+      capture={fileSection.multiple ? undefined : 'environment'}
+      multiple={fileSection.multiple}
+      onChange={(e) =>
+        fileSection.multiple
+          ? handleMultipleFileChange(fileSection.id, e)
+          : handleFileChange(fileSection.id, e)
+      }
+      className="hidden"
+    />
+  </div>
+))}
+
               </div>
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">

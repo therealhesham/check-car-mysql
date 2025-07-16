@@ -1,5 +1,3 @@
-
-
 // //@ts-nocheck
 // //@ts-ignore
 // 'use client';
@@ -47,6 +45,16 @@
 // import SignaturePad from 'react-signature-canvas';
 // import { toast } from 'react-toastify';
 // import { useRouter } from 'next/navigation';
+// import retry from 'async-retry';
+// import { FiRefreshCw } from 'react-icons/fi';
+// import Lightbox from 'yet-another-react-lightbox';
+// import Counter from 'yet-another-react-lightbox/plugins/counter';
+// import Zoom from 'yet-another-react-lightbox/plugins/zoom';
+// import Captions from 'yet-another-react-lightbox/plugins/captions';
+// import Download from 'yet-another-react-lightbox/plugins/download';
+// import 'yet-another-react-lightbox/styles.css';
+// import 'yet-another-react-lightbox/plugins/counter.css';
+// import 'yet-another-react-lightbox/plugins/captions.css';
 
 // const sanitizeTitle = (title: string, index: number) => {
 //   const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
@@ -136,6 +144,7 @@
 //   EmID: number;
 //   role: string;
 //   branch: string;
+//   selectedBranch?: string; // إضافة selectedBranch كحقل اختياري
 // }
 
 // export default function CheckInPage() {
@@ -219,11 +228,16 @@
 //   const abortControllerRef = useRef<AbortController | null>(null);
 //   const uploadQueue = useRef<Promise<void>>(Promise.resolve());
 //   const contractInputRef = useRef<HTMLDivElement>(null);
+//   const [branchName, setBranchName] = useState<string>('');
+//   const [openLightbox, setOpenLightbox] = useState(false);
+
 
 //   useEffect(() => {
 //     const storedUser = localStorage.getItem('user');
 //     if (storedUser) {
-//       setUser(JSON.parse(storedUser));
+//       const parsedUser = JSON.parse(storedUser);
+//       console.log('Loaded user from localStorage:', parsedUser); // سجل للتصحيح
+//       setUser(parsedUser);
 //     }
 //   }, []);
 
@@ -334,7 +348,7 @@
 //     abortControllerRef.current = new AbortController();
   
 //     try {
-//       // Check for existing entry record
+//       // التحقق من سجل دخول سابق
 //       const entryResponse = await fetch(
 //         `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=دخول`,
 //         {
@@ -352,9 +366,9 @@
 //       }
   
 //       const entryData = await entryResponse.json();
+//       console.log('Entry check response:', entryData); // سجل للتصحيح
   
-//       // Handle entryData as an array
-//       if (Array.isArray(entryData) && entryData.length > 0) {
+//       if (entryData && Array.isArray(entryData.records) && entryData.records.length > 0) {
 //         setPreviousRecord(null);
 //         setHasExitRecord(false);
 //         setIsContractVerified(true);
@@ -364,10 +378,13 @@
 //         setCarSearch('');
 //         setPlate('');
 //         setPlateSearch('');
+//         setClientId('');
+//         setClientName('');
+//         setBranchName('');
 //         return;
 //       }
   
-//       // Add fetch for exit record
+//       // التحقق من سجل خروج
 //       const exitResponse = await fetch(
 //         `/api/history?contractNumber=${encodeURIComponent(contract)}&operationType=خروج`,
 //         {
@@ -385,19 +402,19 @@
 //       }
   
 //       const exitData = await exitResponse.json();
+//       console.log('Exit check response:', exitData); // سجل للتصحيح
   
-//       // Handle exitData as an array
-//       if (Array.isArray(exitData) && exitData.length > 0) {
-//         const exitRecord = exitData[0];
+//       if (exitData && Array.isArray(exitData.records) && exitData.records.length > 0) {
+//         const exitRecord = exitData.records[0];
 //         setPreviousRecord(exitRecord);
 //         setHasExitRecord(true);
-//         setClientId(exitRecord.client_id);
-//         setClientName(exitRecord.client_name);
-//         // Remove toast for success case (as per your previous request)
-//         setCar(exitRecord.car_model);
-//         setCarSearch(exitRecord.car_model);
-//         setPlate(exitRecord.plate_number);
-//         setPlateSearch(exitRecord.plate_number);
+//         setClientId(exitRecord.client_id || '');
+//         setClientName(exitRecord.client_name || '');
+//         setCar(exitRecord.car_model || '');
+//         setCarSearch(exitRecord.car_model || '');
+//         setPlate(exitRecord.plate_number || '');
+//         setPlateSearch(exitRecord.plate_number || '');
+//         setBranchName(exitRecord.branch_name || '');
 //       } else {
 //         setPreviousRecord(null);
 //         setHasExitRecord(false);
@@ -407,6 +424,9 @@
 //         setCarSearch('');
 //         setPlate('');
 //         setPlateSearch('');
+//         setClientId('');
+//         setClientName('');
+//         setBranchName('');
 //       }
   
 //       setIsContractVerified(true);
@@ -414,6 +434,7 @@
 //       if (err.name === 'AbortError') {
 //         return;
 //       }
+//       console.error('Error fetching previous record:', err);
 //       setUploadMessage(err.message || 'حدث خطأ أثناء جلب السجل السابق.');
 //       setShowToast(true);
 //       setPreviousRecord(null);
@@ -460,14 +481,14 @@
 //     if (!file.type.startsWith('image/')) {
 //       throw new Error('الملف ليس صورة صالحة.');
 //     }
-
+  
 //     return new Promise((resolve, reject) => {
 //       const img = new Image();
 //       const reader = new FileReader();
-
+  
 //       reader.onload = (e) => {
 //         img.src = e.target?.result as string;
-
+  
 //         img.onload = () => {
 //           const canvas = document.createElement('canvas');
 //           const ctx = canvas.getContext('2d');
@@ -475,12 +496,12 @@
 //             reject(new Error('فشل في إنشاء سياق الرسم.'));
 //             return;
 //           }
-
+  
 //           canvas.width = img.width;
 //           canvas.height = img.height;
-
+  
 //           ctx.drawImage(img, 0, 0);
-
+  
 //           const now = new Date();
 //           const dateTimeString = now.toLocaleString('ar-SA', {
 //             calendar: 'gregory',
@@ -492,57 +513,62 @@
 //             second: '2-digit',
 //             hour12: true,
 //           });
-
+  
 //           ctx.font = '40px Arial';
 //           ctx.fillStyle = 'white';
 //           ctx.strokeStyle = 'black';
 //           ctx.lineWidth = 3;
-
+  
 //           const text = dateTimeString;
 //           const textWidth = ctx.measureText(text).width;
 //           const padding = 20;
 //           const textX = canvas.width - textWidth - padding;
 //           const textY = 40;
-
+  
 //           ctx.strokeText(text, textX, textY);
 //           ctx.fillText(text, textX, textY);
-
+  
 //           canvas.toBlob(
 //             (blob) => {
 //               if (!blob) {
 //                 reject(new Error('فشل في تحويل الصورة إلى Blob.'));
 //                 return;
 //               }
-//               const modifiedFile = new File([blob], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
+//               const modifiedFile = new File([blob], `${uuidv4()}.webp`, { type: 'image/webp' });
 //               resolve(modifiedFile);
 //             },
-//             'image/jpeg',
-//             0.9
+//             'image/webp', // تغيير إلى WebP
+//             0.95 // زيادة الجودة إلى 0.95
 //           );
 //         };
-
+  
 //         img.onerror = () => {
 //           reject(new Error('فشل في تحميل الصورة.'));
 //         };
 //       };
-
+  
 //       reader.onerror = () => {
 //         reject(new Error('فشل في قراءة ملف الصورة.'));
 //       };
-
+  
 //       reader.readAsDataURL(file);
 //     });
 //   };
 
 //   const compressImage = async (file: File): Promise<File> => {
 //     const options = {
-//       maxSizeMB: 4,
-//       maxWidthOrHeight: 1920,
+//       maxSizeMB: 5, // زيادة الحد الأقصى لحجم الملف إلى 5 ميغابايت
+//       maxWidthOrHeight: 1920, // الإبقاء على الدقة القصوى 1920 بكسل
 //       useWebWorker: true,
+//       fileType: 'image/webp', // تحديد صيغة الإخراج إلى WebP
+//       initialQuality: 0.95, // تحديد جودة أولية عالية
 //     };
-
+  
 //     try {
 //       const compressedFile = await imageCompression(file, options);
+//       if (compressedFile.size > 32 * 1024 * 1024) {
+//         throw new Error('حجم الصورة المضغوطة كبير جدًا (الحد الأقصى 32 ميغابايت).');
+//       }
 //       const modifiedFile = await addDateTimeToImage(compressedFile);
 //       return modifiedFile;
 //     } catch (error) {
@@ -567,20 +593,20 @@
 //     fileSectionId: string,
 //     onProgress: (progress: number) => void
 //   ): Promise<string> => {
-//     const fileName = `${uuidv4()}.jpg`;
+//     const fileName = `${uuidv4()}.webp`; // تغيير الامتداد إلى .webp
 //     const buffer = Buffer.from(await file.arrayBuffer());
   
 //     const params = {
 //       Bucket: DO_SPACE_NAME,
 //       Key: fileName,
 //       Body: buffer,
-//       ContentType: 'image/jpeg',
+//       ContentType: 'image/webp', // تغيير إلى image/webp
 //       ACL: 'public-read',
 //     };
   
 //     try {
 //       if (!file.type.startsWith('image/')) {
-//         throw new Error('الملف ليس صورة صالحة. يرجى رفع ملف بصيغة JPEG أو PNG.');
+//         throw new Error('الملف ليس صورة صالحة. يرجى رفع ملف بصيغة JPEG أو PNG أو WebP.');
 //       }
 //       if (file.size > 32 * 1024 * 1024) {
 //         throw new Error('حجم الصورة كبير جدًا (الحد الأقصى 32 ميغابايت).');
@@ -598,6 +624,9 @@
 //       });
   
 //       const result = await upload.promise();
+//       if (result.Location.length > 512) {
+//         console.warn(`تحذير: رابط الصورة (${result.Location.length} حرفًا) يتجاوز الحد الأقصى لـ VARCHAR(512).`);
+//       }
 //       return result.Location;
 //     } catch (error: any) {
 //       throw error;
@@ -611,16 +640,16 @@
 //       toast.error('يرجى رسم التوقيع أولاً.');
 //       return;
 //     }
-
+  
 //     const rawCanvas = sigCanvas.current.getCanvas();
 //     const trimmedCanvas = trimCanvas(rawCanvas);
-//     const signatureDataUrl = trimmedCanvas.toDataURL('image/png');
-
+//     const signatureDataUrl = trimmedCanvas.toDataURL('image/webp', 0.95);
+  
 //     const blob = await fetch(signatureDataUrl).then((res) => res.blob());
-//     const file = new File([blob], `${uuidv4()}.jpg`, { type: 'image/jpeg' });
-
+//     const file = new File([blob], `${uuidv4()}.webp`, { type: 'image/webp' });
+  
 //     const localPreviewUrl = URL.createObjectURL(file);
-
+  
 //     setSignatureFile((prev) => ({
 //       ...prev,
 //       previewUrls: [localPreviewUrl],
@@ -628,11 +657,35 @@
 //       isUploading: true,
 //       uploadProgress: 0,
 //     }));
-
+  
 //     uploadQueue.current = uploadQueue.current.then(async () => {
 //       try {
-//         const compressedFile = await compressImage(file);
-//         const imageUrl = await uploadImageToBackend(compressedFile, signatureSection.id, (progress) => {
+//         await saveToLocalStorage(file, signatureSection.id); // حفظ التوقيع في localStorage
+//       } catch (error: any) {
+//         setUploadMessage('فشل في حفظ التوقيع مؤقتًا: ' + error.message);
+//         setShowToast(true);
+//         toast.error('فشل في حفظ التوقيع مؤقتًا: ' + error.message);
+//         setSignatureFile((prev) => ({
+//           ...prev,
+//           previewUrls: [],
+//           isUploading: false,
+//           uploadProgress: 0,
+//         }));
+//         URL.revokeObjectURL(localPreviewUrl);
+//         return;
+//       }
+  
+//       try {
+//         const options = {
+//           maxSizeMB: 5,
+//           maxWidthOrHeight: 1920,
+//           useWebWorker: true,
+//           fileType: 'image/webp',
+//           initialQuality: 0.95,
+//         };
+//         const compressedFile = await imageCompression(file, options);
+//         const modifiedFile = await addDateTimeToImage(compressedFile);
+//         const imageUrl = await uploadImageToBackend(modifiedFile, signatureSection.id, (progress) => {
 //           setSignatureFile((prev) => ({
 //             ...prev,
 //             uploadProgress: progress,
@@ -646,13 +699,14 @@
 //           uploadProgress: 100,
 //         }));
 //         setIsSignatureLocked(true);
+//         clearFromLocalStorage(signatureSection.id); // مسح التوقيع من localStorage بعد النجاح
 //         URL.revokeObjectURL(localPreviewUrl);
 //         sigCanvas.current?.clear();
 //         toast.success('تم حفظ التوقيع بنجاح.');
 //       } catch (error: any) {
-//         let errorMessage = 'حدث خطأ أثناء رفع التوقيع. يرجى المحاولة مرة أخرى.';
+//         let errorMessage = 'حدث خطأ أثناء رفع التوقيع. التوقيع محفوظ مؤقتًا ويمكن إعادة المحاولة لاحقًا.';
 //         if (error.message.includes('Rate limit')) {
-//           errorMessage = 'تم تجاوز حد رفع الصور. يرجى المحاولة مجددًا لاحقًا.';
+//           errorMessage = 'تم تجاوز حد رفع الصور. التوقيع محفوظ مؤقتًا.';
 //         }
 //         setUploadMessage(errorMessage);
 //         setShowToast(true);
@@ -671,10 +725,10 @@
 
 //   const handleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
 //     if (!e.target.files || e.target.files.length === 0) return;
-
+  
 //     const file = e.target.files[0];
 //     const localPreviewUrl = URL.createObjectURL(file);
-
+  
 //     setFiles((prevFiles) =>
 //       prevFiles.map((fileSection) =>
 //         fileSection.id === id
@@ -688,8 +742,29 @@
 //           : fileSection
 //       )
 //     );
-
+  
 //     uploadQueue.current = uploadQueue.current.then(async () => {
+//       try {
+//         await saveToLocalStorage(file, id); // حفظ الصورة في localStorage
+//       } catch (error: any) {
+//         setUploadMessage('فشل في حفظ الصورة مؤقتًا: ' + error.message);
+//         setShowToast(true);
+//         toast.error('فشل في حفظ الصورة مؤقتًا: ' + error.message);
+//         setFiles((prevFiles) =>
+//           prevFiles.map((fileSection) =>
+//             fileSection.id === id
+//               ? { ...fileSection, previewUrls: [], isUploading: false, uploadProgress: 0 }
+//               : fileSection
+//           )
+//         );
+//         URL.revokeObjectURL(localPreviewUrl);
+//         const index = files.findIndex((fileSection) => fileSection.id === id);
+//         if (fileInputRefs.current[index]) {
+//           fileInputRefs.current[index]!.value = '';
+//         }
+//         return;
+//       }
+  
 //       try {
 //         const compressedFile = await compressImage(file);
 //         const imageUrl = await uploadImageToBackend(compressedFile, id, (progress) => {
@@ -714,16 +789,18 @@
 //               : fileSection
 //           )
 //         );
+//         clearFromLocalStorage(id); // مسح الصورة من localStorage بعد النجاح
 //         URL.revokeObjectURL(localPreviewUrl);
 //         const index = files.findIndex((fileSection) => fileSection.id === id);
 //         if (fileInputRefs.current[index]) {
 //           fileInputRefs.current[index]!.value = '';
 //         }
-//         // Remove toast.success('تم رفع الصورة بنجاح.');
 //       } catch (error: any) {
-//         let errorMessage = 'حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى.';
+//         let errorMessage = 'حدث خطأ أثناء رفع الصورة. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.';
 //         if (error.message.includes('Rate limit')) {
-//           errorMessage = 'تم تجاوز حد رفع الصور. يرجى المحاولة مجددًا لاحقًا.';
+//           errorMessage = 'تم تجاوز حد رفع الصور. الصورة محفوظة مؤقتًا.';
+//         } else if (error.message.includes('ضغط')) {
+//           errorMessage = 'فشل في ضغط الصورة. الصورة محفوظة مؤقتًا.';
 //         }
 //         setUploadMessage(errorMessage);
 //         setShowToast(true);
@@ -731,30 +808,21 @@
 //         setFiles((prevFiles) =>
 //           prevFiles.map((fileSection) =>
 //             fileSection.id === id
-//               ? {
-//                   imageUrls: null,
-//                   previewUrls: [],
-//                   isUploading: false,
-//                   uploadProgress: 0,
-//                 }
+//               ? { ...fileSection, isUploading: false, uploadProgress: 0 }
 //               : fileSection
 //           )
 //         );
-//         URL.revokeObjectURL(localPreviewUrl);
-//         const index = files.findIndex((fileSection) => fileSection.id === id);
-//         if (fileInputRefs.current[index]) {
-//           fileInputRefs.current[index]!.value = '';
-//         }
 //       }
 //     });
 //   };
 
 //   const handleMultipleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
 //     if (!e.target.files || e.target.files.length === 0) return;
-
+  
 //     const selectedFiles = Array.from(e.target.files);
 //     const localPreviewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
-
+//     const startIndex = files.find((fileSection) => fileSection.id === id)?.previewUrls.length || 0;
+  
 //     setFiles((prevFiles) =>
 //       prevFiles.map((fileSection) =>
 //         fileSection.id === id
@@ -767,18 +835,24 @@
 //           : fileSection
 //       )
 //     );
-
+  
 //     uploadQueue.current = uploadQueue.current.then(async () => {
-//       try {
-//         const imageUrls: string[] = [];
-//         const totalFiles = selectedFiles.length;
-//         let completedFiles = 0;
-
-//         for (let file of selectedFiles) {
+//       const uploadPromises = selectedFiles.map(async (file, index) => {
+//         const uniqueId = `${id}-${startIndex + index}`;
+//         try {
+//           await saveToLocalStorage(file, uniqueId); // حفظ كل صورة بمعرف فريد
+//         } catch (error: any) {
+//           setUploadMessage(`فشل في حفظ الصورة ${index + 1} مؤقتًا: ${error.message}`);
+//           setShowToast(true);
+//           toast.error(`فشل في حفظ الصورة ${index + 1} مؤقتًا: ${error.message}`);
+//           return { index: startIndex + index, url: null };
+//         }
+  
+//         try {
 //           const compressedFile = await compressImage(file);
 //           const imageUrl = await uploadImageToBackend(compressedFile, id, (progress) => {
-//             completedFiles = completedFiles + (progress / 100 / totalFiles);
-//             const overallProgress = Math.round((completedFiles / totalFiles) * 100);
+//             const completedFiles = (progress / 100) + (index / selectedFiles.length);
+//             const overallProgress = Math.round((completedFiles / selectedFiles.length) * 100);
 //             setFiles((prevFiles) =>
 //               prevFiles.map((fileSection) =>
 //                 fileSection.id === id
@@ -787,9 +861,24 @@
 //               )
 //             );
 //           });
-//           imageUrls.push(imageUrl);
+//           clearFromLocalStorage(uniqueId); // مسح الصورة من localStorage بعد النجاح
+//           return { index: startIndex + index, url: imageUrl };
+//         } catch (error: any) {
+//           setUploadMessage(
+//             `فشل رفع الصورة ${index + 1}. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.`
+//           );
+//           setShowToast(true);
+//           toast.error(`فشل رفع الصورة ${index + 1}. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.`);
+//           return { index: startIndex + index, url: null };
 //         }
-
+//       });
+  
+//       try {
+//         const results = await Promise.all(uploadPromises);
+//         const successfulUrls = results
+//           .filter((result): result is { index: number; url: string } => result.url !== null)
+//           .map((result) => result.url);
+  
 //         setFiles((prevFiles) =>
 //           prevFiles.map((fileSection) =>
 //             fileSection.id === id
@@ -797,11 +886,11 @@
 //                   ...fileSection,
 //                   imageUrls: [
 //                     ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
-//                     ...imageUrls,
+//                     ...successfulUrls,
 //                   ],
 //                   previewUrls: [
-//                     ...(Array.isArray(fileSection.previewUrls) ? fileSection.previewUrls : []),
-//                     ...imageUrls,
+//                     ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+//                     ...successfulUrls,
 //                   ],
 //                   isUploading: false,
 //                   uploadProgress: 100,
@@ -809,18 +898,20 @@
 //               : fileSection
 //           )
 //         );
+  
 //         localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
 //         const index = files.findIndex((fileSection) => fileSection.id === id);
 //         if (fileInputRefs.current[index]) {
 //           fileInputRefs.current[index]!.value = '';
 //         }
-//         // Remove toast.success('تم رفع الصور بنجاح.');
 //       } catch (error: any) {
 //         let errorMessage = 'حدث خطأ أثناء رفع الصور. يرجى المحاولة مرة أخرى.';
 //         if (error.message.includes('Rate limit')) {
 //           errorMessage = 'تم تجاوز حد رفع الصور. يرجى المحاولة مجددًا لاحقًا.';
 //         } else if (error.message.includes('ضغط')) {
 //           errorMessage = 'فشل في ضغط الصورة. يرجى المحاولة مرة أخرى.';
+//         } else if (error.message.includes('512')) {
+//           errorMessage = error.message;
 //         }
 //         setUploadMessage(errorMessage);
 //         setShowToast(true);
@@ -832,6 +923,7 @@
 //                   ...fileSection,
 //                   isUploading: false,
 //                   uploadProgress: 0,
+//                   previewUrls: Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : [],
 //                 }
 //               : fileSection
 //           )
@@ -868,12 +960,12 @@
 //     if (e) {
 //       e.stopPropagation();
 //     }
-
+  
 //     if (fileId === signatureFile.id) {
 //       const updatedPreviews = [...signatureFile.previewUrls];
 //       const deletedPreviewUrl = updatedPreviews.splice(previewIndex, 1)[0];
 //       let updatedImageUrls = signatureFile.imageUrls;
-
+  
 //       let fileKey: string | null = null;
 //       if (deletedPreviewUrl) {
 //         try {
@@ -883,14 +975,14 @@
 //           console.error('Error parsing URL:', error);
 //         }
 //       }
-
+  
 //       if (Array.isArray(updatedImageUrls)) {
 //         updatedImageUrls = [...updatedImageUrls];
 //         updatedImageUrls.splice(previewIndex, 1);
 //       } else if (previewIndex === 0) {
 //         updatedImageUrls = null;
 //       }
-
+  
 //       if (fileKey) {
 //         deleteFile(fileKey)
 //           .then(() => {
@@ -904,7 +996,8 @@
 //             toast.error(error.message);
 //           });
 //       }
-
+  
+//       clearFromLocalStorage(fileId); // مسح التوقيع من localStorage
 //       setSignatureFile({
 //         ...signatureFile,
 //         previewUrls: updatedPreviews,
@@ -914,14 +1007,14 @@
 //       setIsSignatureLocked(false);
 //       return;
 //     }
-
+  
 //     setFiles((prevFiles) =>
 //       prevFiles.map((fileSection) => {
 //         if (fileSection.id === fileId) {
 //           const updatedPreviews = [...fileSection.previewUrls];
 //           const deletedPreviewUrl = updatedPreviews.splice(previewIndex, 1)[0];
 //           let updatedImageUrls = fileSection.imageUrls;
-
+  
 //           let fileKey: string | null = null;
 //           if (deletedPreviewUrl) {
 //             try {
@@ -931,14 +1024,14 @@
 //               console.error('Error parsing URL:', error);
 //             }
 //           }
-
+  
 //           if (Array.isArray(updatedImageUrls)) {
 //             updatedImageUrls = [...updatedImageUrls];
 //             updatedImageUrls.splice(previewIndex, 1);
 //           } else if (previewIndex === 0) {
 //             updatedImageUrls = null;
 //           }
-
+  
 //           if (fileKey) {
 //             deleteFile(fileKey)
 //               .then(() => {
@@ -952,7 +1045,8 @@
 //                 toast.error(error.message);
 //               });
 //           }
-
+  
+//           clearFromLocalStorage(fileId); // مسح الصورة من localStorage
 //           return {
 //             ...fileSection,
 //             previewUrls: updatedPreviews,
@@ -963,10 +1057,138 @@
 //         return fileSection;
 //       })
 //     );
-
+  
 //     const index = files.findIndex((fileSection) => fileSection.id === fileId);
 //     if (fileInputRefs.current[index]) {
 //       fileInputRefs.current[index]!.value = '';
+//     }
+//   };
+
+//   const saveToLocalStorage = async (file: File, fileSectionId: string): Promise<void> => {
+//     return new Promise((resolve, reject) => {
+//       if (file.size > 5 * 1024 * 1024) { // تحديد حد أقصى 5 ميغابايت
+//         reject(new Error('حجم الصورة كبير جدًا للحفظ في localStorage (الحد الأقصى 5 ميغابايت).'));
+//         return;
+//       }
+//       const reader = new FileReader();
+//       reader.onload = () => {
+//         try {
+//           localStorage.setItem(`pending-upload-${fileSectionId}`, reader.result as string);
+//           resolve();
+//         } catch (error) {
+//           reject(new Error('فشل في حفظ الصورة مؤقتًا بسبب قيود التخزين.'));
+//         }
+//       };
+//       reader.onerror = () => reject(new Error('فشل في قراءة ملف الصورة.'));
+//       reader.readAsDataURL(file);
+//     });
+//   };
+  
+//   const getFromLocalStorage = (fileSectionId: string): string | null => {
+//     return localStorage.getItem(`pending-upload-${fileSectionId}`);
+//   };
+  
+//   const clearFromLocalStorage = (fileSectionId: string): void => {
+//     localStorage.removeItem(`pending-upload-${fileSectionId}`);
+//   };
+  
+//   const retryUpload = async (fileSectionId: string, index?: number) => {
+//     const uniqueId = index !== undefined ? `${fileSectionId}-${index}` : fileSectionId;
+//     const dataUrl = getFromLocalStorage(uniqueId);
+//     if (!dataUrl) {
+//       setUploadMessage('لا توجد صورة محفوظة لإعادة المحاولة.');
+//       setShowToast(true);
+//       toast.error('لا توجد صورة محفوظة لإعادة المحاولة.');
+//       return;
+//     }
+  
+//     setFiles((prevFiles) =>
+//       prevFiles.map((fileSection) =>
+//         fileSection.id === fileSectionId
+//           ? { ...fileSection, isUploading: true, uploadProgress: 0 }
+//           : fileSection
+//       )
+//     );
+  
+//     try {
+//       const response = await fetch(dataUrl);
+//       const blob = await response.blob();
+//       const file = new File([blob], `${uuidv4()}.webp`, { type: 'image/webp' });
+  
+//       setFiles((prevFiles) =>
+//         prevFiles.map((fileSection) =>
+//           fileSection.id === fileSectionId ? { ...fileSection, uploadProgress: 30 } : fileSection
+//         )
+//       );
+  
+//       const compressedFile = await compressImage(file);
+  
+//       setFiles((prevFiles) =>
+//         prevFiles.map((fileSection) =>
+//           fileSection.id === fileSectionId ? { ...fileSection, uploadProgress: 60 } : fileSection
+//         )
+//       );
+  
+//       const imageUrl = await uploadImageToBackend(compressedFile, fileSectionId, (progress) => {
+//         setFiles((prevFiles) =>
+//           prevFiles.map((fileSection) =>
+//             fileSection.id === fileSectionId
+//               ? { ...fileSection, uploadProgress: progress }
+//               : fileSection
+//           )
+//         );
+//       });
+  
+//       setFiles((prevFiles) =>
+//         prevFiles.map((fileSection) => {
+//           if (fileSection.id === fileSectionId) {
+//             if (fileSection.multiple) {
+//               const updatedPreviewUrls = [...(fileSection.previewUrls || [])];
+//               if (index !== undefined && updatedPreviewUrls[index]) {
+//                 updatedPreviewUrls[index] = imageUrl;
+//               } else {
+//                 updatedPreviewUrls.push(imageUrl);
+//               }
+  
+//               return {
+//                 ...fileSection,
+//                 imageUrls: [
+//                   ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+//                   imageUrl,
+//                 ],
+//                 previewUrls: updatedPreviewUrls,
+//                 isUploading: false,
+//                 uploadProgress: 100,
+//               };
+//             } else {
+//               return {
+//                 ...fileSection,
+//                 imageUrls: imageUrl,
+//                 previewUrls: [imageUrl],
+//                 isUploading: false,
+//                 uploadProgress: 100,
+//               };
+//             }
+//           }
+//           return fileSection;
+//         })
+//       );
+  
+//       clearFromLocalStorage(uniqueId);
+//       setUploadMessage('تم إعادة رفع الصورة بنجاح.');
+//       setShowToast(true);
+//       toast.success('تم إعادة رفع الصورة بنجاح.');
+//     } catch (error: any) {
+//       setUploadMessage('فشل إعادة رفع الصورة: ' + error.message);
+//       setShowToast(true);
+//       toast.error('فشل إعادة رفع الصورة: ' + error.message);
+//       setFiles((prevFiles) =>
+//         prevFiles.map((fileSection) =>
+//           fileSection.id === fileSectionId
+//             ? { ...fileSection, isUploading: false, uploadProgress: 0 }
+//             : fileSection
+//         )
+//       );
 //     }
 //   };
 
@@ -975,6 +1197,8 @@
 //       fileInputRefs.current[index] = element;
 //     };
 //   };
+
+
 
 //   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 //     e.preventDefault();
@@ -1063,7 +1287,7 @@
 //       return;
 //     }
   
-//     if (!user || !user.Name || !user.branch) {
+//     if (!user || !user.Name) {
 //       setUploadMessage('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
 //       setShowToast(true);
 //       toast.error('بيانات الموظف غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
@@ -1075,6 +1299,16 @@
 //     setIsSuccess(false);
   
 //     try {
+//       if (!user?.selectedBranch) {
+//         setUploadMessage('يرجى تحديد فرع من خلال تسجيل الدخول أو اختيار فرع.');
+//         setShowToast(true);
+//         toast.error('يرجى تحديد فرع من خلال تسجيل الدخول أو اختيار فرع.');
+//         return;
+//       }
+  
+//       const cleanSelectedBranch = (user.selectedBranch || '').split(',')[0].trim(); // تنظيف القيمة
+//       console.log('Selected branch to upload:', cleanSelectedBranch); // سجل للتصحيح
+  
 //       const airtableData = {
 //         fields: {} as Record<string, string | string[]>,
 //         client_id,
@@ -1087,7 +1321,7 @@
 //       airtableData.fields['العقد'] = contractNum.toString();
 //       airtableData.fields['نوع العملية'] = operationType;
 //       airtableData.fields['الموظف'] = user.Name;
-//       airtableData.fields['الفرع'] = user.branch;
+//       airtableData.fields['الفرع'] = cleanSelectedBranch; // استخدام selectedBranch المنظف
 //       // Only include signature if it exists
 //       if (signatureFile.imageUrls) {
 //         airtableData.fields['signature_url'] = signatureFile.imageUrls as string;
@@ -1101,10 +1335,10 @@
   
 //       // Rest of the submission logic remains unchanged
 //       const controller = new AbortController();
-//       const timeoutId = setTimeout(() => controller.abort(), 120000);
-  
-//       try {
-//   const response = await fetch('/api/cheakin', {
+// const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+// try {
+//   const response = await fetch('/api/cheakin', { // تغيير إلى /api/cheakin
 //     method: 'POST',
 //     headers: {
 //       'Content-Type': 'application/json',
@@ -1115,8 +1349,8 @@
 
 //   clearTimeout(timeoutId);
 
-//   // Parse the response to get the result
 //   const result = await response.json();
+//   console.log('Response from /api/cheakin:', result); // سجل للتصحيح
 
 //   if (result.success) {
 //     setIsSuccess(true);
@@ -1162,7 +1396,10 @@
 //     sigCanvas.current?.clear();
 //     setShouldRedirect(true);
 //   } else {
-//     throw new Error(result.error || result.message || 'حدث خطأ أثناء رفع البيانات');
+//     setUploadMessage(result.message || result.error || 'حدث خطأ أثناء رفع البيانات');
+//     toast.error(result.message || result.error || 'حدث خطأ أثناء رفع البيانات');
+//     setShowToast(true);
+//     return;
 //   }
 // } catch (fetchError: any) {
 //   clearTimeout(timeoutId);
@@ -1170,12 +1407,8 @@
 //     setUploadMessage('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
 //     toast.error('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
 //   } else {
-//     setUploadMessage(
-//       `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}`
-//     );
-//     toast.error(
-//       `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}`
-//     );
+//     setUploadMessage('فشلت عملية الرفع: يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.');
+//     toast.error('فشلت عملية الرفع: يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.');
 //   }
 //   setShowToast(true);
 // }
@@ -1187,7 +1420,6 @@
 //       setIsUploading(false);
 //     }
 //   };
-
 //   const handleCarSelect = (selectedCar: string) => {
 //     setCar(selectedCar);
 //     setCarSearch(selectedCar);
@@ -1292,9 +1524,7 @@
 //                     <FaExclamationTriangle className="text-yellow-500 text-4xl mx-auto mb-4" />
 //                     <p className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
 //                       {isContractVerified
-//                         ? previousRecord
-//                           ? 'تم تسجيل عملية دخول لهذا العقد من قبل.'
-//                           : 'لا يوجد سجل خروج سابق لهذا العقد.'
+//                         ? 'لا يوجد سجل خروج سابق لهذا العقد.'
 //                         : 'يرجى إدخال رقم العقد للتحقق من سجل الخروج.'}
 //                     </p>
 //                     <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -1354,10 +1584,10 @@
 //       الفرع
 //     </label>
 //     <div
-//       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
-//     >
-//       {user?.branch || 'غير متوفر'}
-//     </div>
+//   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
+// >
+//   {branchName || 'غير متوفر'}
+// </div>
 //   </div>
 //   <div>
 //     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
@@ -1425,187 +1655,186 @@
 //               </div>
 
 //               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
-//                 {files.map((fileSection, index) => (
-//                   <div key={fileSection.id} className="mb-6">
-//                     <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
-//                       {fieldTitlesMap[fileSection.title] || fileSection.title}
-//                     </div>
-//                     <div className="grid grid-cols-1 gap-3">
-//                       <div className="min-w-0">
-//                         <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-//                         </div>
-//                         {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
-//                           <div
-//                             className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-lg p-2 ${
-//                               fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
-//                             }`}
-//                           >
-//                             {fileSection.multiple ? (
-//                               <div className="grid grid-cols-2 gap-2">
-//                                 {fileSection.previewUrls.map((previewUrl, previewIndex) => (
-//                                   <div key={previewIndex} className="relative h-20 sm:h-24">
-//                                     <img
-//                                       src={previewUrl}
-//                                       alt={`صورة ${previewIndex + 1}`}
-//                                       className="h-full w-full object-cover rounded-md cursor-pointer"
-//                                       onClick={(e) => {
-//                                         e.stopPropagation();
-//                                         openPreview(fileSection.previewUrls, previewIndex);
-//                                       }}
-//                                     />
-//                                     <button
-//                                       type="button"
-//                                       onClick={(e) => removePreviewImage(fileSection.id, previewIndex, e)}
-//                                       className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
-//                                       aria-label="حذف الصورة"
-//                                     >
-//                                       <span className="text-lg font-bold">×</span>
-//                                     </button>
-//                                   </div>
-//                                 ))}
-//                                 <label
-//                                   htmlFor={`file-input-${fileSection.id}`}
-//                                   className="h-20 sm:h-24 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
-//                                 >
-//                                   <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
-//                                 </label>
-//                               </div>
-//                             ) : (
-//                               <div className="relative h-full w-full flex items-center justify-center">
-//                                 <img
-//                                   src={fileSection.previewUrls[0]}
-//                                   alt={fileSection.title}
-//                                   className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
-//                                   onClick={() => openPreview([fileSection.previewUrls[0]], 0)}
-//                                 />
-//                                 <button
-//                                   type="button"
-//                                   onClick={(e) => removePreviewImage(fileSection.id, 0, e)}
-//                                   className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md z-10"
-//                                   aria-label="حذف الصورة"
-//                                 >
-//                                   <span className="text-lg font-bold">×</span>
-//                                 </button>
-//                               </div>
-//                             )}
-//                             {signatureFile.isUploading && signatureFile.uploadProgress < 100 && (
-//   <div className="mt-2 w-full">
-//     <div className="relative w-full bg-gray-200 dark:bg-gray-600 rounded-full h-4 overflow-hidden">
-//       <div
-//         className="absolute top-0 left-0 h-full bg-blue-600 rounded-full transition-all duration-300 ease-in-out"
-//         style={{ width: `${signatureFile.uploadProgress}%` }}
-//       ></div>
+//               {files.map((fileSection, index) => (
+//   <div key={fileSection.id} className="mb-6">
+//     <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
+//       {fieldTitlesMap[fileSection.title] || fileSection.title}
 //     </div>
-//     <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
-//       {signatureFile.uploadProgress}%
-//     </span>
+//     <div className="grid grid-cols-1 gap-3">
+//       <div className="min-w-0">
+//         <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"></div>
+//         {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
+//           <div
+//             className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-lg p-2 ${
+//               fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
+//             }`}
+//           >
+//             {fileSection.multiple ? (
+//               <div className="grid grid-cols-2 gap-2">
+//                 {fileSection.previewUrls.map((previewUrl, previewIndex) => (
+//                   <div key={previewIndex} className="relative h-20 sm:h-24">
+//                     <img
+//                       src={previewUrl}
+//                       alt={`صورة ${previewIndex + 1}`}
+//                       className="h-full w-full object-cover rounded-md cursor-pointer"
+//                       onClick={(e) => {
+//                         e.stopPropagation();
+//                         openPreview(fileSection.previewUrls, previewIndex);
+//                       }}
+//                     />
+//                     <button
+//                       type="button"
+//                       onClick={(e) => removePreviewImage(fileSection.id, previewIndex, e)}
+//                       className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
+//                       aria-label="حذف الصورة"
+//                     >
+//                       <span className="text-lg font-bold">×</span>
+//                     </button>
+//                     {!fileSection.imageUrls && (
+//                       <button
+//                         type="button"
+//                         onClick={() => retryUpload(fileSection.id, previewIndex)}
+//                         className="absolute top-0 left-0 bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
+//                         aria-label="إعادة محاولة رفع الصورة"
+//                       >
+//                         <span className="text-lg font-bold">↻</span>
+//                       </button>
+//                     )}
+//                   </div>
+//                 ))}
+//                 <label
+//                   htmlFor={`file-input-${fileSection.id}`}
+//                   className="h-20 sm:h-24 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
+//                 >
+//                   <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
+//                 </label>
+//               </div>
+//             ) : (
+//               <div className="relative h-full w-full flex items-center justify-center">
+//                 <img
+//                   src={fileSection.previewUrls[0]}
+//                   alt={fileSection.title}
+//                   className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
+//                   onClick={() => openPreview([fileSection.previewUrls[0]], 0)}
+//                 />
+//                 <button
+//                   type="button"
+//                   onClick={(e) => removePreviewImage(fileSection.id, 0, e)}
+//                   className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md z-10"
+//                   aria-label="حذف الصورة"
+//                 >
+//                   <span className="text-lg font-bold">×</span>
+//                 </button>
+//                 {!fileSection.imageUrls && (
+//                   <button
+//                     type="button"
+//                     onClick={() => retryUpload(fileSection.id)}
+//                     className="absolute top-1 left-1 bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md z-10"
+//                     aria-label="إعادة محاولة رفع الصورة"
+//                   >
+//                     <span className="text-lg font-bold">↻</span>
+//                   </button>
+//                 )}
+//               </div>
+//             )}
+//             {fileSection.isUploading && fileSection.uploadProgress < 100 && (
+//               <div className="mt-2">
+//                 <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+//                   <div
+//                     className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+//                     style={{ width: `${fileSection.uploadProgress}%` }}
+//                   ></div>
+//                 </div>
+//                 <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
+//                   {fileSection.uploadProgress}%
+//                 </span>
+//               </div>
+//             )}
+//             <input
+//               id={`file-input-${fileSection.id}`}
+//               type="file"
+//               accept="image/*"
+//               capture={fileSection.multiple ? undefined : 'environment'}
+//               multiple={fileSection.multiple}
+//               onChange={(e) =>
+//                 fileSection.multiple
+//                   ? handleMultipleFileChange(fileSection.id, e)
+//                   : handleFileChange(fileSection.id, e)
+//               }
+//               className="hidden"
+//               ref={setInputRef(index)}
+//               disabled={!hasExitRecord}
+//             />
+//           </div>
+//         ) : (
+//           <label
+//             htmlFor={`file-input-${fileSection.id}`}
+//             className={`relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 ${
+//               !hasExitRecord ? 'pointer-events-none opacity-50' : ''
+//             }`}
+//           >
+//             <span className="text-gray-500 dark:text-gray-400 text-sm text-center">
+//               {fileSection.multiple ? 'انقر لرفع صور' : 'انقر لالتقاط صورة'}
+//             </span>
+//             <input
+//               id={`file-input-${fileSection.id}`}
+//               type="file"
+//               accept="image/*"
+//               capture={fileSection.multiple ? undefined : 'environment'}
+//               multiple={fileSection.multiple}
+//               onChange={(e) =>
+//                 fileSection.multiple
+//                   ? handleMultipleFileChange(fileSection.id, e)
+//                   : handleFileChange(fileSection.id, e)
+//               }
+//               className="hidden"
+//               ref={setInputRef(index)}
+//               disabled={!hasExitRecord}
+//             />
+//           </label>
+//         )}
+//       </div>
+//       <div className="min-w-0">
+//         <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+//           (تشييك الخروج):
+//         </div>
+//         {previousRecord && previousRecord[fileSection.title] ? (
+//           <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 bg-gray-50 dark:bg-gray-700">
+//             <div className="relative h-full w-full flex items-center justify-center">
+//               {Array.isArray(previousRecord[fileSection.title]) ? (
+//                 <div className="grid grid-cols-2 gap-2 w-full h-full">
+//                   {(previousRecord[fileSection.title] as string[]).map((url, imgIndex) => (
+//                     <img
+//                       key={imgIndex}
+//                       src={url}
+//                       alt={`صورة سابقة ${imgIndex + 1}`}
+//                       className="max-h-full max-w-full object-cover rounded-md cursor-pointer"
+//                       onClick={() => openPreview(previousRecord[fileSection.title] as string[], imgIndex)}
+//                     />
+//                   ))}
+//                 </div>
+//               ) : (
+//                 <img
+//                   src={previousRecord[fileSection.title] as string}
+//                   alt="صورة سابقة"
+//                   className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
+//                   onClick={() => openPreview([previousRecord[fileSection.title] as string], 0)}
+//                 />
+//               )}
+//             </div>
+//           </div>
+//         ) : (
+//           <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
+//             لا توجد صورة قديمة
+//           </div>
+//         )}
+//       </div>
+//     </div>
 //   </div>
-//                                                          )}
-//                                                          <input
-//                                                            id={`file-input-${fileSection.id}`}
-//                                                            type="file"
-//                                                            accept="image/*"
-//                                                            multiple={fileSection.multiple}
-//                                                            onChange={(e) =>
-//                                                              fileSection.multiple
-//                                                                ? handleMultipleFileChange(fileSection.id, e)
-//                                                                : handleFileChange(fileSection.id, e)
-//                                                            }
-//                                                            className="hidden"
-//                                                            ref={setInputRef(index)}
-//                                                            disabled={!hasExitRecord}
-//                                                          />
-//                                                        </div>
-//                                                      ) : (
-//                                                        <label
-//                                                          htmlFor={`file-input-${fileSection.id}`}
-//                                                          className={`relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 ${
-//                                                            !hasExitRecord ? 'pointer-events-none opacity-50' : ''
-//                                                          }`}
-//                                                        >
-//                                                          <span className="text-gray-500 dark:text-gray-400 text-sm text-center">
-//                                                            انقر لرفع {fileSection.multiple ? 'صور' : 'صورة'}
-//                                                          </span>
-//                                                          <input
-//                                                            id={`file-input-${fileSection.id}`}
-//                                                            type="file"
-//                                                            accept="image/*"
-//                                                            multiple={fileSection.multiple}
-//                                                            onChange={(e) =>
-//                                                              fileSection.multiple
-//                                                                ? handleMultipleFileChange(fileSection.id, e)
-//                                                                : handleFileChange(fileSection.id, e)
-//                                                            }
-//                                                            className="hidden"
-//                                                            ref={setInputRef(index)}
-//                                                            disabled={!hasExitRecord}
-//                                                          />
-//                                                        </label>
-//                                                      )}
-//                                                      {fileSection.isUploading && fileSection.uploadProgress < 100 && (
-//                                                        <div className="mt-2">
-//                                                          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-//                                                            <div
-//                                                              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-//                                                              style={{ width: `${fileSection.uploadProgress}%` }}
-//                                                            ></div>
-//                                                          </div>
-//                                                          <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
-//                                                            {fileSection.uploadProgress}%
-//                                                          </span>
-//                                                        </div>
-//                                                      )}
-//                                                    </div>
-//                                                    <div className="min-w-0">
-//                                                      <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-//                                                        (تشييك الخروج):
-//                                                      </div>
-//                                                      {previousRecord && previousRecord[fileSection.title] ? (
-//                                                        <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 bg-gray-50 dark:bg-gray-700">
-//                                                          <div className="relative h-full w-full flex items-center justify-center">
-//                                                            {Array.isArray(previousRecord[fileSection.title]) ? (
-//                                                              <div className="grid grid-cols-2 gap-2 w-full h-full">
-//                                                                {(previousRecord[fileSection.title] as string[]).map(
-//                                                                  (url, imgIndex) => (
-//                                                                    <img
-//                                                                      key={imgIndex}
-//                                                                      src={url}
-//                                                                      alt={`صورة سابقة ${imgIndex + 1}`}
-//                                                                      className="max-h-full max-w-full object-cover rounded-md cursor-pointer"
-//                                                                      onClick={() =>
-//                                                                        openPreview(
-//                                                                          previousRecord[fileSection.title] as string[],
-//                                                                          imgIndex
-//                                                                        )
-//                                                                      }
-//                                                                    />
-//                                                                  )
-//                                                                )}
-//                                                              </div>
-//                                                            ) : (
-//                                                              <img
-//                                                                src={previousRecord[fileSection.title] as string}
-//                                                                alt="صورة سابقة"
-//                                                                className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
-//                                                                onClick={() =>
-//                                                                  openPreview([previousRecord[fileSection.title] as string], 0)
-//                                                                }
-//                                                              />
-//                                                            )}
-//                                                          </div>
-//                                                        </div>
-//                                                      ) : (
-//                                                        <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
-//                                                          لا توجد صورة قديمة
-//                                                        </div>
-//                                                      )}
-//                                                    </div>
-//                                                  </div>
-//                                                </div>
-//                                              ))}
-//                                            </div>
-                             
-//                                            <div className="mb-6 mt-6">
+// ))}
+// </div>
+             
+//               <div className="mb-6 mt-6">
 //   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
 //     التوقيع
 //   </label>
@@ -1716,93 +1945,92 @@
 //     </div>
 //   </div>
 // </div>
-                             
-//                                            <div className="mb-4 text-center mt-4">
-//                                              <button
-//                                                type="submit"
-//                                                disabled={isUploading || !hasExitRecord}
-//                                                className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-//                                                  isUploading || !hasExitRecord ? 'opacity-50 cursor-not-allowed' : ''
-//                                                }`}
-//                                              >
-//                                                {isUploading ? (
-//                                                  <span className="flex items-center">
-//                                                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
-//                                                    جارٍ الرفع...
-//                                                  </span>
-//                                                ) : (
-//                                                  'رفع التشييك'
-//                                                )}
-//                                              </button>
-//                                            </div>
-//                                          </div>
-//                                        </form>
-                             
-//                                        {previewImage && (
-//                                          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-//                                            <div className="relative max-w-4xl w-full p-4">
-//                                              <img
-//                                                src={previewImage}
-//                                                alt="معاينة الصورة"
-//                                                className="max-h-[80vh] max-w-full object-contain mx-auto rounded-lg"
-//                                              />
-//                                              <button
-//                                                onClick={closePreview}
-//                                                className="absolute top-4 right-4 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-md"
-//                                                aria-label="إغلاق المعاينة"
-//                                              >
-//                                                <span className="text-lg font-bold">×</span>
-//                                              </button>
-//                                              {previewImages.length > 1 && (
-//                                                <>
-//                                                  <button
-//                                                    onClick={goToPreviousImage}
-//                                                    disabled={currentImageIndex === 0}
-//                                                    className={`absolute left-4 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-md ${
-//                                                      currentImageIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
-//                                                    }`}
-//                                                    aria-label="الصورة السابقة"
-//                                                  >
-//                                                    <span className="text-2xl">&larr;</span>
-//                                                  </button>
-//                                                  <button
-//                                                    onClick={goToNextImage}
-//                                                    disabled={currentImageIndex === previewImages.length - 1}
-//                                                    className={`absolute right-4 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-md ${
-//                                                      currentImageIndex === previewImages.length - 1
-//                                                        ? 'opacity-50 cursor-not-allowed'
-//                                                        : 'hover:bg-blue-700'
-//                                                    }`}
-//                                                    aria-label="الصورة التالية"
-//                                                  >
-//                                                    <span className="text-2xl">&rarr;</span>
-//                                                  </button>
-//                                                </>
-//                                              )}
-//                                            </div>
-//                                          </div>
-//                                        )}
-                             
-//                              {showToast && (
-//   <div
-//     className={`fixed top-5 right-5 px-4 py-2 rounded-md shadow-lg text-white flex items-center z-50 ${
-//       isSuccess ? 'bg-green-600' : 'bg-red-600'
-//     }`}
-//   >
-//     {isSuccess ? (
-//       <FaCheckCircle className="mr-2 h-5 w-5" />
-//     ) : (
-//       <FaExclamationTriangle className="mr-2 h-5 w-5" />
-//     )}
-//     <span>{uploadMessage}</span>
-//   </div>
-// )}
-//                                      </div>
-//                                    </div>
-//                                  </div>
-//                                );
-//                              }
-
+             
+//               <div className="mb-4 text-center mt-4">
+//                 <button
+//                   type="submit"
+//                   disabled={isUploading || !hasExitRecord}
+//                   className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+//                     isUploading || !hasExitRecord ? 'opacity-50 cursor-not-allowed' : ''
+//                   }`}
+//                 >
+//                   {isUploading ? (
+//                     <span className="flex items-center">
+//                       <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mr-2"></div>
+//                       جارٍ الرفع...
+//                     </span>
+//                   ) : (
+//                     'رفع التشييك'
+//                   )}
+//                 </button>
+//               </div>
+//             </div>
+//           </form>
+         
+//           {previewImage && (
+//             <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+//               <div className="relative max-w-4xl w-full p-4">
+//                 <img
+//                   src={previewImage}
+//                   alt="معاينة الصورة"
+//                   className="max-h-[80vh] max-w-full object-contain mx-auto rounded-lg"
+//                 />
+//                 <button
+//                   onClick={closePreview}
+//                   className="absolute top-4 right-4 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-md"
+//                   aria-label="إغلاق المعاينة"
+//                 >
+//                   <span className="text-lg font-bold">×</span>
+//                 </button>
+//                 {previewImages.length > 1 && (
+//                   <>
+//                     <button
+//                       onClick={goToPreviousImage}
+//                       disabled={currentImageIndex === 0}
+//                       className={`absolute left-4 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-md ${
+//                         currentImageIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
+//                       }`}
+//                       aria-label="الصورة السابقة"
+//                     >
+//                       <span className="text-2xl">←</span>
+//                     </button>
+//                     <button
+//                       onClick={goToNextImage}
+//                       disabled={currentImageIndex === previewImages.length - 1}
+//                       className={`absolute right-4 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-md ${
+//                         currentImageIndex === previewImages.length - 1
+//                           ? 'opacity-50 cursor-not-allowed'
+//                           : 'hover:bg-blue-700'
+//                       }`}
+//                       aria-label="الصورة التالية"
+//                     >
+//                       <span className="text-2xl">→</span>
+//                     </button>
+//                   </>
+//                 )}
+//               </div>
+//             </div>
+//           )}
+         
+//           {showToast && (
+//             <div
+//               className={`fixed top-5 right-5 px-4 py-2 rounded-md shadow-lg text-white flex items-center z-50 ${
+//                 isSuccess ? 'bg-green-600' : 'bg-red-600'
+//               }`}
+//             >
+//               {isSuccess ? (
+//                 <FaCheckCircle className="mr-2 h-5 w-5" />
+//               ) : (
+//                 <FaExclamationTriangle className="mr-2 h-5 w-5" />
+//               )}
+//               <span>{uploadMessage}</span>
+//             </div>
+//           )}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
 
 //@ts-nocheck
 //@ts-ignore
@@ -1851,6 +2079,16 @@ import { FaSearch, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import SignaturePad from 'react-signature-canvas';
 import { toast } from 'react-toastify';
 import { useRouter } from 'next/navigation';
+import retry from 'async-retry';
+import { FiRefreshCw } from 'react-icons/fi';
+import Lightbox from 'yet-another-react-lightbox';
+import Counter from 'yet-another-react-lightbox/plugins/counter';
+import Zoom from 'yet-another-react-lightbox/plugins/zoom';
+import Captions from 'yet-another-react-lightbox/plugins/captions';
+import Download from 'yet-another-react-lightbox/plugins/download';
+import 'yet-another-react-lightbox/styles.css';
+import 'yet-another-react-lightbox/plugins/counter.css';
+import 'yet-another-react-lightbox/plugins/captions.css';
 
 const sanitizeTitle = (title: string, index: number) => {
   const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
@@ -2025,6 +2263,9 @@ export default function CheckInPage() {
   const uploadQueue = useRef<Promise<void>>(Promise.resolve());
   const contractInputRef = useRef<HTMLDivElement>(null);
   const [branchName, setBranchName] = useState<string>('');
+  const [openLightbox, setOpenLightbox] = useState(false);
+const [selectedImage, setSelectedImage] = useState<{ src: string; title: string } | null>(null);
+
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -2162,7 +2403,7 @@ export default function CheckInPage() {
       const entryData = await entryResponse.json();
       console.log('Entry check response:', entryData); // سجل للتصحيح
   
-      if (Array.isArray(entryData) && entryData.length > 0) {
+      if (entryData && Array.isArray(entryData.records) && entryData.records.length > 0) {
         setPreviousRecord(null);
         setHasExitRecord(false);
         setIsContractVerified(true);
@@ -2198,8 +2439,8 @@ export default function CheckInPage() {
       const exitData = await exitResponse.json();
       console.log('Exit check response:', exitData); // سجل للتصحيح
   
-      if (Array.isArray(exitData) && exitData.length > 0) {
-        const exitRecord = exitData[0];
+      if (exitData && Array.isArray(exitData.records) && exitData.records.length > 0) {
+        const exitRecord = exitData.records[0];
         setPreviousRecord(exitRecord);
         setHasExitRecord(true);
         setClientId(exitRecord.client_id || '');
@@ -2437,10 +2678,10 @@ export default function CheckInPage() {
   
     const rawCanvas = sigCanvas.current.getCanvas();
     const trimmedCanvas = trimCanvas(rawCanvas);
-    const signatureDataUrl = trimmedCanvas.toDataURL('image/webp', 0.95); // تغيير إلى WebP مع جودة 0.95
+    const signatureDataUrl = trimmedCanvas.toDataURL('image/webp', 0.95);
   
     const blob = await fetch(signatureDataUrl).then((res) => res.blob());
-    const file = new File([blob], `${uuidv4()}.webp`, { type: 'image/webp' }); // تغيير إلى .webp
+    const file = new File([blob], `${uuidv4()}.webp`, { type: 'image/webp' });
   
     const localPreviewUrl = URL.createObjectURL(file);
   
@@ -2454,12 +2695,28 @@ export default function CheckInPage() {
   
     uploadQueue.current = uploadQueue.current.then(async () => {
       try {
+        await saveToLocalStorage(file, signatureSection.id); // حفظ التوقيع في localStorage
+      } catch (error: any) {
+        setUploadMessage('فشل في حفظ التوقيع مؤقتًا: ' + error.message);
+        setShowToast(true);
+        toast.error('فشل في حفظ التوقيع مؤقتًا: ' + error.message);
+        setSignatureFile((prev) => ({
+          ...prev,
+          previewUrls: [],
+          isUploading: false,
+          uploadProgress: 0,
+        }));
+        URL.revokeObjectURL(localPreviewUrl);
+        return;
+      }
+  
+      try {
         const options = {
-          maxSizeMB: 5, // زيادة الحد الأقصى لحجم التوقيع
-          maxWidthOrHeight: 1920, // دقة عالية
+          maxSizeMB: 5,
+          maxWidthOrHeight: 1920,
           useWebWorker: true,
-          fileType: 'image/webp', // تحديد صيغة WebP
-          initialQuality: 0.95, // جودة عالية
+          fileType: 'image/webp',
+          initialQuality: 0.95,
         };
         const compressedFile = await imageCompression(file, options);
         const modifiedFile = await addDateTimeToImage(compressedFile);
@@ -2477,13 +2734,14 @@ export default function CheckInPage() {
           uploadProgress: 100,
         }));
         setIsSignatureLocked(true);
+        clearFromLocalStorage(signatureSection.id); // مسح التوقيع من localStorage بعد النجاح
         URL.revokeObjectURL(localPreviewUrl);
         sigCanvas.current?.clear();
         toast.success('تم حفظ التوقيع بنجاح.');
       } catch (error: any) {
-        let errorMessage = 'حدث خطأ أثناء رفع التوقيع. يرجى المحاولة مرة أخرى.';
+        let errorMessage = 'حدث خطأ أثناء رفع التوقيع. التوقيع محفوظ مؤقتًا ويمكن إعادة المحاولة لاحقًا.';
         if (error.message.includes('Rate limit')) {
-          errorMessage = 'تم تجاوز حد رفع الصور. يرجى المحاولة مجددًا لاحقًا.';
+          errorMessage = 'تم تجاوز حد رفع الصور. التوقيع محفوظ مؤقتًا.';
         }
         setUploadMessage(errorMessage);
         setShowToast(true);
@@ -2502,10 +2760,10 @@ export default function CheckInPage() {
 
   const handleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-
+  
     const file = e.target.files[0];
     const localPreviewUrl = URL.createObjectURL(file);
-
+  
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) =>
         fileSection.id === id
@@ -2519,8 +2777,29 @@ export default function CheckInPage() {
           : fileSection
       )
     );
-
+  
     uploadQueue.current = uploadQueue.current.then(async () => {
+      try {
+        await saveToLocalStorage(file, id); // حفظ الصورة في localStorage
+      } catch (error: any) {
+        setUploadMessage('فشل في حفظ الصورة مؤقتًا: ' + error.message);
+        setShowToast(true);
+        toast.error('فشل في حفظ الصورة مؤقتًا: ' + error.message);
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === id
+              ? { ...fileSection, previewUrls: [], isUploading: false, uploadProgress: 0 }
+              : fileSection
+          )
+        );
+        URL.revokeObjectURL(localPreviewUrl);
+        const index = files.findIndex((fileSection) => fileSection.id === id);
+        if (fileInputRefs.current[index]) {
+          fileInputRefs.current[index]!.value = '';
+        }
+        return;
+      }
+  
       try {
         const compressedFile = await compressImage(file);
         const imageUrl = await uploadImageToBackend(compressedFile, id, (progress) => {
@@ -2545,15 +2824,18 @@ export default function CheckInPage() {
               : fileSection
           )
         );
+        clearFromLocalStorage(id); // مسح الصورة من localStorage بعد النجاح
         URL.revokeObjectURL(localPreviewUrl);
         const index = files.findIndex((fileSection) => fileSection.id === id);
         if (fileInputRefs.current[index]) {
           fileInputRefs.current[index]!.value = '';
         }
       } catch (error: any) {
-        let errorMessage = 'حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى.';
+        let errorMessage = 'حدث خطأ أثناء رفع الصورة. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.';
         if (error.message.includes('Rate limit')) {
-          errorMessage = 'تم تجاوز حد رفع الصور. يرجى المحاولة مجددًا لاحقًا.';
+          errorMessage = 'تم تجاوز حد رفع الصور. الصورة محفوظة مؤقتًا.';
+        } else if (error.message.includes('ضغط')) {
+          errorMessage = 'فشل في ضغط الصورة. الصورة محفوظة مؤقتًا.';
         }
         setUploadMessage(errorMessage);
         setShowToast(true);
@@ -2561,20 +2843,10 @@ export default function CheckInPage() {
         setFiles((prevFiles) =>
           prevFiles.map((fileSection) =>
             fileSection.id === id
-              ? {
-                  imageUrls: null,
-                  previewUrls: [],
-                  isUploading: false,
-                  uploadProgress: 0,
-                }
+              ? { ...fileSection, isUploading: false, uploadProgress: 0 }
               : fileSection
           )
         );
-        URL.revokeObjectURL(localPreviewUrl);
-        const index = files.findIndex((fileSection) => fileSection.id === id);
-        if (fileInputRefs.current[index]) {
-          fileInputRefs.current[index]!.value = '';
-        }
       }
     });
   };
@@ -2584,13 +2856,14 @@ export default function CheckInPage() {
   
     const selectedFiles = Array.from(e.target.files);
     const localPreviewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
+    const startIndex = files.find((fileSection) => fileSection.id === id)?.previewUrls.length || 0;
   
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) =>
         fileSection.id === id
           ? {
               ...fileSection,
-              previewUrls: [...(fileSection.previewUrls || []), ...localPreviewUrls], // إضافة المعاينات المحلية
+              previewUrls: [...fileSection.previewUrls, ...localPreviewUrls],
               isUploading: true,
               uploadProgress: 0,
             }
@@ -2599,16 +2872,22 @@ export default function CheckInPage() {
     );
   
     uploadQueue.current = uploadQueue.current.then(async () => {
-      try {
-        const imageUrls: string[] = [];
-        const totalFiles = selectedFiles.length;
-        let completedFiles = 0;
+      const uploadPromises = selectedFiles.map(async (file, index) => {
+        const uniqueId = `${id}-${startIndex + index}`;
+        try {
+          await saveToLocalStorage(file, uniqueId); // حفظ كل صورة بمعرف فريد
+        } catch (error: any) {
+          setUploadMessage(`فشل في حفظ الصورة ${index + 1} مؤقتًا: ${error.message}`);
+          setShowToast(true);
+          toast.error(`فشل في حفظ الصورة ${index + 1} مؤقتًا: ${error.message}`);
+          return { index: startIndex + index, url: null };
+        }
   
-        for (let file of selectedFiles) {
+        try {
           const compressedFile = await compressImage(file);
           const imageUrl = await uploadImageToBackend(compressedFile, id, (progress) => {
-            completedFiles = completedFiles + (progress / 100 / totalFiles);
-            const overallProgress = Math.round((completedFiles / totalFiles) * 100);
+            const completedFiles = (progress / 100) + (index / selectedFiles.length);
+            const overallProgress = Math.round((completedFiles / selectedFiles.length) * 100);
             setFiles((prevFiles) =>
               prevFiles.map((fileSection) =>
                 fileSection.id === id
@@ -2617,16 +2896,24 @@ export default function CheckInPage() {
               )
             );
           });
-          imageUrls.push(imageUrl);
+          clearFromLocalStorage(uniqueId); // مسح الصورة من localStorage بعد النجاح
+          return { index: startIndex + index, url: imageUrl };
+        } catch (error: any) {
+          setUploadMessage(
+            `فشل رفع الصورة ${index + 1}. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.`
+          );
+          setShowToast(true);
+          toast.error(`فشل رفع الصورة ${index + 1}. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.`);
+          return { index: startIndex + index, url: null };
         }
+      });
   
-        // التحقق من طول الروابط
-        const totalLength = imageUrls.join(',').length;
-        if (totalLength > 512) {
-          throw new Error('إجمالي طول روابط الصور يتجاوز الحد الأقصى (512 حرفًا).');
-        }
+      try {
+        const results = await Promise.all(uploadPromises);
+        const successfulUrls = results
+          .filter((result): result is { index: number; url: string } => result.url !== null)
+          .map((result) => result.url);
   
-        // تحديث الحالة باستبدال previewUrls بروابط الصور المرفوعة فقط
         setFiles((prevFiles) =>
           prevFiles.map((fileSection) =>
             fileSection.id === id
@@ -2634,12 +2921,12 @@ export default function CheckInPage() {
                   ...fileSection,
                   imageUrls: [
                     ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
-                    ...imageUrls,
+                    ...successfulUrls,
                   ],
                   previewUrls: [
                     ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
-                    ...imageUrls,
-                  ], // استبدال previewUrls بالروابط المرفوعة
+                    ...successfulUrls,
+                  ],
                   isUploading: false,
                   uploadProgress: 100,
                 }
@@ -2647,10 +2934,7 @@ export default function CheckInPage() {
           )
         );
   
-        // إلغاء الروابط المحلية
         localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-  
-        // إعادة تعيين حقل الإدخال
         const index = files.findIndex((fileSection) => fileSection.id === id);
         if (fileInputRefs.current[index]) {
           fileInputRefs.current[index]!.value = '';
@@ -2674,7 +2958,7 @@ export default function CheckInPage() {
                   ...fileSection,
                   isUploading: false,
                   uploadProgress: 0,
-                  previewUrls: Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : [], // استعادة الحالة الصحيحة
+                  previewUrls: Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : [],
                 }
               : fileSection
           )
@@ -2711,12 +2995,12 @@ export default function CheckInPage() {
     if (e) {
       e.stopPropagation();
     }
-
+  
     if (fileId === signatureFile.id) {
       const updatedPreviews = [...signatureFile.previewUrls];
       const deletedPreviewUrl = updatedPreviews.splice(previewIndex, 1)[0];
       let updatedImageUrls = signatureFile.imageUrls;
-
+  
       let fileKey: string | null = null;
       if (deletedPreviewUrl) {
         try {
@@ -2726,14 +3010,14 @@ export default function CheckInPage() {
           console.error('Error parsing URL:', error);
         }
       }
-
+  
       if (Array.isArray(updatedImageUrls)) {
         updatedImageUrls = [...updatedImageUrls];
         updatedImageUrls.splice(previewIndex, 1);
       } else if (previewIndex === 0) {
         updatedImageUrls = null;
       }
-
+  
       if (fileKey) {
         deleteFile(fileKey)
           .then(() => {
@@ -2747,7 +3031,8 @@ export default function CheckInPage() {
             toast.error(error.message);
           });
       }
-
+  
+      clearFromLocalStorage(fileId); // مسح التوقيع من localStorage
       setSignatureFile({
         ...signatureFile,
         previewUrls: updatedPreviews,
@@ -2757,14 +3042,14 @@ export default function CheckInPage() {
       setIsSignatureLocked(false);
       return;
     }
-
+  
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) => {
         if (fileSection.id === fileId) {
           const updatedPreviews = [...fileSection.previewUrls];
           const deletedPreviewUrl = updatedPreviews.splice(previewIndex, 1)[0];
           let updatedImageUrls = fileSection.imageUrls;
-
+  
           let fileKey: string | null = null;
           if (deletedPreviewUrl) {
             try {
@@ -2774,14 +3059,14 @@ export default function CheckInPage() {
               console.error('Error parsing URL:', error);
             }
           }
-
+  
           if (Array.isArray(updatedImageUrls)) {
             updatedImageUrls = [...updatedImageUrls];
             updatedImageUrls.splice(previewIndex, 1);
           } else if (previewIndex === 0) {
             updatedImageUrls = null;
           }
-
+  
           if (fileKey) {
             deleteFile(fileKey)
               .then(() => {
@@ -2795,7 +3080,8 @@ export default function CheckInPage() {
                 toast.error(error.message);
               });
           }
-
+  
+          clearFromLocalStorage(fileId); // مسح الصورة من localStorage
           return {
             ...fileSection,
             previewUrls: updatedPreviews,
@@ -2806,10 +3092,138 @@ export default function CheckInPage() {
         return fileSection;
       })
     );
-
+  
     const index = files.findIndex((fileSection) => fileSection.id === fileId);
     if (fileInputRefs.current[index]) {
       fileInputRefs.current[index]!.value = '';
+    }
+  };
+
+  const saveToLocalStorage = async (file: File, fileSectionId: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (file.size > 5 * 1024 * 1024) { // تحديد حد أقصى 5 ميغابايت
+        reject(new Error('حجم الصورة كبير جدًا للحفظ في localStorage (الحد الأقصى 5 ميغابايت).'));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          localStorage.setItem(`pending-upload-${fileSectionId}`, reader.result as string);
+          resolve();
+        } catch (error) {
+          reject(new Error('فشل في حفظ الصورة مؤقتًا بسبب قيود التخزين.'));
+        }
+      };
+      reader.onerror = () => reject(new Error('فشل في قراءة ملف الصورة.'));
+      reader.readAsDataURL(file);
+    });
+  };
+  
+  const getFromLocalStorage = (fileSectionId: string): string | null => {
+    return localStorage.getItem(`pending-upload-${fileSectionId}`);
+  };
+  
+  const clearFromLocalStorage = (fileSectionId: string): void => {
+    localStorage.removeItem(`pending-upload-${fileSectionId}`);
+  };
+  
+  const retryUpload = async (fileSectionId: string, index?: number) => {
+    const uniqueId = index !== undefined ? `${fileSectionId}-${index}` : fileSectionId;
+    const dataUrl = getFromLocalStorage(uniqueId);
+    if (!dataUrl) {
+      setUploadMessage('لا توجد صورة محفوظة لإعادة المحاولة.');
+      setShowToast(true);
+      toast.error('لا توجد صورة محفوظة لإعادة المحاولة.');
+      return;
+    }
+  
+    setFiles((prevFiles) =>
+      prevFiles.map((fileSection) =>
+        fileSection.id === fileSectionId
+          ? { ...fileSection, isUploading: true, uploadProgress: 0 }
+          : fileSection
+      )
+    );
+  
+    try {
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const file = new File([blob], `${uuidv4()}.webp`, { type: 'image/webp' });
+  
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === fileSectionId ? { ...fileSection, uploadProgress: 30 } : fileSection
+        )
+      );
+  
+      const compressedFile = await compressImage(file);
+  
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === fileSectionId ? { ...fileSection, uploadProgress: 60 } : fileSection
+        )
+      );
+  
+      const imageUrl = await uploadImageToBackend(compressedFile, fileSectionId, (progress) => {
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === fileSectionId
+              ? { ...fileSection, uploadProgress: progress }
+              : fileSection
+          )
+        );
+      });
+  
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) => {
+          if (fileSection.id === fileSectionId) {
+            if (fileSection.multiple) {
+              const updatedPreviewUrls = [...(fileSection.previewUrls || [])];
+              if (index !== undefined && updatedPreviewUrls[index]) {
+                updatedPreviewUrls[index] = imageUrl;
+              } else {
+                updatedPreviewUrls.push(imageUrl);
+              }
+  
+              return {
+                ...fileSection,
+                imageUrls: [
+                  ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+                  imageUrl,
+                ],
+                previewUrls: updatedPreviewUrls,
+                isUploading: false,
+                uploadProgress: 100,
+              };
+            } else {
+              return {
+                ...fileSection,
+                imageUrls: imageUrl,
+                previewUrls: [imageUrl],
+                isUploading: false,
+                uploadProgress: 100,
+              };
+            }
+          }
+          return fileSection;
+        })
+      );
+  
+      clearFromLocalStorage(uniqueId);
+      setUploadMessage('تم إعادة رفع الصورة بنجاح.');
+      setShowToast(true);
+      toast.success('تم إعادة رفع الصورة بنجاح.');
+    } catch (error: any) {
+      setUploadMessage('فشل إعادة رفع الصورة: ' + error.message);
+      setShowToast(true);
+      toast.error('فشل إعادة رفع الصورة: ' + error.message);
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === fileSectionId
+            ? { ...fileSection, isUploading: false, uploadProgress: 0 }
+            : fileSection
+        )
+      );
     }
   };
 
@@ -2818,6 +3232,8 @@ export default function CheckInPage() {
       fileInputRefs.current[index] = element;
     };
   };
+
+
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -3051,10 +3467,9 @@ try {
     setShowPlateList(false);
   };
 
-  const openPreview = (images: string[], initialIndex: number) => {
-    setPreviewImages(images);
-    setCurrentImageIndex(initialIndex);
-    setPreviewImage(images[initialIndex]);
+  const openPreview = (imageSrc: string, title: string) => {
+    setSelectedImage({ src: imageSrc, title });
+    setOpenLightbox(true);
   };
 
   const closePreview = () => {
@@ -3274,163 +3689,183 @@ try {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
-  {files.map((fileSection, index) => (
-    <div key={fileSection.id} className="mb-6">
-      <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
-        {fieldTitlesMap[fileSection.title] || fileSection.title}
-      </div>
-      <div className="grid grid-cols-1 gap-3">
-        <div className="min-w-0">
-          <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"></div>
-          {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
-            <div
-              className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-lg p-2 ${
-                fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
-              }`}
-            >
-              {fileSection.multiple ? (
-                <div className="grid grid-cols-2 gap-2">
-                  {fileSection.previewUrls.map((previewUrl, previewIndex) => (
-                    <div key={previewIndex} className="relative h-20 sm:h-24">
-                      <img
-                        src={previewUrl}
-                        alt={`صورة ${previewIndex + 1}`}
-                        className="h-full w-full object-cover rounded-md cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openPreview(fileSection.previewUrls, previewIndex);
-                        }}
-                      />
+              {files.map((fileSection, index) => (
+  <div key={fileSection.id} className="mb-6">
+    <div className="font-semibold text-gray-800 dark:text-gray-100 text-base mb-1">
+      {fieldTitlesMap[fileSection.title] || fileSection.title}
+    </div>
+    <div className="grid grid-cols-1 gap-3">
+      <div className="min-w-0">
+        <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1"></div>
+        {fileSection.previewUrls && fileSection.previewUrls.length > 0 ? (
+          <div
+            className={`relative border-2 border-gray-300 dark:border-gray-600 rounded-lg p-2 ${
+              fileSection.multiple ? 'h-auto' : 'h-28 sm:h-32'
+            }`}
+          >
+            {fileSection.multiple ? (
+              <div className="grid grid-cols-2 gap-2">
+                {fileSection.previewUrls.map((previewUrl, previewIndex) => (
+                  <div key={previewIndex} className="relative h-20 sm:h-24">
+                    <img
+                      src={previewUrl}
+                      alt={`صورة ${previewIndex + 1}`}
+                      className="h-full w-full object-cover rounded-md cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openPreview(previewUrl, fieldTitlesMap[fileSection.title]);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => removePreviewImage(fileSection.id, previewIndex, e)}
+                      className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
+                      aria-label="حذف الصورة"
+                    >
+                      <span className="text-lg font-bold">×</span>
+                    </button>
+                    {!fileSection.imageUrls && (
                       <button
                         type="button"
-                        onClick={(e) => removePreviewImage(fileSection.id, previewIndex, e)}
-                        className="absolute top-0 right-0 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
-                        aria-label="حذف الصورة"
+                        onClick={() => retryUpload(fileSection.id, previewIndex)}
+                        className="absolute top-0 left-0 bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
+                        aria-label="إعادة محاولة رفع الصورة"
                       >
-                        <span className="text-lg font-bold">×</span>
+                        <span className="text-lg font-bold">↻</span>
                       </button>
-                    </div>
-                  ))}
-                  <label
-                    htmlFor={`file-input-${fileSection.id}`}
-                    className="h-20 sm:h-24 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
-                  >
-                    <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
-                  </label>
-                </div>
-              ) : (
-                <div className="relative h-full w-full flex items-center justify-center">
-                  <img
-                    src={fileSection.previewUrls[0]}
-                    alt={fileSection.title}
-                    className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
-                    onClick={() => openPreview([fileSection.previewUrls[0]], 0)}
-                  />
+                    )}
+                  </div>
+                ))}
+                <label
+                  htmlFor={`file-input-${fileSection.id}`}
+                  className="h-20 sm:h-24 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400"
+                >
+                  <span className="text-gray-500 dark:text-gray-400 text-xl font-bold">+</span>
+                </label>
+              </div>
+            ) : (
+              <div className="relative h-full w-full flex items-center justify-center">
+                <img
+                  src={fileSection.previewUrls[0]}
+                  alt={fileSection.title}
+                  className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
+                  onClick={() => openPreview([fileSection.previewUrls[0]], 0)}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => removePreviewImage(fileSection.id, 0, e)}
+                  className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md z-10"
+                  aria-label="حذف الصورة"
+                >
+                  <span className="text-lg font-bold">×</span>
+                </button>
+                {!fileSection.imageUrls && (
                   <button
                     type="button"
-                    onClick={(e) => removePreviewImage(fileSection.id, 0, e)}
-                    className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md z-10"
-                    aria-label="حذف الصورة"
+                    onClick={() => retryUpload(fileSection.id)}
+                    className="absolute top-1 left-1 bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md z-10"
+                    aria-label="إعادة محاولة رفع الصورة"
                   >
-                    <span className="text-lg font-bold">×</span>
+                    <span className="text-lg font-bold">↻</span>
                   </button>
-                </div>
-              )}
-              {fileSection.isUploading && fileSection.uploadProgress < 100 && (
-                <div className="mt-2">
-                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                    <div
-                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                      style={{ width: `${fileSection.uploadProgress}%` }}
-                    ></div>
-                  </div>
-                  <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
-                    {fileSection.uploadProgress}%
-                  </span>
-                </div>
-              )}
-              <input
-                id={`file-input-${fileSection.id}`}
-                type="file"
-                accept="image/*"
-                capture={fileSection.multiple ? undefined : 'environment'}
-                multiple={fileSection.multiple}
-                onChange={(e) =>
-                  fileSection.multiple
-                    ? handleMultipleFileChange(fileSection.id, e)
-                    : handleFileChange(fileSection.id, e)
-                }
-                className="hidden"
-                ref={setInputRef(index)}
-                disabled={!hasExitRecord}
-              />
-            </div>
-          ) : (
-            <label
-              htmlFor={`file-input-${fileSection.id}`}
-              className={`relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 ${
-                !hasExitRecord ? 'pointer-events-none opacity-50' : ''
-              }`}
-            >
-              <span className="text-gray-500 dark:text-gray-400 text-sm text-center">
-                {fileSection.multiple ? 'انقر لرفع صور' : 'انقر لالتقاط صورة'}
-              </span>
-              <input
-                id={`file-input-${fileSection.id}`}
-                type="file"
-                accept="image/*"
-                capture={fileSection.multiple ? undefined : 'environment'}
-                multiple={fileSection.multiple}
-                onChange={(e) =>
-                  fileSection.multiple
-                    ? handleMultipleFileChange(fileSection.id, e)
-                    : handleFileChange(fileSection.id, e)
-                }
-                className="hidden"
-                ref={setInputRef(index)}
-                disabled={!hasExitRecord}
-              />
-            </label>
-          )}
-        </div>
-        <div className="min-w-0">
-          <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
-            (تشييك الخروج):
-          </div>
-          {previousRecord && previousRecord[fileSection.title] ? (
-            <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 bg-gray-50 dark:bg-gray-700">
-              <div className="relative h-full w-full flex items-center justify-center">
-                {Array.isArray(previousRecord[fileSection.title]) ? (
-                  <div className="grid grid-cols-2 gap-2 w-full h-full">
-                    {(previousRecord[fileSection.title] as string[]).map((url, imgIndex) => (
-                      <img
-                        key={imgIndex}
-                        src={url}
-                        alt={`صورة سابقة ${imgIndex + 1}`}
-                        className="max-h-full max-w-full object-cover rounded-md cursor-pointer"
-                        onClick={() => openPreview(previousRecord[fileSection.title] as string[], imgIndex)}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <img
-                    src={previousRecord[fileSection.title] as string}
-                    alt="صورة سابقة"
-                    className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
-                    onClick={() => openPreview([previousRecord[fileSection.title] as string], 0)}
-                  />
                 )}
               </div>
-            </div>
-          ) : (
-            <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
-              لا توجد صورة قديمة
-            </div>
-          )}
+            )}
+            {fileSection.isUploading && fileSection.uploadProgress < 100 && (
+              <div className="mt-2">
+                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+                  <div
+                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                    style={{ width: `${fileSection.uploadProgress}%` }}
+                  ></div>
+                </div>
+                <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
+                  {fileSection.uploadProgress}%
+                </span>
+              </div>
+            )}
+            <input
+              id={`file-input-${fileSection.id}`}
+              type="file"
+              accept="image/*"
+              capture={fileSection.multiple ? undefined : 'environment'}
+              multiple={fileSection.multiple}
+              onChange={(e) =>
+                fileSection.multiple
+                  ? handleMultipleFileChange(fileSection.id, e)
+                  : handleFileChange(fileSection.id, e)
+              }
+              className="hidden"
+              ref={setInputRef(index)}
+              disabled={!hasExitRecord}
+            />
+          </div>
+        ) : (
+          <label
+            htmlFor={`file-input-${fileSection.id}`}
+            className={`relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 flex items-center justify-center cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 ${
+              !hasExitRecord ? 'pointer-events-none opacity-50' : ''
+            }`}
+          >
+            <span className="text-gray-500 dark:text-gray-400 text-sm text-center">
+              {fileSection.multiple ? 'انقر لرفع صور' : 'انقر لالتقاط صورة'}
+            </span>
+            <input
+              id={`file-input-${fileSection.id}`}
+              type="file"
+              accept="image/*"
+              capture={fileSection.multiple ? undefined : 'environment'}
+              multiple={fileSection.multiple}
+              onChange={(e) =>
+                fileSection.multiple
+                  ? handleMultipleFileChange(fileSection.id, e)
+                  : handleFileChange(fileSection.id, e)
+              }
+              className="hidden"
+              ref={setInputRef(index)}
+              disabled={!hasExitRecord}
+            />
+          </label>
+        )}
+      </div>
+      <div className="min-w-0">
+        <div className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+          (تشييك الخروج):
         </div>
+        {previousRecord && previousRecord[fileSection.title] ? (
+  <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 bg-gray-50 dark:bg-gray-700">
+    <div className="relative h-full w-full flex items-center justify-center">
+      {Array.isArray(previousRecord[fileSection.title]) ? (
+        <div className="grid grid-cols-2 gap-2 w-full h-full">
+          {(previousRecord[fileSection.title] as string[]).map((url, imgIndex) => (
+            <img
+              key={imgIndex}
+              src={url}
+              alt={`صورة سابقة ${imgIndex + 1}`}
+              className="max-h-full max-w-full object-cover rounded-md cursor-pointer"
+              onClick={() => openPreview(url, fieldTitlesMap[fileSection.title])}
+            />
+          ))}
+        </div>
+      ) : (
+        <img
+          src={previousRecord[fileSection.title] as string}
+          alt="صورة سابقة"
+          className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
+          onClick={() => openPreview(previousRecord[fileSection.title] as string, fieldTitlesMap[fileSection.title])}
+        />
+      )}
+    </div>
+  </div>
+) : (
+  <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
+    لا توجد صورة قديمة
+  </div>
+)}
       </div>
     </div>
-  ))}
+  </div>
+))}
 </div>
              
               <div className="mb-6 mt-6">
@@ -3566,50 +4001,56 @@ try {
             </div>
           </form>
          
-          {previewImage && (
-            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-              <div className="relative max-w-4xl w-full p-4">
-                <img
-                  src={previewImage}
-                  alt="معاينة الصورة"
-                  className="max-h-[80vh] max-w-full object-contain mx-auto rounded-lg"
-                />
-                <button
-                  onClick={closePreview}
-                  className="absolute top-4 right-4 bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-md"
-                  aria-label="إغلاق المعاينة"
-                >
-                  <span className="text-lg font-bold">×</span>
-                </button>
-                {previewImages.length > 1 && (
-                  <>
-                    <button
-                      onClick={goToPreviousImage}
-                      disabled={currentImageIndex === 0}
-                      className={`absolute left-4 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-md ${
-                        currentImageIndex === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
-                      }`}
-                      aria-label="الصورة السابقة"
-                    >
-                      <span className="text-2xl">←</span>
-                    </button>
-                    <button
-                      onClick={goToNextImage}
-                      disabled={currentImageIndex === previewImages.length - 1}
-                      className={`absolute right-4 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-md ${
-                        currentImageIndex === previewImages.length - 1
-                          ? 'opacity-50 cursor-not-allowed'
-                          : 'hover:bg-blue-700'
-                      }`}
-                      aria-label="الصورة التالية"
-                    >
-                      <span className="text-2xl">→</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
+          {selectedImage && (
+  <Lightbox
+    open={openLightbox}
+    close={() => setOpenLightbox(false)}
+    slides={[{ src: selectedImage.src, title: selectedImage.title, description: selectedImage.title }]}
+    index={0}
+    plugins={[Zoom, Captions, Download]}
+    zoom={{
+      maxZoomPixelRatio: 4,
+      zoomInMultiplier: 2,
+      doubleTapDelay: 300,
+      doubleClickDelay: 500,
+      doubleClickMaxStops: 2,
+      scrollToZoom: true,
+    }}
+    toolbar={{
+      buttons: [
+        "close",
+        <div key="separator-1" style={{ flexGrow: 1 }} />,
+        "zoom",
+        "download",
+      ],
+    }}
+    captions={{
+      showToggle: false,
+      descriptionTextAlign: 'center',
+      descriptionMaxLines: 3,
+    }}
+    styles={{
+      container: {
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      },
+      slide: {
+        filter: isDarkMode ? 'brightness(1.1)' : 'none',
+      },
+      captionsTitle: {
+        fontSize: '16px',
+        fontWeight: 'bold',
+        color: '#ffffff',
+        textAlign: 'center',
+      },
+      captionsDescription: {
+        fontSize: '14px',
+        color: '#cccccc',
+        textAlign: 'center',
+        marginTop: '4px',
+      },
+    }}
+  />
+)}
          
           {showToast && (
             <div
@@ -3630,3 +4071,4 @@ try {
     </div>
   );
 }
+
