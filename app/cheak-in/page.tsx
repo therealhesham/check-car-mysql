@@ -3101,21 +3101,51 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
 
   const saveToLocalStorage = async (file: File, fileSectionId: string): Promise<void> => {
     return new Promise((resolve, reject) => {
-      if (file.size > 5 * 1024 * 1024) { // تحديد حد أقصى 5 ميغابايت
-        reject(new Error('حجم الصورة كبير جدًا للحفظ في localStorage (الحد الأقصى 5 ميغابايت).'));
+      // الحد الأقصى الجديد لحجم الصورة (10 ميغابايت)
+      const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+  
+      // التحقق من حجم الملف الأصلي
+      if (file.size > MAX_SIZE) {
+        reject(new Error(`حجم الصورة كبير جدًا للحفظ في localStorage (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`));
         return;
       }
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          localStorage.setItem(`pending-upload-${fileSectionId}`, reader.result as string);
-          resolve();
-        } catch (error) {
-          reject(new Error('فشل في حفظ الصورة مؤقتًا بسبب قيود التخزين.'));
-        }
+  
+      // ضغط الصورة وتحويلها إلى WebP
+      const options = {
+        maxSizeMB: 10, // الحد الأقصى للحجم بعد الضغط
+        maxWidthOrHeight: 1920, // الحفاظ على الدقة القصوى
+        useWebWorker: true,
+        fileType: 'image/webp', // تحويل إلى WebP
+        initialQuality: 0.95, // جودة عالية
       };
-      reader.onerror = () => reject(new Error('فشل في قراءة ملف الصورة.'));
-      reader.readAsDataURL(file);
+  
+      imageCompression(file, options)
+        .then((compressedFile) => {
+          // تحويل الملف المضغوط إلى Data URL
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              // التحقق من السعة المتاحة في localStorage
+              const dataUrl = reader.result as string;
+              const approximateSize = (dataUrl.length * 3) / 4; // تقدير حجم Base64
+              if (approximateSize > MAX_SIZE) {
+                reject(new Error(`حجم الصورة المضغوطة كبير جدًا للحفظ في localStorage (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`));
+                return;
+              }
+  
+              // حفظ الصورة في localStorage
+              localStorage.setItem(`pending-upload-${fileSectionId}`, dataUrl);
+              resolve();
+            } catch (error) {
+              reject(new Error('فشل في حفظ الصورة مؤقتًا بسبب قيود التخزين.'));
+            }
+          };
+          reader.onerror = () => reject(new Error('فشل في قراءة ملف الصورة.'));
+          reader.readAsDataURL(compressedFile);
+        })
+        .catch((error) => {
+          reject(new Error('فشل في ضغط الصورة: ' + error.message));
+        });
     });
   };
   
