@@ -2089,6 +2089,8 @@ import Download from 'yet-another-react-lightbox/plugins/download';
 import 'yet-another-react-lightbox/styles.css';
 import 'yet-another-react-lightbox/plugins/counter.css';
 import 'yet-another-react-lightbox/plugins/captions.css';
+import { openDB } from 'idb';
+
 
 const sanitizeTitle = (title: string, index: number) => {
   const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
@@ -2126,6 +2128,9 @@ interface FileSection {
   previewUrls: string[];
   isUploading: boolean;
   uploadProgress: number;
+  failedUploads?: { index: number; previewUrl: string }[];
+  isUploadingImages?: boolean[];
+  uploadProgresses?: number[];
 }
 
 interface AirtableRecord {
@@ -2208,10 +2213,13 @@ export default function CheckInPage() {
     id: `file-section-${sanitizeTitle(title, index)}`,
     imageUrls: null,
     title: title,
-    multiple: title === 'other_images',
+    multiple: index === fieldTitles.length - 1, // افتراض أن "صور أخرى" هي الحقل الأخير
     previewUrls: [],
     isUploading: false,
     uploadProgress: 0,
+    failedUploads: [],
+    isUploadingImages: [],
+    uploadProgresses: [],
   }));
 
   const signatureSection: FileSection = {
@@ -2223,6 +2231,22 @@ export default function CheckInPage() {
     isUploading: false,
     uploadProgress: 0,
   };
+
+  // دالة لفتح قاعدة البيانات
+async function openDatabase() {
+  try {
+    return await openDB('carImagesDB', 1, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains('pendingUploads')) {
+          db.createObjectStore('pendingUploads', { keyPath: 'id' });
+        }
+      },
+    });
+  } catch (error) {
+    console.error('Failed to open IndexedDB:', error);
+    throw new Error('فشل في فتح قاعدة البيانات.');
+  }
+}
 
   const [files, setFiles] = useState<FileSection[]>(initialFiles);
   const [signatureFile, setSignatureFile] = useState<FileSection>(signatureSection);
@@ -2623,141 +2647,140 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
     };
   };
   
-  const uploadImageToBackend = async (
-    file: File,
-    fileSectionId: string,
-    onProgress: (progress: number) => void
-  ): Promise<string> => {
-    const fileName = `${uuidv4()}.webp`; // تغيير الامتداد إلى .webp
-    const buffer = Buffer.from(await file.arrayBuffer());
-  
-    const params = {
-      Bucket: DO_SPACE_NAME,
-      Key: fileName,
-      Body: buffer,
-      ContentType: 'image/webp', // تغيير إلى image/webp
-      ACL: 'public-read',
-    };
-  
-    try {
-      if (!file.type.startsWith('image/')) {
-        throw new Error('الملف ليس صورة صالحة. يرجى رفع ملف بصيغة JPEG أو PNG أو WebP.');
-      }
-      if (file.size > 32 * 1024 * 1024) {
-        throw new Error('حجم الصورة كبير جدًا (الحد الأقصى 32 ميغابايت).');
-      }
-  
-      const upload = s3.upload(params);
-  
-      const throttledOnProgress = throttle((percentage: number) => {
-        onProgress(percentage);
-      }, 100);
-  
-      upload.on('httpUploadProgress', (progress) => {
-        const percentage = Math.round((progress.loaded / progress.total) * 100);
-        throttledOnProgress(percentage);
-      });
-  
-      const result = await upload.promise();
-      if (result.Location.length > 512) {
-        console.warn(`تحذير: رابط الصورة (${result.Location.length} حرفًا) يتجاوز الحد الأقصى لـ VARCHAR(512).`);
-      }
-      return result.Location;
-    } catch (error: any) {
-      throw error;
-    }
-  };
+  // دالة لرفع الصورة مع إعادة المحاولة
+const uploadImageToBackendWithRetry = async (
+  file: File,
+  fileSectionId: string,
+  onProgress?: (progress: number) => void,
+  retries: number = 3
+): Promise<string> => {
+  return retry(
+    async () => {
+      const fileName = `${uuidv4()}.webp`;
+      const buffer = Buffer.from(await file.arrayBuffer());
 
-  const handleSignatureSave = async () => {
-    if (!sigCanvas.current || sigCanvas.current.isEmpty()) {
-      setUploadMessage('يرجى رسم التوقيع أولاً.');
+      const params = {
+        Bucket: DO_SPACE_NAME,
+        Key: fileName,
+        Body: buffer,
+        ContentType: 'image/webp',
+        ACL: 'public-read',
+      };
+
+      const upload = s3.upload(params);
+      if (onProgress) {
+        upload.on('httpUploadProgress', (progress) => {
+          const percentage = Math.round((progress.loaded / progress.total) * 100);
+          onProgress(percentage);
+        });
+      }
+      const result = await upload.promise();
+      return result.Location;
+    },
+    {
+      retries,
+      factor: 2,
+      minTimeout: 1000,
+      maxTimeout: 5000,
+      onRetry: (error) => {
+        console.warn('Retrying upload due to:', error.message);
+      },
+    }
+  );
+};
+
+const handleSignatureSave = async () => {
+  if (!sigCanvas.current || sigCanvas.current.isEmpty()) {
+    setUploadMessage('يرجى رسم التوقيع أولاً.');
+    setShowToast(true);
+    toast.error('يرجى رسم التوقيع أولاً.');
+    return;
+  }
+
+  const rawCanvas = sigCanvas.current.getCanvas();
+  const trimmedCanvas = trimCanvas(rawCanvas);
+  const signatureDataUrl = trimmedCanvas.toDataURL('image/webp', 0.95);
+
+  const blob = await fetch(signatureDataUrl).then((res) => res.blob());
+  const file = new File([blob], `${uuidv4()}.webp`, { type: 'image/webp' });
+
+  const localPreviewUrl = URL.createObjectURL(file);
+
+  setSignatureFile((prev) => ({
+    ...prev,
+    previewUrls: [localPreviewUrl],
+    imageUrls: null,
+    isUploading: true,
+    uploadProgress: 0,
+  }));
+
+  uploadQueue.current = uploadQueue.current.then(async () => {
+    try {
+      // تمرير المعرف الكامل مع prefix
+      await saveToLocalStorage(file, `pending-upload-${signatureSection.id}`);
+    } catch (error: any) {
+      setUploadMessage('فشل في حفظ التوقيع مؤقتًا: ' + error.message);
       setShowToast(true);
-      toast.error('يرجى رسم التوقيع أولاً.');
+      toast.error('فشل في حفظ التوقيع مؤقتًا: ' + error.message);
+      setSignatureFile((prev) => ({
+        ...prev,
+        previewUrls: [],
+        isUploading: false,
+        uploadProgress: 0,
+      }));
+      URL.revokeObjectURL(localPreviewUrl);
       return;
     }
-  
-    const rawCanvas = sigCanvas.current.getCanvas();
-    const trimmedCanvas = trimCanvas(rawCanvas);
-    const signatureDataUrl = trimmedCanvas.toDataURL('image/webp', 0.95);
-  
-    const blob = await fetch(signatureDataUrl).then((res) => res.blob());
-    const file = new File([blob], `${uuidv4()}.webp`, { type: 'image/webp' });
-  
-    const localPreviewUrl = URL.createObjectURL(file);
-  
-    setSignatureFile((prev) => ({
-      ...prev,
-      previewUrls: [localPreviewUrl],
-      imageUrls: null,
-      isUploading: true,
-      uploadProgress: 0,
-    }));
-  
-    uploadQueue.current = uploadQueue.current.then(async () => {
-      try {
-        await saveToLocalStorage(file, signatureSection.id); // حفظ التوقيع في localStorage
-      } catch (error: any) {
-        setUploadMessage('فشل في حفظ التوقيع مؤقتًا: ' + error.message);
-        setShowToast(true);
-        toast.error('فشل في حفظ التوقيع مؤقتًا: ' + error.message);
-        setSignatureFile((prev) => ({
-          ...prev,
-          previewUrls: [],
-          isUploading: false,
-          uploadProgress: 0,
-        }));
-        URL.revokeObjectURL(localPreviewUrl);
-        return;
-      }
-  
-      try {
-        const options = {
-          maxSizeMB: 5,
-          maxWidthOrHeight: 1920,
-          useWebWorker: true,
-          fileType: 'image/webp',
-          initialQuality: 0.95,
-        };
-        const compressedFile = await imageCompression(file, options);
-        const modifiedFile = await addDateTimeToImage(compressedFile);
-        const imageUrl = await uploadImageToBackend(modifiedFile, signatureSection.id, (progress) => {
-          setSignatureFile((prev) => ({
-            ...prev,
-            uploadProgress: progress,
-          }));
-        });
-        setSignatureFile((prev) => ({
-          ...prev,
-          imageUrls: imageUrl,
-          previewUrls: [imageUrl],
-          isUploading: false,
-          uploadProgress: 100,
-        }));
-        setIsSignatureLocked(true);
-        clearFromLocalStorage(signatureSection.id); // مسح التوقيع من localStorage بعد النجاح
-        URL.revokeObjectURL(localPreviewUrl);
-        sigCanvas.current?.clear();
-        toast.success('تم حفظ التوقيع بنجاح.');
-      } catch (error: any) {
-        let errorMessage = 'حدث خطأ أثناء رفع التوقيع. التوقيع محفوظ مؤقتًا ويمكن إعادة المحاولة لاحقًا.';
-        if (error.message.includes('Rate limit')) {
-          errorMessage = 'تم تجاوز حد رفع الصور. التوقيع محفوظ مؤقتًا.';
-        }
-        setUploadMessage(errorMessage);
-        setShowToast(true);
-        toast.error(errorMessage);
-        setSignatureFile((prev) => ({
-          ...prev,
-          imageUrls: null,
-          previewUrls: [],
-          isUploading: false,
-          uploadProgress: 0,
-        }));
-        URL.revokeObjectURL(localPreviewUrl);
-      }
-    });
-  };
 
+    try {
+      const options = {
+        maxSizeMB: 5,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+        fileType: 'image/webp',
+        initialQuality: 0.95,
+      };
+      const compressedFile = await imageCompression(file, options);
+      const modifiedFile = await addDateTimeToImage(compressedFile);
+      const imageUrl = await uploadImageToBackendWithRetry(modifiedFile, signatureSection.id, (progress) => {
+        setSignatureFile((prev) => ({
+          ...prev,
+          uploadProgress: progress,
+        }));
+      });
+      setSignatureFile((prev) => ({
+        ...prev,
+        imageUrls: imageUrl,
+        previewUrls: [imageUrl],
+        isUploading: false,
+        uploadProgress: 100,
+      }));
+      setIsSignatureLocked(true);
+      clearFromLocalStorage(`pending-upload-${signatureSection.id}`);
+      URL.revokeObjectURL(localPreviewUrl);
+      sigCanvas.current?.clear();
+      toast.success('تم حفظ التوقيع بنجاح.');
+    } catch (error: any) {
+      let errorMessage = 'حدث خطأ أثناء رفع التوقيع. التوقيع محفوظ مؤقتًا ويمكن إعادة المحاولة لاحقًا.';
+      if (error.message.includes('Rate limit')) {
+        errorMessage = 'تم تجاوز حد رفع الصور. التوقيع محفوظ مؤقتًا.';
+      }
+      setUploadMessage(errorMessage);
+      setShowToast(true);
+      toast.error(errorMessage);
+      setSignatureFile((prev) => ({
+        ...prev,
+        imageUrls: null,
+        previewUrls: [],
+        isUploading: false,
+        uploadProgress: 0,
+      }));
+      URL.revokeObjectURL(localPreviewUrl);
+    }
+  });
+};
+
+  // دالة لمعالجة تغيير ملف واحد
   const handleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
   
@@ -2773,204 +2796,225 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
               imageUrls: null,
               isUploading: true,
               uploadProgress: 0,
+              failedUploads: [{ index: 0, previewUrl: localPreviewUrl, uniqueId: `pending-upload-${id}` }],
             }
           : fileSection
       )
     );
   
-    uploadQueue.current = uploadQueue.current.then(async () => {
-      try {
-        await saveToLocalStorage(file, id); // حفظ الصورة في localStorage
-      } catch (error: any) {
-        setUploadMessage('فشل في حفظ الصورة مؤقتًا: ' + error.message);
-        setShowToast(true);
-        toast.error('فشل في حفظ الصورة مؤقتًا: ' + error.message);
-        setFiles((prevFiles) =>
-          prevFiles.map((fileSection) =>
-            fileSection.id === id
-              ? { ...fileSection, previewUrls: [], isUploading: false, uploadProgress: 0 }
-              : fileSection
-          )
-        );
-        URL.revokeObjectURL(localPreviewUrl);
-        const index = files.findIndex((fileSection) => fileSection.id === id);
-        if (fileInputRefs.current[index]) {
-          fileInputRefs.current[index]!.value = '';
-        }
-        return;
-      }
+    try {
+      // تمرير المعرف الكامل مع prefix
+      await saveToLocalStorage(file, `pending-upload-${id}`);
   
-      try {
-        const compressedFile = await compressImage(file);
-        const imageUrl = await uploadImageToBackend(compressedFile, id, (progress) => {
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id ? { ...fileSection, uploadProgress: 30 } : fileSection
+        )
+      );
+  
+      const compressedFile = await compressImage(file);
+  
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id ? { ...fileSection, uploadProgress: 60 } : fileSection
+        )
+      );
+  
+      const imageUrl = await uploadImageToBackendWithRetry(
+        compressedFile,
+        id,
+        (progress) => {
           setFiles((prevFiles) =>
             prevFiles.map((fileSection) =>
-              fileSection.id === id
-                ? { ...fileSection, uploadProgress: progress }
-                : fileSection
+              fileSection.id === id ? { ...fileSection, uploadProgress: progress } : fileSection
             )
           );
-        });
-        setFiles((prevFiles) =>
-          prevFiles.map((fileSection) =>
-            fileSection.id === id
-              ? {
-                  ...fileSection,
-                  imageUrls: imageUrl,
-                  previewUrls: [imageUrl],
-                  isUploading: false,
-                  uploadProgress: 100,
-                }
-              : fileSection
-          )
-        );
-        clearFromLocalStorage(id); // مسح الصورة من localStorage بعد النجاح
-        URL.revokeObjectURL(localPreviewUrl);
-        const index = files.findIndex((fileSection) => fileSection.id === id);
-        if (fileInputRefs.current[index]) {
-          fileInputRefs.current[index]!.value = '';
         }
-      } catch (error: any) {
-        let errorMessage = 'حدث خطأ أثناء رفع الصورة. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.';
-        if (error.message.includes('Rate limit')) {
-          errorMessage = 'تم تجاوز حد رفع الصور. الصورة محفوظة مؤقتًا.';
-        } else if (error.message.includes('ضغط')) {
-          errorMessage = 'فشل في ضغط الصورة. الصورة محفوظة مؤقتًا.';
-        }
-        setUploadMessage(errorMessage);
-        setShowToast(true);
-        toast.error(errorMessage);
-        setFiles((prevFiles) =>
-          prevFiles.map((fileSection) =>
-            fileSection.id === id
-              ? { ...fileSection, isUploading: false, uploadProgress: 0 }
-              : fileSection
-          )
-        );
+      );
+  
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id
+            ? {
+                ...fileSection,
+                imageUrls: imageUrl,
+                previewUrls: [imageUrl],
+                isUploading: false,
+                uploadProgress: 100,
+                failedUploads: [],
+              }
+            : fileSection
+        )
+      );
+  
+      await clearFromLocalStorage(`pending-upload-${id}`);
+      URL.revokeObjectURL(localPreviewUrl);
+  
+      const index = files.findIndex((fileSection) => fileSection.id === id);
+      if (fileInputRefs.current[index]) {
+        fileInputRefs.current[index]!.value = '';
       }
-    });
+    } catch (error: any) {
+      let errorMessage = 'حدث خطأ أثناء رفع الصورة. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.';
+      if (error.message.includes('Rate limit')) {
+        errorMessage = 'تم تجاوز حد رفع الصور. الصورة محفوظة مؤقتًا.';
+      } else if (error.message.includes('ضغط')) {
+        errorMessage = 'فشل في ضغط الصورة. الصورة محفوظة مؤقتًا.';
+      }
+      setUploadMessage(errorMessage);
+      setShowToast(true);
+      toast.error(errorMessage);
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id
+            ? { ...fileSection, isUploading: false, uploadProgress: 0 }
+            : fileSection
+        )
+      );
+    }
   };
 
-  const handleMultipleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-  
-    const selectedFiles = Array.from(e.target.files);
-    const localPreviewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
-    const startIndex = files.find((fileSection) => fileSection.id === id)?.previewUrls.length || 0;
-  
-    setFiles((prevFiles) =>
-      prevFiles.map((fileSection) =>
-        fileSection.id === id
-          ? {
-              ...fileSection,
-              previewUrls: [...fileSection.previewUrls, ...localPreviewUrls],
-              isUploading: true,
-              uploadProgress: 0,
-            }
-          : fileSection
-      )
-    );
-  
-    uploadQueue.current = uploadQueue.current.then(async () => {
-      const uploadPromises = selectedFiles.map(async (file, index) => {
-        const uniqueId = `${id}-${startIndex + index}`;
-        try {
-          await saveToLocalStorage(file, uniqueId); // حفظ كل صورة بمعرف فريد
-        } catch (error: any) {
-          setUploadMessage(`فشل في حفظ الصورة ${index + 1} مؤقتًا: ${error.message}`);
-          setShowToast(true);
-          toast.error(`فشل في حفظ الصورة ${index + 1} مؤقتًا: ${error.message}`);
-          return { index: startIndex + index, url: null };
-        }
-  
-        try {
-          const compressedFile = await compressImage(file);
-          const imageUrl = await uploadImageToBackend(compressedFile, id, (progress) => {
-            const completedFiles = (progress / 100) + (index / selectedFiles.length);
-            const overallProgress = Math.round((completedFiles / selectedFiles.length) * 100);
-            setFiles((prevFiles) =>
-              prevFiles.map((fileSection) =>
-                fileSection.id === id
-                  ? { ...fileSection, uploadProgress: overallProgress }
-                  : fileSection
-              )
-            );
-          });
-          clearFromLocalStorage(uniqueId); // مسح الصورة من localStorage بعد النجاح
-          return { index: startIndex + index, url: imageUrl };
-        } catch (error: any) {
-          setUploadMessage(
-            `فشل رفع الصورة ${index + 1}. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.`
-          );
-          setShowToast(true);
-          toast.error(`فشل رفع الصورة ${index + 1}. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.`);
-          return { index: startIndex + index, url: null };
-        }
+const handleMultipleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+  if (!e.target.files || e.target.files.length === 0) return;
+
+  const selectedFiles = Array.from(e.target.files);
+  const localPreviewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
+  const startIndex = files.find((fileSection) => fileSection.id === id)?.previewUrls.length || 0;
+
+  setFiles((prevFiles) =>
+    prevFiles.map((fileSection) =>
+      fileSection.id === id
+        ? {
+            ...fileSection,
+            previewUrls: [...fileSection.previewUrls, ...localPreviewUrls],
+            failedUploads: [
+              ...(fileSection.failedUploads || []),
+              ...localPreviewUrls.map((url, idx) => ({
+                index: startIndex + idx,
+                previewUrl: url,
+                uniqueId: `pending-upload-${id}-${startIndex + idx}`, // إضافة uniqueId
+              })),
+            ],
+            isUploadingImages: [...(fileSection.isUploadingImages || []), ...selectedFiles.map(() => true)],
+            uploadProgresses: [...(fileSection.uploadProgresses || []), ...selectedFiles.map(() => 0)],
+          }
+        : fileSection
+    )
+  );
+
+  const uploadPromises = selectedFiles.map(async (file, index) => {
+    const uniqueId = `pending-upload-${id}-${startIndex + index}`;
+    console.log(`Saving file with ID: ${uniqueId}`); // تصحيح
+
+    try {
+      await saveToLocalStorage(file, uniqueId);
+
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id
+            ? {
+                ...fileSection,
+                uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
+                  i === startIndex + index ? 30 : progress
+                ),
+              }
+            : fileSection
+        )
+      );
+
+      const compressedFile = await compressImage(file);
+
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id
+            ? {
+                ...fileSection,
+                uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
+                  i === startIndex + index ? 60 : progress
+                ),
+              }
+            : fileSection
+        )
+      );
+
+      const imageUrl = await uploadImageToBackendWithRetry(compressedFile, uniqueId, (progress) => {
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === id
+              ? {
+                  ...fileSection,
+                  uploadProgresses: fileSection.uploadProgresses?.map((p, i) =>
+                    i === startIndex + index ? progress : p
+                  ),
+                }
+              : fileSection
+          )
+        );
       });
-  
-      try {
-        const results = await Promise.all(uploadPromises);
-        const successfulUrls = results
-          .filter((result): result is { index: number; url: string } => result.url !== null)
-          .map((result) => result.url);
-  
-        setFiles((prevFiles) =>
-          prevFiles.map((fileSection) =>
-            fileSection.id === id
-              ? {
-                  ...fileSection,
-                  imageUrls: [
-                    ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
-                    ...successfulUrls,
-                  ],
-                  previewUrls: [
-                    ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
-                    ...successfulUrls,
-                  ],
-                  isUploading: false,
-                  uploadProgress: 100,
-                }
-              : fileSection
-          )
-        );
-  
-        localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-        const index = files.findIndex((fileSection) => fileSection.id === id);
-        if (fileInputRefs.current[index]) {
-          fileInputRefs.current[index]!.value = '';
-        }
-      } catch (error: any) {
-        let errorMessage = 'حدث خطأ أثناء رفع الصور. يرجى المحاولة مرة أخرى.';
-        if (error.message.includes('Rate limit')) {
-          errorMessage = 'تم تجاوز حد رفع الصور. يرجى المحاولة مجددًا لاحقًا.';
-        } else if (error.message.includes('ضغط')) {
-          errorMessage = 'فشل في ضغط الصورة. يرجى المحاولة مرة أخرى.';
-        } else if (error.message.includes('512')) {
-          errorMessage = error.message;
-        }
-        setUploadMessage(errorMessage);
-        setShowToast(true);
-        toast.error(errorMessage);
-        setFiles((prevFiles) =>
-          prevFiles.map((fileSection) =>
-            fileSection.id === id
-              ? {
-                  ...fileSection,
-                  isUploading: false,
-                  uploadProgress: 0,
-                  previewUrls: Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : [],
-                }
-              : fileSection
-          )
-        );
-        localPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
-        const index = files.findIndex((fileSection) => fileSection.id === id);
-        if (fileInputRefs.current[index]) {
-          fileInputRefs.current[index]!.value = '';
-        }
-      }
-    });
-  };
+
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id
+            ? {
+                ...fileSection,
+                imageUrls: [
+                  ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+                  imageUrl,
+                ],
+                failedUploads: fileSection.failedUploads?.filter(
+                  (failed) => failed.index !== startIndex + index
+                ),
+                isUploadingImages: fileSection.isUploadingImages?.map((status, i) =>
+                  i === startIndex + index ? false : status
+                ),
+                uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
+                  i === startIndex + index ? 100 : progress
+                ),
+              }
+            : fileSection
+        )
+      );
+
+      await clearFromLocalStorage(uniqueId);
+      return { index: startIndex + index, url: imageUrl };
+    } catch (error: any) {
+      setUploadMessage(
+        `فشل رفع الصورة ${index + 1}. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.`
+      );
+      setShowToast(true);
+      toast.error(`فشل رفع الصورة ${index + 1}: ${error.message}`);
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === id
+            ? {
+                ...fileSection,
+                isUploadingImages: fileSection.isUploadingImages?.map((status, i) =>
+                  i === startIndex + index ? false : status
+                ),
+                uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
+                  i === startIndex + index ? 0 : progress
+                ),
+              }
+            : fileSection
+        )
+      );
+      return { index: startIndex + index, url: null };
+    }
+  });
+
+  const results = await Promise.all(uploadPromises);
+
+  results.forEach((result, index) => {
+    if (result.url) {
+      URL.revokeObjectURL(localPreviewUrls[index]);
+    }
+  });
+
+  const index = files.findIndex((fileSection) => fileSection.id === id);
+  if (fileInputRefs.current[index]) {
+    fileInputRefs.current[index]!.value = '';
+  }
+};
 
   const deleteFile = (fileKey: string): Promise<void> => {
     return new Promise((resolve, reject) => {
@@ -2991,57 +3035,9 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
     });
   };
 
-  const removePreviewImage = async (fileId: string, previewIndex: number, e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-    }
-  
-    if (fileId === signatureFile.id) {
-      const updatedPreviews = [...signatureFile.previewUrls];
-      const deletedPreviewUrl = updatedPreviews.splice(previewIndex, 1)[0];
-      let updatedImageUrls = signatureFile.imageUrls;
-  
-      let fileKey: string | null = null;
-      if (deletedPreviewUrl) {
-        try {
-          const urlParts = deletedPreviewUrl.split('/');
-          fileKey = urlParts[urlParts.length - 1];
-        } catch (error) {
-          console.error('Error parsing URL:', error);
-        }
-      }
-  
-      if (Array.isArray(updatedImageUrls)) {
-        updatedImageUrls = [...updatedImageUrls];
-        updatedImageUrls.splice(previewIndex, 1);
-      } else if (previewIndex === 0) {
-        updatedImageUrls = null;
-      }
-  
-      if (fileKey) {
-        deleteFile(fileKey)
-          .then(() => {
-            setUploadMessage('تم حذف التوقيع بنجاح من السيرفر.');
-            setShowToast(true);
-            toast.success('تم حذف التوقيع بنجاح من السيرفر.');
-          })
-          .catch((error) => {
-            setUploadMessage(error.message);
-            setShowToast(true);
-            toast.error(error.message);
-          });
-      }
-  
-      clearFromLocalStorage(fileId); // مسح التوقيع من localStorage
-      setSignatureFile({
-        ...signatureFile,
-        previewUrls: updatedPreviews,
-        imageUrls: updatedImageUrls,
-        isUploading: false,
-      });
-      setIsSignatureLocked(false);
-      return;
-    }
+  // دالة لإزالة صورة المعاينة
+  const removePreviewImage = async (fileId: string, previewIndex: number) => {
+    let fileKeyToDelete: string | null = null;
   
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) => {
@@ -3050,13 +3046,12 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
           const deletedPreviewUrl = updatedPreviews.splice(previewIndex, 1)[0];
           let updatedImageUrls = fileSection.imageUrls;
   
-          let fileKey: string | null = null;
           if (deletedPreviewUrl) {
             try {
               const urlParts = deletedPreviewUrl.split('/');
-              fileKey = urlParts[urlParts.length - 1];
+              fileKeyToDelete = urlParts[urlParts.length - 1];
             } catch (error) {
-              console.error('Error parsing URL:', error);
+              console.error('Error extracting file key:', error);
             }
           }
   
@@ -3067,31 +3062,39 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
             updatedImageUrls = null;
           }
   
-          if (fileKey) {
-            deleteFile(fileKey)
-              .then(() => {
-                setUploadMessage('تم حذف الصورة بنجاح من السيرفر.');
-                setShowToast(true);
-                toast.success('تم حذف الصورة بنجاح من السيرفر.');
-              })
-              .catch((error) => {
-                setUploadMessage(error.message);
-                setShowToast(true);
-                toast.error(error.message);
-              });
+          const updatedFailedUploads = fileSection.failedUploads
+            ? fileSection.failedUploads
+                .filter((failed) => failed.index !== previewIndex)
+                .map((failed, idx) => ({ ...failed, index: idx }))
+            : [];
+  
+          if (fileSection.multiple) {
+            const uniqueId = `pending-upload-${fileId}-${previewIndex}`;
+            clearFromLocalStorage(uniqueId);
+          } else {
+            clearFromLocalStorage(fileId);
           }
   
-          clearFromLocalStorage(fileId); // مسح الصورة من localStorage
           return {
             ...fileSection,
             previewUrls: updatedPreviews,
             imageUrls: updatedImageUrls,
-            isUploading: false,
+            failedUploads: updatedFailedUploads,
+            isUploadingImages: fileSection.isUploadingImages?.filter((_, i) => i !== previewIndex) || [],
+            uploadProgresses: fileSection.uploadProgresses?.filter((_, i) => i !== previewIndex) || [],
           };
         }
         return fileSection;
       })
     );
+  
+    if (fileKeyToDelete) {
+      try {
+        await deleteFile(fileKeyToDelete);
+      } catch (err) {
+        console.error('Error deleting file from S3:', err);
+      }
+    }
   
     const index = files.findIndex((fileSection) => fileSection.id === fileId);
     if (fileInputRefs.current[index]) {
@@ -3099,102 +3102,217 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
     }
   };
 
+  // دالة لحفظ الصورة في IndexedDB
   const saveToLocalStorage = async (file: File, fileSectionId: string): Promise<void> => {
     return new Promise((resolve, reject) => {
-      // الحد الأقصى الجديد لحجم الصورة (10 ميغابايت)
-      const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
-  
-      // التحقق من حجم الملف الأصلي
+      const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
       if (file.size > MAX_SIZE) {
-        reject(new Error(`حجم الصورة كبير جدًا للحفظ في localStorage (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`));
+        reject(new Error(`حجم الصورة كبير جدًا (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`));
         return;
       }
   
-      // ضغط الصورة وتحويلها إلى WebP
       const options = {
-        maxSizeMB: 10, // الحد الأقصى للحجم بعد الضغط
-        maxWidthOrHeight: 1920, // الحفاظ على الدقة القصوى
+        maxSizeMB: 20,
+        maxWidthOrHeight: 1920,
         useWebWorker: true,
-        fileType: 'image/webp', // تحويل إلى WebP
-        initialQuality: 0.95, // جودة عالية
+        fileType: 'image/webp',
+        initialQuality: 0.95,
       };
   
       imageCompression(file, options)
-        .then((compressedFile) => {
-          // تحويل الملف المضغوط إلى Data URL
-          const reader = new FileReader();
-          reader.onload = () => {
-            try {
-              // التحقق من السعة المتاحة في localStorage
-              const dataUrl = reader.result as string;
-              const approximateSize = (dataUrl.length * 3) / 4; // تقدير حجم Base64
-              if (approximateSize > MAX_SIZE) {
-                reject(new Error(`حجم الصورة المضغوطة كبير جدًا للحفظ في localStorage (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`));
-                return;
-              }
+        .then(async (compressedFile) => {
+          if (compressedFile.size > MAX_SIZE) {
+            reject(new Error(`حجم الصورة المضغوطة كبير جدًا (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`));
+            return;
+          }
   
-              // حفظ الصورة في localStorage
-              localStorage.setItem(`pending-upload-${fileSectionId}`, dataUrl);
-              resolve();
-            } catch (error) {
-              reject(new Error('فشل في حفظ الصورة مؤقتًا بسبب قيود التخزين.'));
-            }
-          };
-          reader.onerror = () => reject(new Error('فشل في قراءة ملف الصورة.'));
-          reader.readAsDataURL(compressedFile);
+          try {
+            const db = await openDatabase();
+            // استخدام المعرف المرسل مباشرة بدلاً من إضافة 'pending-upload-'
+            await db.put('pendingUploads', {
+              id: fileSectionId, // هنا التغيير الرئيسي
+              file: compressedFile,
+            });
+            db.close();
+            console.log(`Image saved to IndexedDB: ${fileSectionId}`);
+            resolve();
+          } catch (error) {
+            console.error(`Failed to save image to IndexedDB for ${fileSectionId}:`, error);
+            reject(new Error('فشل في حفظ الصورة مؤقتًا: ' + error.message));
+          }
         })
         .catch((error) => {
+          console.error(`Failed to compress image for ${fileSectionId}:`, error);
           reject(new Error('فشل في ضغط الصورة: ' + error.message));
         });
     });
   };
   
-  const getFromLocalStorage = (fileSectionId: string): string | null => {
-    return localStorage.getItem(`pending-upload-${fileSectionId}`);
-  };
-  
-  const clearFromLocalStorage = (fileSectionId: string): void => {
-    localStorage.removeItem(`pending-upload-${fileSectionId}`);
-  };
-  
-  const retryUpload = async (fileSectionId: string, index?: number) => {
-    const uniqueId = index !== undefined ? `${fileSectionId}-${index}` : fileSectionId;
-    const dataUrl = getFromLocalStorage(uniqueId);
-    if (!dataUrl) {
-      setUploadMessage('لا توجد صورة محفوظة لإعادة المحاولة.');
-      setShowToast(true);
-      toast.error('لا توجد صورة محفوظة لإعادة المحاولة.');
-      return;
-    }
-  
-    setFiles((prevFiles) =>
-      prevFiles.map((fileSection) =>
-        fileSection.id === fileSectionId
-          ? { ...fileSection, isUploading: true, uploadProgress: 0 }
-          : fileSection
-      )
-    );
-  
+  // دالة لاسترجاع الصورة من IndexedDB
+  const getFromLocalStorage = async (fileSectionId: string): Promise<File | null> => {
     try {
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      const file = new File([blob], `${uuidv4()}.webp`, { type: 'image/webp' });
+      const db = await openDatabase();
+      // البحث بالمعرف المرسل مباشرة
+      const data = await db.get('pendingUploads', fileSectionId);
+      db.close();
+      if (!data || !data.file) {
+        console.warn(`No image found in IndexedDB for ${fileSectionId}`);
+        return null;
+      }
+      return new File([data.file], `${fileSectionId}.webp`, { type: 'image/webp' });
+    } catch (error) {
+      console.error(`Failed to retrieve image from IndexedDB for ${fileSectionId}:`, error);
+      return null;
+    }
+  };
   
+  
+  // دالة لحذف الصورة من IndexedDB
+// دالة لحذف الصورة من IndexedDB
+const clearFromLocalStorage = async (fileSectionId: string): Promise<void> => {
+  try {
+    const db = await openDatabase();
+    // حذف بالمعرف المرسل مباشرة
+    await db.delete('pendingUploads', fileSectionId);
+    db.close();
+    console.log(`Image deleted from IndexedDB: ${fileSectionId}`);
+  } catch (error) {
+    console.error(`Failed to delete image from IndexedDB for ${fileSectionId}:`, error);
+  }
+};
+  
+const retryUpload = async (fileSectionId: string, index?: number): Promise<void> => {
+  let uniqueId: string;
+
+  // البحث عن uniqueId في failedUploads
+  const fileSection = files.find((fs) => fs.id === fileSectionId);
+  if (fileSection && fileSection.failedUploads && index !== undefined) {
+    const failedUpload = fileSection.failedUploads.find((failed) => failed.index === index);
+    if (failedUpload && failedUpload.uniqueId) {
+      uniqueId = failedUpload.uniqueId;
+    } else {
+      uniqueId = `pending-upload-${fileSectionId}`;
+    }
+  } else {
+    uniqueId = `pending-upload-${fileSectionId}`;
+  }
+
+  console.log(`Attempting to retry upload for: ${uniqueId}`);
+
+  // البحث بالمعرف الصحيح
+  const file = await getFromLocalStorage(uniqueId);
+  if (!file) {
+    console.warn(`No file found in IndexedDB for ${uniqueId}`);
+    setUploadMessage('لا توجد صورة محفوظة لإعادة المحاولة.');
+    setShowToast(true);
+    toast.error('لا توجد صورة محفوظة لإعادة المحاولة.');
+    return;
+  }
+
+  let localPreviewUrl = '';
+  try {
+    localPreviewUrl = URL.createObjectURL(file);
+
+    // تحديث حالة الرفع - بدء الرفع
+    if (fileSection?.multiple) {
+      // للملفات المتعددة
       setFiles((prevFiles) =>
         prevFiles.map((fileSection) =>
-          fileSection.id === fileSectionId ? { ...fileSection, uploadProgress: 30 } : fileSection
+          fileSection.id === fileSectionId
+            ? {
+                ...fileSection,
+                isUploadingImages: fileSection.isUploadingImages?.map((status, i) =>
+                  i === index ? true : status
+                ) || (index !== undefined ? Array(index + 1).fill(false).map((_, i) => i === index) : [true]),
+                uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
+                  i === index ? 0 : progress
+                ) || (index !== undefined ? Array(index + 1).fill(0).map((_, i) => i === index ? 0 : 0) : [0]),
+              }
+            : fileSection
         )
       );
-  
-      const compressedFile = await compressImage(file);
-  
+    } else {
+      // للملف المفرد
       setFiles((prevFiles) =>
         prevFiles.map((fileSection) =>
-          fileSection.id === fileSectionId ? { ...fileSection, uploadProgress: 60 } : fileSection
+          fileSection.id === fileSectionId
+            ? {
+                ...fileSection,
+                isUploading: true,
+                uploadProgress: 0,
+              }
+            : fileSection
         )
       );
-  
-      const imageUrl = await uploadImageToBackend(compressedFile, fileSectionId, (progress) => {
+    }
+
+    // مرحلة الحفظ المؤقت - 30%
+    if (fileSection?.multiple) {
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === fileSectionId
+            ? {
+                ...fileSection,
+                uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
+                  i === index ? 30 : progress
+                ) || (index !== undefined ? Array(index + 1).fill(0).map((_, i) => i === index ? 30 : 0) : [30]),
+              }
+            : fileSection
+        )
+      );
+    } else {
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === fileSectionId
+            ? { ...fileSection, uploadProgress: 30 }
+            : fileSection
+        )
+      );
+    }
+
+    // ضغط الصورة
+    const compressedFile = await compressImage(file);
+
+    // مرحلة الضغط - 60%
+    if (fileSection?.multiple) {
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === fileSectionId
+            ? {
+                ...fileSection,
+                uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
+                  i === index ? 60 : progress
+                ) || (index !== undefined ? Array(index + 1).fill(0).map((_, i) => i === index ? 60 : 0) : [60]),
+              }
+            : fileSection
+        )
+      );
+    } else {
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === fileSectionId
+            ? { ...fileSection, uploadProgress: 60 }
+            : fileSection
+        )
+      );
+    }
+
+    // رفع الملف
+    const imageUrl = await uploadImageToBackendWithRetry(compressedFile, uniqueId, (progress) => {
+      if (fileSection?.multiple) {
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === fileSectionId
+              ? {
+                  ...fileSection,
+                  uploadProgresses: fileSection.uploadProgresses?.map((p, i) =>
+                    i === index ? progress : p
+                  ) || (index !== undefined ? Array(index + 1).fill(0).map((_, i) => i === index ? progress : 0) : [progress]),
+                }
+              : fileSection
+          )
+        );
+      } else {
         setFiles((prevFiles) =>
           prevFiles.map((fileSection) =>
             fileSection.id === fileSectionId
@@ -3202,60 +3320,138 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
               : fileSection
           )
         );
-      });
-  
-      setFiles((prevFiles) =>
-        prevFiles.map((fileSection) => {
-          if (fileSection.id === fileSectionId) {
-            if (fileSection.multiple) {
-              const updatedPreviewUrls = [...(fileSection.previewUrls || [])];
-              if (index !== undefined && updatedPreviewUrls[index]) {
-                updatedPreviewUrls[index] = imageUrl;
-              } else {
-                updatedPreviewUrls.push(imageUrl);
+      }
+    });
+
+    // تحديث حالة النجاح
+    setFiles((prevFiles) =>
+      prevFiles.map((fileSection) => {
+        if (fileSection.id === fileSectionId) {
+          if (fileSection.multiple) {
+            // للملفات المتعددة
+            const updatedPreviewUrls = [...(fileSection.previewUrls || [])];
+            if (index !== undefined && index < updatedPreviewUrls.length) {
+              updatedPreviewUrls[index] = imageUrl;
+            } else if (index !== undefined) {
+              // إذا كان المؤشر أكبر من الطول الحالي، قم بتوسيع المصفوفة
+              while (updatedPreviewUrls.length <= index) {
+                updatedPreviewUrls.push('');
               }
-  
-              return {
-                ...fileSection,
-                imageUrls: [
-                  ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
-                  imageUrl,
-                ],
-                previewUrls: updatedPreviewUrls,
-                isUploading: false,
-                uploadProgress: 100,
-              };
-            } else {
-              return {
-                ...fileSection,
-                imageUrls: imageUrl,
-                previewUrls: [imageUrl],
-                isUploading: false,
-                uploadProgress: 100,
-              };
+              updatedPreviewUrls[index] = imageUrl;
             }
+
+            return {
+              ...fileSection,
+              imageUrls: Array.isArray(fileSection.imageUrls) 
+                ? [...fileSection.imageUrls, imageUrl] 
+                : [imageUrl],
+              previewUrls: updatedPreviewUrls,
+              failedUploads: (fileSection.failedUploads || []).filter(
+                (failed) => failed.index !== (index ?? 0)
+              ),
+              isUploadingImages: fileSection.isUploadingImages?.map((status, i) =>
+                i === index ? false : status
+              ) || [],
+              uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
+                i === index ? 100 : progress
+              ) || (index !== undefined ? Array(index + 1).fill(0).map((_, i) => i === index ? 100 : 0) : [100]),
+            };
+          } else {
+            // للملف المفرد
+            return {
+              ...fileSection,
+              imageUrls: imageUrl,
+              previewUrls: [imageUrl],
+              isUploading: false,
+              uploadProgress: 100,
+              failedUploads: [],
+              isUploadingImages: [],
+              uploadProgresses: [],
+            };
           }
-          return fileSection;
-        })
-      );
-  
-      clearFromLocalStorage(uniqueId);
-      setUploadMessage('تم إعادة رفع الصورة بنجاح.');
-      setShowToast(true);
-      toast.success('تم إعادة رفع الصورة بنجاح.');
-    } catch (error: any) {
-      setUploadMessage('فشل إعادة رفع الصورة: ' + error.message);
-      setShowToast(true);
-      toast.error('فشل إعادة رفع الصورة: ' + error.message);
+        }
+        return fileSection;
+      })
+    );
+
+    // حذف الملف من التخزين المؤقت
+    await clearFromLocalStorage(uniqueId);
+    
+    // تنظيف URL المؤقت
+    URL.revokeObjectURL(localPreviewUrl);
+    
+    // إعادة تعيين input file
+    const sectionIndex = files.findIndex((fileSection) => fileSection.id === fileSectionId);
+    if (fileInputRefs.current[sectionIndex]) {
+      fileInputRefs.current[sectionIndex]!.value = '';
+    }
+    
+    // رسائل النجاح
+    setUploadMessage('تم إعادة رفع الصورة بنجاح.');
+    setShowToast(true);
+    toast.success('تم إعادة رفع الصورة بنجاح.');
+    
+    console.log(`Successfully retried upload for: ${uniqueId}`);
+    
+  } catch (error: any) {
+    console.error(`Failed to retry upload for ${uniqueId}:`, error);
+    
+    // معالجة الأخطاء المختلفة
+    let errorMessage = 'فشل إعادة رفع الصورة: ';
+    if (error.message.includes('Rate limit')) {
+      errorMessage += 'تم تجاوز حد رفع الصور. يرجى المحاولة لاحقاً.';
+    } else if (error.message.includes('ضغط')) {
+      errorMessage += 'فشل في ضغط الصورة.';
+    } else if (error.message.includes('Network')) {
+      errorMessage += 'مشكلة في الاتصال بالإنترنت.';
+    } else {
+      errorMessage += error.message;
+    }
+    
+    setUploadMessage(errorMessage);
+    setShowToast(true);
+    toast.error(errorMessage);
+    
+    // إعادة تعيين حالة الرفع
+    if (fileSection?.multiple) {
       setFiles((prevFiles) =>
         prevFiles.map((fileSection) =>
           fileSection.id === fileSectionId
-            ? { ...fileSection, isUploading: false, uploadProgress: 0 }
+            ? {
+                ...fileSection,
+                isUploadingImages: fileSection.isUploadingImages?.map((status, i) =>
+                  i === index ? false : status
+                ) || [],
+                uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
+                  i === index ? 0 : progress
+                ) || [],
+              }
+            : fileSection
+        )
+      );
+    } else {
+      setFiles((prevFiles) =>
+        prevFiles.map((fileSection) =>
+          fileSection.id === fileSectionId
+            ? {
+                ...fileSection,
+                isUploading: false,
+                uploadProgress: 0,
+              }
             : fileSection
         )
       );
     }
-  };
+    
+    // تنظيف URL المؤقت في حالة الخطأ
+    if (localPreviewUrl) {
+      URL.revokeObjectURL(localPreviewUrl);
+    }
+  }
+};
+
+
+
 
   const setInputRef = (index: number): RefCallback<HTMLInputElement> => {
     return (element: HTMLInputElement | null) => {
@@ -3344,11 +3540,22 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
       return;
     }
   
-    const isAnyUploading = files.some((fileSection) => fileSection.isUploading) || signatureFile.isUploading;
+    const isAnyUploading = files.some(
+      (fileSection) =>
+        fileSection.isUploading || fileSection.isUploadingImages?.some((status) => status)
+    ) || signatureFile.isUploading;
     if (isAnyUploading) {
       setUploadMessage('يرجى الانتظار حتى يكتمل رفع جميع الصور أو التوقيع.');
       setShowToast(true);
       toast.error('يرجى الانتظار حتى يكتمل رفع جميع الصور أو التوقيع.');
+      return;
+    }
+  
+    const hasPendingUploads = files.some((fileSection) => fileSection.failedUploads?.length > 0);
+    if (hasPendingUploads) {
+      setUploadMessage('هناك صور فشل رفعها. يرجى إعادة المحاولة أو إزالتها قبل الإرسال.');
+      setShowToast(true);
+      toast.error('هناك صور فشل رفعها. يرجى إعادة المحاولة أو إزالتها قبل الإرسال.');
       return;
     }
   
@@ -3371,8 +3578,7 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
         return;
       }
   
-      const cleanSelectedBranch = (user.selectedBranch || '').split(',')[0].trim(); // تنظيف القيمة
-      console.log('Selected branch to upload:', cleanSelectedBranch); // سجل للتصحيح
+      const cleanSelectedBranch = (user.selectedBranch || '').split(',')[0].trim();
   
       const airtableData = {
         fields: {} as Record<string, string | string[]>,
@@ -3386,8 +3592,7 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
       airtableData.fields['العقد'] = contractNum.toString();
       airtableData.fields['نوع العملية'] = operationType;
       airtableData.fields['الموظف'] = user.Name;
-      airtableData.fields['الفرع'] = cleanSelectedBranch; // استخدام selectedBranch المنظف
-      // Only include signature if it exists
+      airtableData.fields['الفرع'] = cleanSelectedBranch;
       if (signatureFile.imageUrls) {
         airtableData.fields['signature_url'] = signatureFile.imageUrls as string;
       }
@@ -3398,85 +3603,90 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
         }
       });
   
-      // Rest of the submission logic remains unchanged
       const controller = new AbortController();
-const timeoutId = setTimeout(() => controller.abort(), 120000);
-
-try {
-  const response = await fetch('/api/cheakin', { // تغيير إلى /api/cheakin
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(airtableData),
-    signal: controller.signal,
-  });
-
-  clearTimeout(timeoutId);
-
-  const result = await response.json();
-  console.log('Response from /api/cheakin:', result); // سجل للتصحيح
-
-  if (result.success) {
-    setIsSuccess(true);
-    setShowToast(true);
-    setUploadMessage('تم بنجاح رفع التشييك');
-    toast.success('تم بنجاح رفع التشييك');
-    setFiles(
-      fieldTitles.map((title, index) => ({
-        id: `file-section-${sanitizeTitle(title, index)}`,
-        imageUrls: null,
-        title: title,
-        multiple: title === 'other_images',
-        previewUrls: [],
-        isUploading: false,
-        uploadProgress: 0,
-      }))
-    );
-    setSignatureFile({
-      id: `file-section-signature_url`,
-      imageUrls: null,
-      title: 'signature_url',
-      multiple: false,
-      previewUrls: [],
-      isUploading: false,
-      uploadProgress: 0,
-    });
-    setIsSignatureLocked(false);
-    setCar('');
-    setCarSearch('');
-    setPlate('');
-    setPlateSearch('');
-    setContract('');
-    setPreviousRecord(null);
-    setHasExitRecord(false);
-    setIsContractVerified(false);
-    setClientId('');
-    setClientName('');
-    setNewMeterReading('');
-    setMeterError('');
-    fileInputRefs.current.forEach((ref) => {
-      if (ref) ref.value = '';
-    });
-    sigCanvas.current?.clear();
-    setShouldRedirect(true);
-  } else {
-    setUploadMessage(result.message || result.error || 'حدث خطأ أثناء رفع البيانات');
-    toast.error(result.message || result.error || 'حدث خطأ أثناء رفع البيانات');
-    setShowToast(true);
-    return;
-  }
-} catch (fetchError: any) {
-  clearTimeout(timeoutId);
-  if (fetchError.name === 'AbortError') {
-    setUploadMessage('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
-    toast.error('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
-  } else {
-    setUploadMessage('فشلت عملية الرفع: يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.');
-    toast.error('فشلت عملية الرفع: يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.');
-  }
-  setShowToast(true);
-}
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
+  
+      try {
+        const response = await fetch('/api/cheakin', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(airtableData),
+          signal: controller.signal,
+        });
+  
+        clearTimeout(timeoutId);
+  
+        const result = await response.json();
+        console.log('Response from /api/cheakin:', result);
+  
+        if (result.success) {
+          setIsSuccess(true);
+          setShowToast(true);
+          setUploadMessage('تم بنجاح رفع التشييك');
+          toast.success('تم بنجاح رفع التشييك');
+          setFiles(
+            fieldTitles.map((title, index) => ({
+              id: `file-section-${sanitizeTitle(title, index)}`,
+              imageUrls: null,
+              title: title,
+              multiple: title === 'other_images',
+              previewUrls: [],
+              isUploading: false,
+              uploadProgress: 0,
+              failedUploads: [],
+              isUploadingImages: [],
+              uploadProgresses: [],
+            }))
+          );
+          setSignatureFile({
+            id: `file-section-signature_url`,
+            imageUrls: null,
+            title: 'signature_url',
+            multiple: false,
+            previewUrls: [],
+            isUploading: false,
+            uploadProgress: 0,
+            failedUploads: [],
+            isUploadingImages: [],
+            uploadProgresses: [],
+          });
+          setIsSignatureLocked(false);
+          setCar('');
+          setCarSearch('');
+          setPlate('');
+          setPlateSearch('');
+          setContract('');
+          setPreviousRecord(null);
+          setHasExitRecord(false);
+          setIsContractVerified(false);
+          setClientId('');
+          setClientName('');
+          setNewMeterReading('');
+          setMeterError('');
+          fileInputRefs.current.forEach((ref) => {
+            if (ref) ref.value = '';
+          });
+          sigCanvas.current?.clear();
+          setShouldRedirect(true);
+        } else {
+          setUploadMessage(result.message || result.error || 'حدث خطأ أثناء رفع البيانات');
+          toast.error(result.message || result.error || 'حدث خطأ أثناء رفع البيانات');
+          setShowToast(true);
+          return;
+        }
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          setUploadMessage('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
+          toast.error('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
+        } else {
+          setUploadMessage('فشلت عملية الرفع: يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.');
+          toast.error('فشلت عملية الرفع: يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.');
+        }
+        setShowToast(true);
+      }
     } catch (error: any) {
       setUploadMessage(error.message || 'حدث خطأ أثناء تجهيز البيانات للرفع.');
       setShowToast(true);
@@ -3754,16 +3964,27 @@ try {
                     >
                       <span className="text-lg font-bold">×</span>
                     </button>
-                    {!fileSection.imageUrls && (
-                      <button
-                        type="button"
-                        onClick={() => retryUpload(fileSection.id, previewIndex)}
-                        className="absolute top-0 left-0 bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md"
-                        aria-label="إعادة محاولة رفع الصورة"
-                      >
-                        <span className="text-lg font-bold">↻</span>
-                      </button>
-                    )}
+                    {fileSection.failedUploads?.map((failed) =>
+  failed.index === previewIndex ? (
+    <button
+      key={`retry-${previewIndex}`}
+      type="button"
+      onClick={() => retryUpload(fileSection.id, failed.index)}
+      className="absolute top-1 left-1 bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md z-10"
+      aria-label="إعادة محاولة رفع الصورة"
+    >
+      <FiRefreshCw className="text-sm" />
+    </button>
+  ) : null
+)}
+{fileSection.isUploadingImages?.[previewIndex] && (
+  <div className="w-full bg-gray-200 rounded-full h-2.5">
+    <div
+      className="bg-blue-600 h-2.5 rounded-full"
+      style={{ width: `${fileSection.uploadProgresses?.[previewIndex] || 0}%` }}
+    ></div>
+  </div>
+)}
                   </div>
                 ))}
                 <label
@@ -3774,12 +3995,12 @@ try {
                 </label>
               </div>
             ) : (
-              <div className="relative h-full w-full flex items-center justify-center">
+              <div className="relative h-full w-full">
                 <img
                   src={fileSection.previewUrls[0]}
                   alt={fileSection.title}
-                  className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
-                  onClick={() => openPreview([fileSection.previewUrls[0]], 0)}
+                  className="h-full w-full object-cover rounded-md cursor-pointer"
+                  onClick={() => openPreview(fileSection.previewUrls[0], fieldTitlesMap[fileSection.title])}
                 />
                 <button
                   type="button"
@@ -3789,29 +4010,29 @@ try {
                 >
                   <span className="text-lg font-bold">×</span>
                 </button>
-                {!fileSection.imageUrls && (
+                {fileSection.failedUploads?.some((failed) => failed.index === 0) && (
                   <button
                     type="button"
-                    onClick={() => retryUpload(fileSection.id)}
+                    onClick={() => retryUpload(fileSection.id, 0)}
                     className="absolute top-1 left-1 bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md z-10"
                     aria-label="إعادة محاولة رفع الصورة"
                   >
-                    <span className="text-lg font-bold">↻</span>
+                    <FiRefreshCw className="text-sm" />
                   </button>
                 )}
-              </div>
-            )}
-            {fileSection.isUploading && fileSection.uploadProgress < 100 && (
-              <div className="mt-2">
-                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                  <div
-                    className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-                    style={{ width: `${fileSection.uploadProgress}%` }}
-                  ></div>
-                </div>
-                <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
-                  {fileSection.uploadProgress}%
-                </span>
+                {fileSection.isUploading && (
+                  <div className="mt-2">
+                    <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                        style={{ width: `${fileSection.uploadProgress || 0}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-xs text-gray-600 dark:text-gray-300 mt-1 block text-center">
+                      {Math.round(fileSection.uploadProgress || 0)}%
+                    </span>
+                  </div>
+                )}
               </div>
             )}
             <input
@@ -3863,35 +4084,35 @@ try {
           (تشييك الخروج):
         </div>
         {previousRecord && previousRecord[fileSection.title] ? (
-  <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 bg-gray-50 dark:bg-gray-700">
-    <div className="relative h-full w-full flex items-center justify-center">
-      {Array.isArray(previousRecord[fileSection.title]) ? (
-        <div className="grid grid-cols-2 gap-2 w-full h-full">
-          {(previousRecord[fileSection.title] as string[]).map((url, imgIndex) => (
-            <img
-              key={imgIndex}
-              src={url}
-              alt={`صورة سابقة ${imgIndex + 1}`}
-              className="max-h-full max-w-full object-cover rounded-md cursor-pointer"
-              onClick={() => openPreview(url, fieldTitlesMap[fileSection.title])}
-            />
-          ))}
-        </div>
-      ) : (
-        <img
-          src={previousRecord[fileSection.title] as string}
-          alt="صورة سابقة"
-          className="max-h-full max-w-full object-contain rounded-md cursor-pointer"
-          onClick={() => openPreview(previousRecord[fileSection.title] as string, fieldTitlesMap[fileSection.title])}
-        />
-      )}
-    </div>
-  </div>
-) : (
-  <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
-    لا توجد صورة قديمة
-  </div>
-)}
+          <div className="relative border-2 border-gray-200 dark:border-gray-600 rounded-lg p-2 h-28 sm:h-32 bg-gray-50 dark:bg-gray-700">
+            <div className="relative h-full w-full flex items-center justify-center">
+              {Array.isArray(previousRecord[fileSection.title]) ? (
+                <div className="grid grid-cols-2 gap-2 w-full h-full">
+                  {(previousRecord[fileSection.title] as string[]).map((url, imgIndex) => (
+                    <img
+                      key={imgIndex}
+                      src={url}
+                      alt={`صورة سابقة ${imgIndex + 1}`}
+                      className="max-h-full max-w-full object-cover rounded-md cursor-pointer"
+                      onClick={() => openPreview(url, fieldTitlesMap[fileSection.title])}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <img
+                  src={previousRecord[fileSection.title] as string}
+                  alt="صورة سابقة"
+                  className="max-h-full max-w-full object-cover rounded-md cursor-pointer"
+                  onClick={() => openPreview(previousRecord[fileSection.title] as string, fieldTitlesMap[fileSection.title])}
+                />
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="h-28 sm:h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
+            لا توجد صورة قديمة
+          </div>
+        )}
       </div>
     </div>
   </div>
