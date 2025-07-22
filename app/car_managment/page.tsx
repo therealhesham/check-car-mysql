@@ -1748,7 +1748,7 @@ export default function CarsPage() {
             specification_policy: rowData['Specification-Policy No'] || undefined,
             Ref: rowData.Ref ? parseInt(rowData.Ref) : undefined,
             make_no: rowData['Make No'] || undefined,
-            manufacturer: rowData.Make ? String(rowData.Make).trim().toLowerCase() : undefined,
+            manufacturer: rowData.Make ? String(rowData.Make).trim() : undefined,
             model_no: rowData['Model No'] || undefined,
             model: rowData.Model ? String(rowData.Model).trim().toLowerCase() : undefined,
             type_no: rowData['Type No'] || undefined,

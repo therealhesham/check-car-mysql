@@ -1090,7 +1090,7 @@ import Download from 'yet-another-react-lightbox/plugins/download';
 import jsPDF from 'jspdf';
 import Datetime from 'react-datetime';
 import 'react-datetime/css/react-datetime.css'; // لتحميل الأنماط
-import { format, isSameHour } from 'date-fns';
+import { format, isSameHour, isSameDay } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { arSA } from 'date-fns/locale';
 import { formatInTimeZone } from 'date-fns-tz'; // استيراد formatInTimeZone
@@ -1333,33 +1333,58 @@ const [datetimeFilter, setDatetimeFilter] = useState<string>(''); // Keep this f
     fetchRecords();
   }, [page, contractSearch, plateFilter, carFilter, operationTypeFilter, branchFilter, datetimeFilter]);
 
-  const filteredRecords = records.filter((record) => {
-    const matchesPageSearch = pageSearch
-      ? String(record.contract_number ?? '').includes(pageSearch) ||
-        (record.car_model ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
-        (record.plate_number ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
-        (record.operation_type ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
-        (record.employee_name ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
-        (record.branch_name ?? '').toLowerCase().includes(pageSearch.toLowerCase())
-      : true;
+  // const filteredRecords = records.filter((record) => {
+  //   const matchesPageSearch = pageSearch
+  //     ? String(record.contract_number ?? '').includes(pageSearch) ||
+  //       (record.car_model ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
+  //       (record.plate_number ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
+  //       (record.operation_type ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
+  //       (record.employee_name ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
+  //       (record.branch_name ?? '').toLowerCase().includes(pageSearch.toLowerCase())
+  //     : true;
   
-    // تصفية بناءً على التاريخ
-    let matchesDate = true;
-    if (datetimeFilter) {
-      try {
-        const selectedDate = toZonedTime(new Date(datetimeFilter), 'Asia/Riyadh');
-        const recordDate = toZonedTime(new Date(record.created_at), 'Asia/Riyadh');
-        // مقارنة التاريخ والوقت (بساعة واحدة)
-        matchesDate = isSameHour(selectedDate, recordDate);
-      } catch (err) {
-        console.error('Error parsing date:', err);
-        matchesDate = false; // إذا حدث خطأ في تحليل التاريخ، استبعد السجل
-      }
-    }
+  //   // تصفية بناءً على التاريخ
+  //   let matchesDate = true;
+  //   if (datetimeFilter) {
+  //     try {
+  //       const selectedDate = toZonedTime(new Date(datetimeFilter), 'Asia/Riyadh');
+  //       const recordDate = toZonedTime(new Date(record.created_at), 'Asia/Riyadh');
+  //       // مقارنة التاريخ والوقت (بساعة واحدة)
+  //       matchesDate = isSameHour(selectedDate, recordDate);
+  //     } catch (err) {
+  //       console.error('Error parsing date:', err);
+  //       matchesDate = false; // إذا حدث خطأ في تحليل التاريخ، استبعد السجل
+  //     }
+  //   }
   
-    return matchesPageSearch && matchesDate;
-  });
+  //   return matchesPageSearch && matchesDate;
+  // });
+const filteredRecords = records.filter((record) => {
+  const matchesPageSearch = pageSearch
+    ? String(record.contract_number ?? '').includes(pageSearch) ||
+      (record.car_model ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
+      (record.plate_number ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
+      (record.operation_type ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
+      (record.employee_name ?? '').toLowerCase().includes(pageSearch.toLowerCase()) ||
+      (record.branch_name ?? '').toLowerCase().includes(pageSearch.toLowerCase())
+    : true;
 
+  // تصفية بناءً على التاريخ
+  let matchesDate = true;
+  if (datetimeFilter) {
+    try {
+      const selectedDate = toZonedTime(new Date(datetimeFilter), 'Asia/Riyadh');
+      const recordDate = toZonedTime(new Date(record.created_at), 'Asia/Riyadh');
+      // مقارنة التاريخ فقط (اليوم بأكمله)
+      matchesDate = isSameDay(selectedDate, recordDate);
+    } catch (err) {
+      console.error('Error parsing date:', err);
+      matchesDate = false; // إذا حدث خطأ في تحليل التاريخ، استبعد السجل
+    }
+  }
+
+  return matchesPageSearch && matchesDate;
+});
 
   const filteredOperationTypes = operationTypes.filter((type) =>
     type.toLowerCase().includes(operationTypeSearch.toLowerCase())
@@ -1897,7 +1922,7 @@ for (const image of allImages) {
             )}
              </div>
 
-             <div className="relative flex-1 min-w-[200px]">
+             {/* <div className="relative flex-1 min-w-[200px]">
   <Datetime
     value={datetimeFilter}
     onChange={(value) => {
@@ -1940,7 +1965,52 @@ for (const image of allImages) {
       ×
     </button>
   )}
+</div> */}
+<div className="relative flex-1 min-w-[200px]">
+  <Datetime
+    value={datetimeFilter}
+    onChange={(value) => {
+      if (typeof value === 'string') {
+        setDatetimeFilter(value);
+      } else if (value && typeof value === 'object' && 'format' in value) {
+        const formattedDate = formatInTimeZone(value.toDate(), 'Asia/Riyadh', 'yyyy-MM-dd ', {
+          locale: arSA,
+        });
+        setDatetimeFilter(formattedDate);
+      } else {
+        setDatetimeFilter(''); // في حالة إدخال غير صالح
+      }
+      setPage(1);
+    }}
+    inputProps={{
+      placeholder: 'فلتر حسب التاريخ ',
+      value: datetimeFilter,
+      onChange: (e) => {
+        const inputValue = (e.target as HTMLInputElement).value;
+        setDatetimeFilter(inputValue);
+        setPage(1);
+      },
+      className:
+        'w-full px-4 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100',
+    }}
+    timeFormat={false} // تعطيل حقل الساعة
+    dateFormat="YYYY-MM-DD"
+    locale="ar"
+  />
+  {datetimeFilter && (
+    <button
+      type="button"
+      onClick={() => {
+        setDatetimeFilter('');
+        setPage(1);
+      }}
+      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+    >
+      ×
+    </button>
+  )}
 </div>
+
             
         </div>
 
