@@ -1745,6 +1745,7 @@ export default function CarsPage() {
               return normalizedKeys['owner_name'] || undefined;
             })(),
             
+            
             specification_policy: rowData['Specification-Policy No'] || undefined,
             Ref: rowData.Ref ? parseInt(rowData.Ref) : undefined,
             make_no: rowData['Make No'] || undefined,
