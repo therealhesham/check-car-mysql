@@ -132,16 +132,30 @@ export default function UploadPage() {
   ];
 
   // دالة لفتح قاعدة البيانات
-async function openDatabase() {
-  return openDB('carImagesDB', 1, {
-    upgrade(db) {
-      // إنشاء متجر كائنات إذا لم يكن موجودًا
-      if (!db.objectStoreNames.contains('pendingUploads')) {
-        db.createObjectStore('pendingUploads', { keyPath: 'id' });
-      }
-    },
-  });
-}
+  async function openDatabase() {
+    try {
+      return await openDB('carImagesDB', 1, {
+        upgrade(db, oldVersion, newVersion, transaction) {
+          if (!db.objectStoreNames.contains('pendingUploads')) {
+            const store = db.createObjectStore('pendingUploads', { keyPath: 'id' });
+            console.log('تم إنشاء متجر pendingUploads');
+          }
+        },
+        blocked() {
+          console.warn('تم حظر فتح قاعدة البيانات');
+        },
+        blocking() {
+          console.warn('قاعدة البيانات تحظر إصدار أحدث');
+        },
+        terminated() {
+          console.warn('تم إنهاء اتصال قاعدة البيانات');
+        }
+      });
+    } catch (error) {
+      console.error('خطأ في فتح قاعدة البيانات:', error);
+      throw new Error('فشل في الاتصال بقاعدة البيانات المحلية');
+    }
+  }
 
 const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
   id: `file-section-${sanitizeTitle(title, index)}`,
@@ -199,12 +213,13 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
       const parsedUser = JSON.parse(storedUser);
       setUser(parsedUser);
       if (!parsedUser.selectedBranch) {
-        // إذا لم يكن هناك فرع مختار، أعد التوجيه إلى تسجيل الدخول
         router.push('/login');
       }
     } else {
       router.push('/login');
     }
+    // تنظيف البيانات القديمة عند تحميل الصفحة
+    cleanupOldData();
   }, [router]);
 
 
@@ -558,87 +573,179 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
   };
 
   const saveToLocalStorage = async (file: File, fileSectionId: string): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    // الحد الأقصى الجديد لحجم الصورة (20 ميغابايت)
-    const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
-
-    // التحقق من حجم الملف الأصلي
-    if (file.size > MAX_SIZE) {
-      reject(new Error(`حجم الصورة كبير جدًا للحفظ في IndexedDB (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`));
-      return;
-    }
-
-    // ضغط الصورة وتحويلها إلى WebP
-    const options = {
-      maxSizeMB: 20, // الحد الأقصى للحجم بعد الضغط
-      maxWidthOrHeight: 1920, // الحفاظ على الدقة القصوى
-      useWebWorker: true,
-      fileType: 'image/webp', // تحويل إلى WebP
-      initialQuality: 0.95, // جودة عالية
-    };
-
-    imageCompression(file, options)
-      .then(async (compressedFile) => {
-        // التحقق من حجم الملف المضغوط
-        if (compressedFile.size > MAX_SIZE) {
-          reject(new Error(`حجم الصورة المضغوطة كبير جدًا للحفظ في IndexedDB (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`));
-          return;
-        }
-
-        try {
-          // فتح قاعدة البيانات
-          const db = await openDatabase();
-          // حفظ الصورة كـ Blob في IndexedDB
-          await db.put('pendingUploads', {
-            id: `pending-upload-${fileSectionId}`,
-            file: compressedFile,
-          });
-          db.close();
-          resolve();
-        } catch (error) {
-          reject(new Error('فشل في حفظ الصورة مؤقتًا في IndexedDB: ' + error.message));
-        }
-      })
-      .catch((error) => {
-        reject(new Error('فشل في ضغط الصورة: ' + error.message));
+    let db = null;
+    try {
+      const MAX_SIZE = 20 * 1024 * 1024;
+      if (file.size > MAX_SIZE) {
+        throw new Error(`حجم الصورة كبير جدًا للحفظ في IndexedDB (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`);
+      }
+      const options = {
+        maxSizeMB: 20,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+        fileType: 'image/webp',
+        initialQuality: 0.95,
+      };
+      const compressedFile = await imageCompression(file, options);
+      if (compressedFile.size > MAX_SIZE) {
+        throw new Error(`حجم الصورة المضغوطة كبير جدًا للحفظ في IndexedDB (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`);
+      }
+      db = await openDatabase();
+      if (!db) {
+        throw new Error('فشل في الاتصال بقاعدة البيانات');
+      }
+      const transaction = db.transaction(['pendingUploads'], 'readwrite');
+      const store = transaction.objectStore('pendingUploads');
+      await store.put({
+        id: `pending-upload-${fileSectionId}`,
+        file: compressedFile,
+        timestamp: Date.now(),
+        originalSize: file.size,
+        compressedSize: compressedFile.size
       });
-  });
-};
-  
-const getFromLocalStorage = async (fileSectionId: string): Promise<File | null> => {
-  try {
-    const db = await openDatabase();
-    const data = await db.get('pendingUploads', `pending-upload-${fileSectionId}`);
-    db.close();
-    if (!data || !data.file) {
-      return null;
+      await transaction.complete;
+      console.log(`تم حفظ الصورة بنجاح: ${fileSectionId}`);
+    } catch (error) {
+      console.error('خطأ في حفظ الصورة:', error);
+      throw new Error('فشل في حفظ الصورة مؤقتًا في IndexedDB: ' + error.message);
+    } finally {
+      if (db) {
+        try {
+          db.close();
+        } catch (closeError) {
+          console.warn('تحذير: خطأ في إغلاق قاعدة البيانات:', closeError);
+        }
+      }
     }
-    // إنشاء ملف File من Blob
-    return new File([data.file], `${fileSectionId}.webp`, { type: 'image/webp' });
-  } catch (error) {
-    console.error('فشل في استرجاع الصورة من IndexedDB:', error);
-    return null;
-  }
-};
+  };
   
-const clearFromLocalStorage = async (fileSectionId: string): Promise<void> => {
-  try {
-    const db = await openDatabase();
-    await db.delete('pendingUploads', `pending-upload-${fileSectionId}`);
-    db.close();
-  } catch (error) {
-    console.error('فشل في حذف الصورة من IndexedDB:', error);
-  }
-};
+  const getFromLocalStorage = async (fileSectionId: string): Promise<File | null> => {
+    let db = null;
+    try {
+      db = await openDatabase();
+      if (!db) {
+        console.warn('لا يمكن فتح قاعدة البيانات');
+        return null;
+      }
+      const transaction = db.transaction(['pendingUploads'], 'readonly');
+      const store = transaction.objectStore('pendingUploads');
+      const data = await store.get(`pending-upload-${fileSectionId}`);
+      await transaction.complete;
+      if (!data || !data.file) {
+        console.log(`لا توجد بيانات محفوظة للمعرف: ${fileSectionId}`);
+        return null;
+      }
+      const restoredFile = new File([data.file], `${fileSectionId}.webp`, { 
+        type: 'image/webp',
+        lastModified: data.timestamp || Date.now()
+      });
+      console.log(`تم استرجاع الصورة بنجاح: ${fileSectionId}`);
+      return restoredFile;
+    } catch (error) {
+      console.error('فشل في استرجاع الصورة من IndexedDB:', error);
+      return null;
+    } finally {
+      if (db) {
+        try {
+          db.close();
+        } catch (closeError) {
+          console.warn('تحذير: خطأ في إغلاق قاعدة البيانات:', closeError);
+        }
+      }
+    }
+  };
+  
+  const clearFromLocalStorage = async (fileSectionId: string): Promise<void> => {
+    let db = null;
+    try {
+      db = await openDatabase();
+      if (!db) {
+        console.warn('لا يمكن فتح قاعدة البيانات للحذف');
+        return;
+      }
+      const transaction = db.transaction(['pendingUploads'], 'readwrite');
+      const store = transaction.objectStore('pendingUploads');
+      await store.delete(`pending-upload-${fileSectionId}`);
+      await transaction.complete;
+      console.log(`تم حذف الصورة بنجاح: ${fileSectionId}`);
+    } catch (error) {
+      console.error('فشل في حذف الصورة من IndexedDB:', error);
+    } finally {
+      if (db) {
+        try {
+          db.close();
+        } catch (closeError) {
+          console.warn('تحذير: خطأ في إغلاق قاعدة البيانات:', closeError);
+        }
+      }
+    }
+  };
 
+  const cleanupOldData = async (maxAge: number = 24 * 60 * 60 * 1000): Promise<void> => {
+    let db = null;
+    try {
+      db = await openDatabase();
+      if (!db) {
+        return;
+      }
+      const transaction = db.transaction(['pendingUploads'], 'readwrite');
+      const store = transaction.objectStore('pendingUploads');
+      const allData = await store.getAll();
+      const now = Date.now();
+      for (const item of allData) {
+        if (item.timestamp && (now - item.timestamp) > maxAge) {
+          await store.delete(item.id);
+          console.log(`تم حذف البيانات القديمة: ${item.id}`);
+        }
+      }
+      await transaction.complete;
+    } catch (error) {
+      console.error('خطأ في تنظيف البيانات القديمة:', error);
+    } finally {
+      if (db) {
+        try {
+          db.close();
+        } catch (closeError) {
+          console.warn('تحذير: خطأ في إغلاق قاعدة البيانات:', closeError);
+        }
+      }
+    }
+  };
+  
+  const checkDatabaseHealth = async (): Promise<boolean> => {
+    let db = null;
+    try {
+      db = await openDatabase();
+      if (!db) {
+        return false;
+      }
+      const transaction = db.transaction(['pendingUploads'], 'readonly');
+      const store = transaction.objectStore('pendingUploads');
+      await store.count();
+      await transaction.complete;
+      return true;
+    } catch (error) {
+      console.error('خطأ في فحص قاعدة البيانات:', error);
+      return false;
+    } finally {
+      if (db) {
+        try {
+          db.close();
+        } catch (closeError) {
+          console.warn('تحذير: خطأ في إغلاق قاعدة البيانات:', closeError);
+        }
+      }
+    }
+  };
 
   const handleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-  
     const file = e.target.files[0];
     const localPreviewUrl = URL.createObjectURL(file);
-  
-    // تحديث واجهة المستخدم لعرض المعاينة
+    const isDbHealthy = await checkDatabaseHealth();
+    if (!isDbHealthy) {
+      console.warn('قاعدة البيانات غير متاحة، سيتم المتابعة بدون حفظ مؤقت');
+    }
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) =>
         fileSection.id === id
@@ -653,42 +760,26 @@ const clearFromLocalStorage = async (fileSectionId: string): Promise<void> => {
           : fileSection
       )
     );
-  
-    // حفظ الصورة في localStorage كإجراء احتياطي
-    try {
-      await saveToLocalStorage(file, id);
-    } catch (error: any) {
-      setUploadMessage('فشل في حفظ الصورة مؤقتًا: ' + error.message);
-      setShowToast(true);
-      setFiles((prevFiles) =>
-        prevFiles.map((fileSection) =>
-          fileSection.id === id
-            ? { ...fileSection, previewUrls: [], isUploading: false, uploadProgress: 0, failedUploads: [] }
-            : fileSection
-        )
-      );
-      URL.revokeObjectURL(localPreviewUrl);
-      return;
+    if (isDbHealthy) {
+      try {
+        await saveToLocalStorage(file, id);
+      } catch (error: any) {
+        console.warn('فشل الحفظ المؤقت، سيتم المتابعة:', error.message);
+      }
     }
-  
-    // محاولة ضغط الصورة ورفعها
     try {
       setFiles((prevFiles) =>
         prevFiles.map((fileSection) =>
           fileSection.id === id ? { ...fileSection, uploadProgress: 30 } : fileSection
         )
       );
-  
       const compressedFile = await compressImage(file);
-  
       setFiles((prevFiles) =>
         prevFiles.map((fileSection) =>
           fileSection.id === id ? { ...fileSection, uploadProgress: 60 } : fileSection
         )
       );
-  
       const imageUrl = await uploadImageToBackendWithRetry(compressedFile);
-  
       setFiles((prevFiles) =>
         prevFiles.map((fileSection) =>
           fileSection.id === id
@@ -703,20 +794,25 @@ const clearFromLocalStorage = async (fileSectionId: string): Promise<void> => {
             : fileSection
         )
       );
-  
-      clearFromLocalStorage(id); // إزالة الصورة من localStorage بعد الرفع الناجح
+      if (isDbHealthy) {
+        await clearFromLocalStorage(id);
+      }
       URL.revokeObjectURL(localPreviewUrl);
-  
       const index = files.findIndex((fileSection) => fileSection.id === id);
       if (fileInputRefs.current[index]) {
         fileInputRefs.current[index]!.value = '';
       }
     } catch (error: any) {
-      let errorMessage = 'حدث خطأ أثناء رفع الصورة. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.';
+      let errorMessage = 'حدث خطأ أثناء رفع الصورة.';
+      if (isDbHealthy) {
+        errorMessage += ' الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.';
+      }
       if (error.message.includes('Rate limit')) {
-        errorMessage = 'تم تجاوز حد رفع الصور. الصورة محفوظة مؤقتًا.';
+        errorMessage = 'تم تجاوز حد رفع الصور.';
+        if (isDbHealthy) errorMessage += ' الصورة محفوظة مؤقتًا.';
       } else if (error.message.includes('ضغط')) {
-        errorMessage = 'فشل في ضغط الصورة. الصورة محفوظة مؤقتًا.';
+        errorMessage = 'فشل في ضغط الصورة.';
+        if (isDbHealthy) errorMessage += ' الصورة محفوظة مؤقتًا.';
       }
       setUploadMessage(errorMessage);
       setShowToast(true);
