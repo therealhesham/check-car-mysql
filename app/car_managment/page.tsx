@@ -1730,7 +1730,7 @@ export default function CarsPage() {
         const excelCars: Car[] = rows.map((row, index) => {
           const rowData = headers.reduce((acc, header, i) => {
             acc[header] = row[i];
-            return acc;
+            return acc; 
           }, {} as Record<string, any>);
   
           return {
