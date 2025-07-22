@@ -575,10 +575,12 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
   const saveToLocalStorage = async (file: File, fileSectionId: string): Promise<void> => {
     let db = null;
     try {
-      const MAX_SIZE = 20 * 1024 * 1024;
+      const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
+      const MAX_RECORDS = 100; // الحد الأقصى لعدد السجلات
       if (file.size > MAX_SIZE) {
         throw new Error(`حجم الصورة كبير جدًا للحفظ في IndexedDB (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`);
       }
+  
       const options = {
         maxSizeMB: 20,
         maxWidthOrHeight: 1920,
@@ -586,16 +588,30 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
         fileType: 'image/webp',
         initialQuality: 0.95,
       };
+  
       const compressedFile = await imageCompression(file, options);
       if (compressedFile.size > MAX_SIZE) {
         throw new Error(`حجم الصورة المضغوطة كبير جدًا للحفظ في IndexedDB (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`);
       }
+  
       db = await openDatabase();
       if (!db) {
         throw new Error('فشل في الاتصال بقاعدة البيانات');
       }
+  
+      // التحقق من عدد السجلات المخزنة
       const transaction = db.transaction(['pendingUploads'], 'readwrite');
       const store = transaction.objectStore('pendingUploads');
+      const count = await store.count();
+      if (count >= MAX_RECORDS) {
+        console.warn('تم الوصول إلى الحد الأقصى لعدد السجلات في IndexedDB');
+        await cleanupOldData(0); // حذف جميع السجلات القديمة فورًا إذا تجاوز الحد
+        const newCount = await store.count();
+        if (newCount >= MAX_RECORDS) {
+          throw new Error('لا يمكن حفظ المزيد من الصور بسبب الحد الأقصى للتخزين في IndexedDB');
+        }
+      }
+  
       await store.put({
         id: `pending-upload-${fileSectionId}`,
         file: compressedFile,
@@ -603,6 +619,7 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
         originalSize: file.size,
         compressedSize: compressedFile.size
       });
+  
       await transaction.complete;
       console.log(`تم حفظ الصورة بنجاح: ${fileSectionId}`);
     } catch (error) {
@@ -836,68 +853,97 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
       return;
     }
   
+    // تحديث حالة الرفع لإظهار شريط التقدم
     setFiles((prevFiles) =>
-      prevFiles.map((fileSection) =>
-        fileSection.id === fileSectionId
-          ? {
+      prevFiles.map((fileSection) => {
+        if (fileSection.id === fileSectionId) {
+          if (fileSection.multiple && index !== undefined) {
+            return {
               ...fileSection,
               isUploadingImages: fileSection.isUploadingImages?.map((status, i) =>
                 i === index ? true : status
-              ) || (index !== undefined ? [true] : []),
+              ) || [true],
               uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
                 i === index ? 0 : progress
-              ) || (index !== undefined ? [0] : []),
-            }
-          : fileSection
-      )
+              ) || [0],
+            };
+          } else {
+            return {
+              ...fileSection,
+              isUploading: true, // تفعيل حالة الرفع للصور المفردة
+              uploadProgress: 0, // إعادة تعيين شريط التقدم للصور المفردة
+            };
+          }
+        }
+        return fileSection;
+      })
     );
   
     let localPreviewUrl = '';
     try {
       localPreviewUrl = URL.createObjectURL(file);
   
+      // تحديث المعاينة وتقدم الرفع إلى 30%
       setFiles((prevFiles) =>
-        prevFiles.map((fileSection) =>
-          fileSection.id === fileSectionId
-            ? {
+        prevFiles.map((fileSection) => {
+          if (fileSection.id === fileSectionId) {
+            if (fileSection.multiple && index !== undefined) {
+              return {
                 ...fileSection,
-                previewUrls: index !== undefined ? [...fileSection.previewUrls] : [localPreviewUrl],
+                previewUrls: [...fileSection.previewUrls],
                 uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
                   i === index ? 30 : progress
-                ) || (index !== undefined ? [30] : []),
-              }
-            : fileSection
-        )
+                ) || [30],
+              };
+            } else {
+              return {
+                ...fileSection,
+                previewUrls: [localPreviewUrl],
+                uploadProgress: 30, // تحديث شريط التقدم للصور المفردة
+              };
+            }
+          }
+          return fileSection;
+        })
       );
   
       const compressedFile = await compressImage(file);
   
+      // تحديث تقدم الرفع إلى 60%
       setFiles((prevFiles) =>
-        prevFiles.map((fileSection) =>
-          fileSection.id === fileSectionId
-            ? {
+        prevFiles.map((fileSection) => {
+          if (fileSection.id === fileSectionId) {
+            if (fileSection.multiple && index !== undefined) {
+              return {
                 ...fileSection,
                 uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
                   i === index ? 60 : progress
-                ) || (index !== undefined ? [60] : []),
-              }
-            : fileSection
-        )
+                ) || [60],
+              };
+            } else {
+              return {
+                ...fileSection,
+                uploadProgress: 60, // تحديث شريط التقدم للصور المفردة
+              };
+            }
+          }
+          return fileSection;
+        })
       );
   
       const imageUrl = await uploadImageToBackendWithRetry(compressedFile);
   
+      // تحديث الحالة بعد الرفع الناجح
       setFiles((prevFiles) =>
         prevFiles.map((fileSection) => {
           if (fileSection.id === fileSectionId) {
-            if (fileSection.multiple) {
+            if (fileSection.multiple && index !== undefined) {
               const updatedPreviewUrls = [...(fileSection.previewUrls || [])];
-              if (index !== undefined && updatedPreviewUrls[index]) {
+              if (updatedPreviewUrls[index]) {
                 updatedPreviewUrls[index] = imageUrl;
               } else {
                 updatedPreviewUrls.push(imageUrl);
               }
-  
               return {
                 ...fileSection,
                 imageUrls: [
@@ -906,14 +952,14 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
                 ],
                 previewUrls: updatedPreviewUrls,
                 failedUploads: (fileSection.failedUploads || []).filter(
-                  (failed) => failed.index !== (index ?? 0)
+                  (failed) => failed.index !== index
                 ),
                 isUploadingImages: fileSection.isUploadingImages?.map((status, i) =>
                   i === index ? false : status
                 ) || [],
                 uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
                   i === index ? 100 : progress
-                ) || (index !== undefined ? [100] : []),
+                ) || [100],
               };
             } else {
               return {
@@ -946,9 +992,11 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
           fileSection.id === fileSectionId
             ? {
                 ...fileSection,
+                isUploading: fileSection.multiple ? fileSection.isUploading : false, // إعادة تعيين حالة الرفع للصور المفردة
                 isUploadingImages: fileSection.isUploadingImages?.map((status, i) =>
                   i === index ? false : status
                 ) || [],
+                uploadProgress: fileSection.multiple ? fileSection.uploadProgress : 0, // إعادة تعيين شريط التقدم للصور المفردة
                 uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
                   i === index ? 0 : progress
                 ) || [],

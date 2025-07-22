@@ -2233,20 +2233,30 @@ export default function CheckInPage() {
   };
 
   // دالة لفتح قاعدة البيانات
-async function openDatabase() {
-  try {
-    return await openDB('carImagesDB', 1, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains('pendingUploads')) {
-          db.createObjectStore('pendingUploads', { keyPath: 'id' });
+  async function openDatabase() {
+    try {
+      return await openDB('carImagesDB', 1, {
+        upgrade(db, oldVersion, newVersion, transaction) {
+          if (!db.objectStoreNames.contains('pendingUploads')) {
+            const store = db.createObjectStore('pendingUploads', { keyPath: 'id' });
+            console.log('تم إنشاء متجر pendingUploads');
+          }
+        },
+        blocked() {
+          console.warn('تم حظر فتح قاعدة البيانات');
+        },
+        blocking() {
+          console.warn('قاعدة البيانات تحظر إصدار أحدث');
+        },
+        terminated() {
+          console.warn('تم إنهاء اتصال قاعدة البيانات');
         }
-      },
-    });
-  } catch (error) {
-    console.error('Failed to open IndexedDB:', error);
-    throw new Error('فشل في فتح قاعدة البيانات.');
+      });
+    } catch (error) {
+      console.error('خطأ في فتح قاعدة البيانات:', error);
+      throw new Error('فشل في الاتصال بقاعدة البيانات المحلية');
+    }
   }
-}
 
   const [files, setFiles] = useState<FileSection[]>(initialFiles);
   const [signatureFile, setSignatureFile] = useState<FileSection>(signatureSection);
@@ -2298,6 +2308,10 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
       console.log('Loaded user from localStorage:', parsedUser); // سجل للتصحيح
       setUser(parsedUser);
     }
+  }, []);
+  
+  useEffect(() => {
+    cleanupOldData();
   }, []);
 
   useEffect(() => {
@@ -2786,6 +2800,11 @@ const handleSignatureSave = async () => {
   
     const file = e.target.files[0];
     const localPreviewUrl = URL.createObjectURL(file);
+    
+    const isDbHealthy = await checkDatabaseHealth();
+    if (!isDbHealthy) {
+      console.warn('قاعدة البيانات غير متاحة، سيتم المتابعة بدون حفظ مؤقت');
+    }
   
     setFiles((prevFiles) =>
       prevFiles.map((fileSection) =>
@@ -2802,10 +2821,15 @@ const handleSignatureSave = async () => {
       )
     );
   
-    try {
-      // تمرير المعرف الكامل مع prefix
-      await saveToLocalStorage(file, `pending-upload-${id}`);
+    if (isDbHealthy) {
+      try {
+        await saveToLocalStorage(file, `pending-upload-${id}`);
+      } catch (error: any) {
+        console.warn('فشل الحفظ المؤقت، سيتم المتابعة:', error.message);
+      }
+    }
   
+    try {
       setFiles((prevFiles) =>
         prevFiles.map((fileSection) =>
           fileSection.id === id ? { ...fileSection, uploadProgress: 30 } : fileSection
@@ -2820,17 +2844,13 @@ const handleSignatureSave = async () => {
         )
       );
   
-      const imageUrl = await uploadImageToBackendWithRetry(
-        compressedFile,
-        id,
-        (progress) => {
-          setFiles((prevFiles) =>
-            prevFiles.map((fileSection) =>
-              fileSection.id === id ? { ...fileSection, uploadProgress: progress } : fileSection
-            )
-          );
-        }
-      );
+      const imageUrl = await uploadImageToBackendWithRetry(compressedFile, id, (progress) => {
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === id ? { ...fileSection, uploadProgress: progress } : fileSection
+          )
+        );
+      });
   
       setFiles((prevFiles) =>
         prevFiles.map((fileSection) =>
@@ -2847,7 +2867,9 @@ const handleSignatureSave = async () => {
         )
       );
   
-      await clearFromLocalStorage(`pending-upload-${id}`);
+      if (isDbHealthy) {
+        await clearFromLocalStorage(`pending-upload-${id}`);
+      }
       URL.revokeObjectURL(localPreviewUrl);
   
       const index = files.findIndex((fileSection) => fileSection.id === id);
@@ -2855,12 +2877,19 @@ const handleSignatureSave = async () => {
         fileInputRefs.current[index]!.value = '';
       }
     } catch (error: any) {
-      let errorMessage = 'حدث خطأ أثناء رفع الصورة. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.';
-      if (error.message.includes('Rate limit')) {
-        errorMessage = 'تم تجاوز حد رفع الصور. الصورة محفوظة مؤقتًا.';
-      } else if (error.message.includes('ضغط')) {
-        errorMessage = 'فشل في ضغط الصورة. الصورة محفوظة مؤقتًا.';
+      let errorMessage = 'حدث خطأ أثناء رفع الصورة.';
+      if (isDbHealthy) {
+        errorMessage += ' الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.';
       }
+      
+      if (error.message.includes('Rate limit')) {
+        errorMessage = 'تم تجاوز حد رفع الصور.';
+        if (isDbHealthy) errorMessage += ' الصورة محفوظة مؤقتًا.';
+      } else if (error.message.includes('ضغط')) {
+        errorMessage = 'فشل في ضغط الصورة.';
+        if (isDbHealthy) errorMessage += ' الصورة محفوظة مؤقتًا.';
+      }
+      
       setUploadMessage(errorMessage);
       setShowToast(true);
       toast.error(errorMessage);
@@ -2874,147 +2903,160 @@ const handleSignatureSave = async () => {
     }
   };
 
-const handleMultipleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
-  if (!e.target.files || e.target.files.length === 0) return;
-
-  const selectedFiles = Array.from(e.target.files);
-  const localPreviewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
-  const startIndex = files.find((fileSection) => fileSection.id === id)?.previewUrls.length || 0;
-
-  setFiles((prevFiles) =>
-    prevFiles.map((fileSection) =>
-      fileSection.id === id
-        ? {
-            ...fileSection,
-            previewUrls: [...fileSection.previewUrls, ...localPreviewUrls],
-            failedUploads: [
-              ...(fileSection.failedUploads || []),
-              ...localPreviewUrls.map((url, idx) => ({
-                index: startIndex + idx,
-                previewUrl: url,
-                uniqueId: `pending-upload-${id}-${startIndex + idx}`, // إضافة uniqueId
-              })),
-            ],
-            isUploadingImages: [...(fileSection.isUploadingImages || []), ...selectedFiles.map(() => true)],
-            uploadProgresses: [...(fileSection.uploadProgresses || []), ...selectedFiles.map(() => 0)],
-          }
-        : fileSection
-    )
-  );
-
-  const uploadPromises = selectedFiles.map(async (file, index) => {
-    const uniqueId = `pending-upload-${id}-${startIndex + index}`;
-    console.log(`Saving file with ID: ${uniqueId}`); // تصحيح
-
-    try {
-      await saveToLocalStorage(file, uniqueId);
-
-      setFiles((prevFiles) =>
-        prevFiles.map((fileSection) =>
-          fileSection.id === id
-            ? {
-                ...fileSection,
-                uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
-                  i === startIndex + index ? 30 : progress
-                ),
-              }
-            : fileSection
-        )
-      );
-
-      const compressedFile = await compressImage(file);
-
-      setFiles((prevFiles) =>
-        prevFiles.map((fileSection) =>
-          fileSection.id === id
-            ? {
-                ...fileSection,
-                uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
-                  i === startIndex + index ? 60 : progress
-                ),
-              }
-            : fileSection
-        )
-      );
-
-      const imageUrl = await uploadImageToBackendWithRetry(compressedFile, uniqueId, (progress) => {
+  const handleMultipleFileChange = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+  
+    const selectedFiles = Array.from(e.target.files);
+    const localPreviewUrls = selectedFiles.map((file) => URL.createObjectURL(file));
+    const startIndex = files.find((fileSection) => fileSection.id === id)?.previewUrls.length || 0;
+  
+    const isDbHealthy = await checkDatabaseHealth();
+    if (!isDbHealthy) {
+      console.warn('قاعدة البيانات غير متاحة، سيتم المتابعة بدون حفظ مؤقت');
+    }
+  
+    setFiles((prevFiles) =>
+      prevFiles.map((fileSection) =>
+        fileSection.id === id
+          ? {
+              ...fileSection,
+              previewUrls: [...fileSection.previewUrls, ...localPreviewUrls],
+              failedUploads: [
+                ...(fileSection.failedUploads || []),
+                ...localPreviewUrls.map((url, idx) => ({
+                  index: startIndex + idx,
+                  previewUrl: url,
+                  uniqueId: `pending-upload-${id}-${startIndex + idx}`,
+                })),
+              ],
+              isUploadingImages: [...(fileSection.isUploadingImages || []), ...selectedFiles.map(() => true)],
+              uploadProgresses: [...(fileSection.uploadProgresses || []), ...selectedFiles.map(() => 0)],
+            }
+          : fileSection
+      )
+    );
+  
+    const uploadPromises = selectedFiles.map(async (file, index) => {
+      const uniqueId = `pending-upload-${id}-${startIndex + index}`;
+      console.log(`Saving file with ID: ${uniqueId}`);
+  
+      if (isDbHealthy) {
+        try {
+          await saveToLocalStorage(file, uniqueId);
+        } catch (error: any) {
+          console.warn(`فشل حفظ الصورة ${index + 1} مؤقتًا: ${error.message}`);
+        }
+      }
+  
+      try {
         setFiles((prevFiles) =>
           prevFiles.map((fileSection) =>
             fileSection.id === id
               ? {
                   ...fileSection,
-                  uploadProgresses: fileSection.uploadProgresses?.map((p, i) =>
-                    i === startIndex + index ? progress : p
+                  uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
+                    i === startIndex + index ? 30 : progress
                   ),
                 }
               : fileSection
           )
         );
-      });
-
-      setFiles((prevFiles) =>
-        prevFiles.map((fileSection) =>
-          fileSection.id === id
-            ? {
-                ...fileSection,
-                imageUrls: [
-                  ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
-                  imageUrl,
-                ],
-                failedUploads: fileSection.failedUploads?.filter(
-                  (failed) => failed.index !== startIndex + index
-                ),
-                isUploadingImages: fileSection.isUploadingImages?.map((status, i) =>
-                  i === startIndex + index ? false : status
-                ),
-                uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
-                  i === startIndex + index ? 100 : progress
-                ),
-              }
-            : fileSection
-        )
-      );
-
-      await clearFromLocalStorage(uniqueId);
-      return { index: startIndex + index, url: imageUrl };
-    } catch (error: any) {
-      setUploadMessage(
-        `فشل رفع الصورة ${index + 1}. الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.`
-      );
-      setShowToast(true);
-      toast.error(`فشل رفع الصورة ${index + 1}: ${error.message}`);
-      setFiles((prevFiles) =>
-        prevFiles.map((fileSection) =>
-          fileSection.id === id
-            ? {
-                ...fileSection,
-                isUploadingImages: fileSection.isUploadingImages?.map((status, i) =>
-                  i === startIndex + index ? false : status
-                ),
-                uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
-                  i === startIndex + index ? 0 : progress
-                ),
-              }
-            : fileSection
-        )
-      );
-      return { index: startIndex + index, url: null };
+  
+        const compressedFile = await compressImage(file);
+  
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === id
+              ? {
+                  ...fileSection,
+                  uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
+                    i === startIndex + index ? 60 : progress
+                  ),
+                }
+              : fileSection
+          )
+        );
+  
+        const imageUrl = await uploadImageToBackendWithRetry(compressedFile, uniqueId, (progress) => {
+          setFiles((prevFiles) =>
+            prevFiles.map((fileSection) =>
+              fileSection.id === id
+                ? {
+                    ...fileSection,
+                    uploadProgresses: fileSection.uploadProgresses?.map((p, i) =>
+                      i === startIndex + index ? progress : p
+                    ),
+                  }
+                : fileSection
+            )
+          );
+        });
+  
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === id
+              ? {
+                  ...fileSection,
+                  imageUrls: [
+                    ...(Array.isArray(fileSection.imageUrls) ? fileSection.imageUrls : []),
+                    imageUrl,
+                  ],
+                  failedUploads: fileSection.failedUploads?.filter(
+                    (failed) => failed.index !== startIndex + index
+                  ),
+                  isUploadingImages: fileSection.isUploadingImages?.map((status, i) =>
+                    i === startIndex + index ? false : status
+                  ),
+                  uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
+                    i === startIndex + index ? 100 : progress
+                  ),
+                }
+              : fileSection
+          )
+        );
+  
+        if (isDbHealthy) {
+          await clearFromLocalStorage(uniqueId);
+        }
+        return { index: startIndex + index, url: imageUrl };
+      } catch (error: any) {
+        setUploadMessage(
+          `فشل رفع الصورة ${index + 1}. ${isDbHealthy ? 'الصورة محفوظة مؤقتًا ويمكن إعادة المحاولة لاحقًا.' : ''}`
+        );
+        setShowToast(true);
+        toast.error(`فشل رفع الصورة ${index + 1}: ${error.message}`);
+        setFiles((prevFiles) =>
+          prevFiles.map((fileSection) =>
+            fileSection.id === id
+              ? {
+                  ...fileSection,
+                  isUploadingImages: fileSection.isUploadingImages?.map((status, i) =>
+                    i === startIndex + index ? false : status
+                  ),
+                  uploadProgresses: fileSection.uploadProgresses?.map((progress, i) =>
+                    i === startIndex + index ? 0 : progress
+                  ),
+                }
+              : fileSection
+          )
+        );
+        return { index: startIndex + index, url: null };
+      }
+    });
+  
+    const results = await Promise.all(uploadPromises);
+  
+    results.forEach((result, index) => {
+      if (result.url) {
+        URL.revokeObjectURL(localPreviewUrls[index]);
+      }
+    });
+  
+    const index = files.findIndex((fileSection) => fileSection.id === id);
+    if (fileInputRefs.current[index]) {
+      fileInputRefs.current[index]!.value = '';
     }
-  });
-
-  const results = await Promise.all(uploadPromises);
-
-  results.forEach((result, index) => {
-    if (result.url) {
-      URL.revokeObjectURL(localPreviewUrls[index]);
-    }
-  });
-
-  const index = files.findIndex((fileSection) => fileSection.id === id);
-  if (fileInputRefs.current[index]) {
-    fileInputRefs.current[index]!.value = '';
-  }
-};
+  };
 
   const deleteFile = (fileKey: string): Promise<void> => {
     return new Promise((resolve, reject) => {
@@ -3104,11 +3146,12 @@ const handleMultipleFileChange = async (id: string, e: React.ChangeEvent<HTMLInp
 
   // دالة لحفظ الصورة في IndexedDB
   const saveToLocalStorage = async (file: File, fileSectionId: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
+    let db = null;
+    
+    try {
       const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
       if (file.size > MAX_SIZE) {
-        reject(new Error(`حجم الصورة كبير جدًا (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`));
-        return;
+        throw new Error(`حجم الصورة كبير جدًا للحفظ في IndexedDB (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`);
       }
   
       const options = {
@@ -3119,67 +3162,193 @@ const handleMultipleFileChange = async (id: string, e: React.ChangeEvent<HTMLInp
         initialQuality: 0.95,
       };
   
-      imageCompression(file, options)
-        .then(async (compressedFile) => {
-          if (compressedFile.size > MAX_SIZE) {
-            reject(new Error(`حجم الصورة المضغوطة كبير جدًا (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`));
-            return;
-          }
+      const compressedFile = await imageCompression(file, options);
+      
+      if (compressedFile.size > MAX_SIZE) {
+        throw new Error(`حجم الصورة المضغوطة كبير جدًا للحفظ في IndexedDB (الحد الأقصى ${MAX_SIZE / (1024 * 1024)} ميغابايت).`);
+      }
   
-          try {
-            const db = await openDatabase();
-            // استخدام المعرف المرسل مباشرة بدلاً من إضافة 'pending-upload-'
-            await db.put('pendingUploads', {
-              id: fileSectionId, // هنا التغيير الرئيسي
-              file: compressedFile,
-            });
-            db.close();
-            console.log(`Image saved to IndexedDB: ${fileSectionId}`);
-            resolve();
-          } catch (error) {
-            console.error(`Failed to save image to IndexedDB for ${fileSectionId}:`, error);
-            reject(new Error('فشل في حفظ الصورة مؤقتًا: ' + error.message));
-          }
-        })
-        .catch((error) => {
-          console.error(`Failed to compress image for ${fileSectionId}:`, error);
-          reject(new Error('فشل في ضغط الصورة: ' + error.message));
-        });
-    });
+      db = await openDatabase();
+      if (!db) {
+        throw new Error('فشل في الاتصال بقاعدة البيانات');
+      }
+  
+      const transaction = db.transaction(['pendingUploads'], 'readwrite');
+      const store = transaction.objectStore('pendingUploads');
+      
+      await store.put({
+        id: fileSectionId, // استخدام المعرف كما هو
+        file: compressedFile,
+        timestamp: Date.now(),
+        originalSize: file.size,
+        compressedSize: compressedFile.size
+      });
+  
+      await transaction.complete;
+      console.log(`تم حفظ الصورة بنجاح: ${fileSectionId}`);
+  
+    } catch (error) {
+      console.error('خطأ في حفظ الصورة:', error);
+      throw new Error('فشل في حفظ الصورة مؤقتًا في IndexedDB: ' + error.message);
+    } finally {
+      if (db) {
+        try {
+          db.close();
+        } catch (closeError) {
+          console.warn('تحذير: خطأ في إغلاق قاعدة البيانات:', closeError);
+        }
+      }
+    }
   };
   
   // دالة لاسترجاع الصورة من IndexedDB
   const getFromLocalStorage = async (fileSectionId: string): Promise<File | null> => {
+    let db = null;
+    
     try {
-      const db = await openDatabase();
-      // البحث بالمعرف المرسل مباشرة
-      const data = await db.get('pendingUploads', fileSectionId);
-      db.close();
-      if (!data || !data.file) {
-        console.warn(`No image found in IndexedDB for ${fileSectionId}`);
+      db = await openDatabase();
+      
+      if (!db) {
+        console.warn('لا يمكن فتح قاعدة البيانات');
         return null;
       }
-      return new File([data.file], `${fileSectionId}.webp`, { type: 'image/webp' });
+  
+      const transaction = db.transaction(['pendingUploads'], 'readonly');
+      const store = transaction.objectStore('pendingUploads');
+      
+      const data = await store.get(fileSectionId);
+      
+      await transaction.complete;
+  
+      if (!data || !data.file) {
+        console.log(`لا توجد بيانات محفوظة للمعرف: ${fileSectionId}`);
+        return null;
+      }
+      
+      const restoredFile = new File([data.file], `${fileSectionId}.webp`, { 
+        type: 'image/webp',
+        lastModified: data.timestamp || Date.now()
+      });
+      
+      console.log(`تم استرجاع الصورة بنجاح: ${fileSectionId}`);
+      return restoredFile;
+  
     } catch (error) {
-      console.error(`Failed to retrieve image from IndexedDB for ${fileSectionId}:`, error);
+      console.error('فشل في استرجاع الصورة من IndexedDB:', error);
       return null;
+    } finally {
+      if (db) {
+        try {
+          db.close();
+        } catch (closeError) {
+          console.warn('تحذير: خطأ في إغلاق قاعدة البيانات:', closeError);
+        }
+      }
     }
   };
   
   
   // دالة لحذف الصورة من IndexedDB
-// دالة لحذف الصورة من IndexedDB
-const clearFromLocalStorage = async (fileSectionId: string): Promise<void> => {
-  try {
-    const db = await openDatabase();
-    // حذف بالمعرف المرسل مباشرة
-    await db.delete('pendingUploads', fileSectionId);
-    db.close();
-    console.log(`Image deleted from IndexedDB: ${fileSectionId}`);
-  } catch (error) {
-    console.error(`Failed to delete image from IndexedDB for ${fileSectionId}:`, error);
-  }
-};
+  const clearFromLocalStorage = async (fileSectionId: string): Promise<void> => {
+    let db = null;
+    
+    try {
+      db = await openDatabase();
+      
+      if (!db) {
+        console.warn('لا يمكن فتح قاعدة البيانات للحذف');
+        return;
+      }
+  
+      const transaction = db.transaction(['pendingUploads'], 'readwrite');
+      const store = transaction.objectStore('pendingUploads');
+      
+      await store.delete(fileSectionId);
+      
+      await transaction.complete;
+      
+      console.log(`تم حذف الصورة بنجاح: ${fileSectionId}`);
+  
+    } catch (error) {
+      console.error('فشل في حذف الصورة من IndexedDB:', error);
+    } finally {
+      if (db) {
+        try {
+          db.close();
+        } catch (closeError) {
+          console.warn('تحذير: خطأ في إغلاق قاعدة البيانات:', closeError);
+        }
+      }
+    }
+  };
+
+  const cleanupOldData = async (maxAge: number = 24 * 60 * 60 * 1000): Promise<void> => {
+    let db = null;
+    
+    try {
+      db = await openDatabase();
+      
+      if (!db) {
+        return;
+      }
+  
+      const transaction = db.transaction(['pendingUploads'], 'readwrite');
+      const store = transaction.objectStore('pendingUploads');
+      
+      const allData = await store.getAll();
+      const now = Date.now();
+      
+      for (const item of allData) {
+        if (item.timestamp && (now - item.timestamp) > maxAge) {
+          await store.delete(item.id);
+          console.log(`تم حذف البيانات القديمة: ${item.id}`);
+        }
+      }
+      
+      await transaction.complete;
+      
+    } catch (error) {
+      console.error('خطأ في تنظيف البيانات القديمة:', error);
+    } finally {
+      if (db) {
+        try {
+          db.close();
+        } catch (closeError) {
+          console.warn('تحذير: خطأ في إغلاق قاعدة البيانات:', closeError);
+        }
+      }
+    }
+  };
+  const checkDatabaseHealth = async (): Promise<boolean> => {
+    let db = null;
+    
+    try {
+      db = await openDatabase();
+      
+      if (!db) {
+        return false;
+      }
+      
+      const transaction = db.transaction(['pendingUploads'], 'readonly');
+      const store = transaction.objectStore('pendingUploads');
+      await store.count();
+      await transaction.complete;
+      
+      return true;
+      
+    } catch (error) {
+      console.error('خطأ في فحص قاعدة البيانات:', error);
+      return false;
+    } finally {
+      if (db) {
+        try {
+          db.close();
+        } catch (closeError) {
+          console.warn('تحذير: خطأ في إغلاق قاعدة البيانات:', closeError);
+        }
+      }
+    }
+  };
   
 const retryUpload = async (fileSectionId: string, index?: number): Promise<void> => {
   let uniqueId: string;
