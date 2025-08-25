@@ -3095,6 +3095,13 @@ const handleSignatureSave = async () => {
             } catch (error) {
               console.error('Error extracting file key:', error);
             }
+          
+            // ✅ إلغاء الرابط المؤقت بعد استخراج المفتاح
+            try {
+              URL.revokeObjectURL(deletedPreviewUrl);
+            } catch (revokeError) {
+              console.warn('Failed to revoke object URL:', revokeError);
+            }
           }
   
           if (Array.isArray(updatedImageUrls)) {

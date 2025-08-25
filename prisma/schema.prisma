@@ -31,65 +31,116 @@ model contracts {
   trunk_contents                  String?   @db.VarChar(512)
   fire_extinguisher               String?   @db.VarChar(512)
   front_right_seat                String?   @db.VarChar(512)
-  signature_url                   String?   @db.VarChar(512)
   front_left_seat                 String?   @db.VarChar(512)
   rear_seat_with_front_seat_backs String?   @db.VarChar(512)
   other_images                    String?   @db.VarChar(512)
-  client_id                       String?   @db.VarChar(45)
+  client_id                       String    @db.VarChar(45)
   meter_reading                   String?   @db.VarChar(255)
-  created_at                      DateTime? @default(now())
-  updated_at                      DateTime? @updatedAt
-  client_name                     String?   @db.VarChar(255)
+  created_at                      DateTime? @default(now()) @db.DateTime(0)
+  updated_at                      DateTime? @updatedAt @db.DateTime(0)
+  client_name                     String    @db.VarChar(255)
+  signature_url                   String?   @db.VarChar(512)
 }
 
 model users {
-  Name String
-  id   Int    @id @default(autoincrement())
+  Name          String
+  id            Int             @id @default(autoincrement())
+  EmID          Int             @unique
+  password      String
+  role          String
+  branch        String
+  created_at    DateTime?       @default(now()) @db.DateTime(0)
+  updated_at    DateTime?       @default(now()) @db.DateTime(0)
+  last_login    DateTime?       @db.DateTime(0)
+  is_active     Boolean?        @default(true)
+  tokens        tokens[]
+  user_sessions user_sessions[]
 
-  EmID     Int
-  password String
-  role     String
-  branch   String
+  @@index([branch], map: "idx_users_branch")
+  @@index([is_active], map: "idx_users_is_active")
+  @@index([role], map: "idx_users_role")
+  @@map("users")
 }
 
 model plateslist {
-  id         Int    @id @default(autoincrement())
-  plate_name String @db.VarChar(255)
+  id         Int     @id @default(autoincrement())
+  plate_name String? @db.VarChar(512)
   cars       cars[]
 }
 
 model cars {
-  id       Int        @id @default(autoincrement())
-  car_name String     @db.VarChar(255)
-  plate_id Int
-  plate    plateslist @relation(fields: [plate_id], references: [id])
+  id       Int         @id @default(autoincrement())
+  car_name String      @db.VarChar(512)
+  plate_id Int?
+  plate    plateslist? @relation(fields: [plate_id], references: [id], onDelete: Restrict, map: "fk_cars_plateslist")
+
+  @@index([plate_id], map: "fk_cars_plateslist")
 }
 
 model branches {
   id          Int    @id @default(autoincrement())
-  branch_name String @db.VarChar(255)
+  branch_name String @db.VarChar(512)
 }
 
 model CarsDetails {
-  id                   Int     @id @default(autoincrement())
-  owner_name           String?
-  specification_policy String?
-  Ref                  Int?    @unique
+  owner_name           String? @db.VarChar(512)
+  specification_policy String? @db.VarChar(512)
+  Ref                  Int?
   make_no              Int?
-  manufacturer         String?
+  manufacturer         String? @db.VarChar(512)
   model_no             Int?
-  model                String?
-  type_no              String?
-  Type                 String?
+  model                String? @db.VarChar(512)
+  type_no              String? @db.VarChar(512)
+  Type                 String? @db.VarChar(512)
   seats                Int?
   manufacturing_year   Int?
-  plate                String? @unique
-  sequance             Int?    @unique
-  chassis              String? @unique
+  plate                String? @db.VarChar(512)
+  sequance             Int?
+  chassis              String? @db.VarChar(512)
   excess               Int?
-  color                String?
-  sum_insured          Float?
-  premium              Float?
+  color                String? @db.VarChar(512)
+  sum_insured          Int?
+  premium              Int?
+  id                   Int     @id @default(autoincrement())
 
+  @@index([plate], map: "idx_plate")
   @@map("cars_details")
+}
+
+model tokens {
+  id         Int         @id @default(autoincrement())
+  user_id    Int
+  token      String      @unique @db.VarChar(255)
+  type       tokens_type
+  expires_at DateTime    @db.DateTime(0)
+  created_at DateTime?   @default(now()) @db.DateTime(0)
+  is_active  Boolean?    @default(true)
+  users      users       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, is_active, expires_at], map: "idx_tokens_active_user")
+  @@index([expires_at])
+  @@index([token])
+  @@index([user_id])
+  @@map("tokens")
+}
+
+model user_sessions {
+  id            Int       @id @default(autoincrement())
+  user_id       Int
+  refresh_token String    @db.VarChar(255)
+  device_info   String?   @db.Text
+  ip_address    String?   @db.VarChar(45)
+  last_activity DateTime? @default(now()) @db.DateTime(0)
+  created_at    DateTime? @default(now()) @db.DateTime(0)
+  users         users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, last_activity], map: "idx_sessions_user_activity")
+  @@index([refresh_token])
+  @@index([user_id])
+  @@map("user_sessions")
+}
+
+enum tokens_type {
+  access
+  refresh
 }

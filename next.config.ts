@@ -32,6 +32,9 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true, // This bypasses ESLint errors during build
   },
+  env: {
+    JWT_SECRET: process.env.JWT_SECRET, // ⬅️ هذا المطلوب للميدل وير
+  },
 };
 
 export default nextConfig;

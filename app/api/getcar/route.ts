@@ -1,19 +1,42 @@
 // import type { NextRequest } from 'next/server';
 // import { NextResponse } from 'next/server';
+// import Airtable from 'airtable';
 // import { PrismaClient } from '@prisma/client';
-
 // const prisma = new PrismaClient();
 
-// // دالة للتحقق من وجود اللوحة مسبقًا
-// async function checkPlateExists(plate: string, excludeId?: number) {
+// // إعدادات Airtable
+// const airtableApiKey = 'patH4avQdGYSC0oz4.b2bc135c01c9c5c44cfa2d8595850d75189ea9b050661b9a1efb4e243bd44156';
+// const airtableBaseId = 'app7Hc09WF8xul5T9';
+// const airtableTableName = 'license';
+// const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
+
+// // دالة للتحقق من الوصول إلى الجدول
+// async function verifyTableAccess(): Promise<boolean> {
 //   try {
-//     const records = await prisma.plateslist.findMany({
-//       where: {
-//         plate_name: plate,
-//         id: excludeId ? { not: excludeId } : undefined,
-//       },
+//     console.log(`Attempting to verify access to table: ${airtableTableName}`);
+//     const records = await base(airtableTableName)
+//       .select({
+//         maxRecords: 1,
+//       })
+//       .firstPage();
+//     console.log('Airtable table access verified successfully:', records.length, 'records retrieved');
+//     return true;
+//   } catch (error: any) {
+//     console.error('Error verifying Airtable table access:', {
+//       message: error.message,
+//       status: error.status,
+//       errorCode: error.error,
+//       details: error.response?.data || error,
 //     });
-//     return records.length > 0;
+//     return false;
+//   }
+// }
+
+// // دالة للتحقق من وجود اللوحة مسبقًا
+// async function checkPlateExists(plate: string, excludeId?: number){
+//   try {
+//     const records = await prisma.plateslist.findMany({where: { id: excludeId }});
+//   return records?.length > 0;
 //   } catch (error: any) {
 //     console.error('Error checking plate existence:', error);
 //     throw new Error(`Failed to check plate existence: ${error.message}`);
@@ -23,15 +46,16 @@
 // // جلب قائمة اللوحات
 // export async function GET(req: NextRequest) {
 //   try {
-//     const records = await prisma.plateslist.findMany();
+
+
+//     const records = await prisma.carsDetails.findMany({select:{id:true, plate:true}});
+//     console.log('Fetched records:', records);
 //     const plates = records.map((record) => ({
 //       id: record.id,
 //       fields: {
-//         Name: String(record.plate_name),
+//         Name: String(record.plate),
 //       },
 //     }));
-
-//     console.log('Fetched plates:', plates); // تسجيل لتتبع البيانات المسترجعة
 
 //     return NextResponse.json({
 //       success: true,
@@ -51,44 +75,62 @@
 //   }
 // }
 
-// // جلب تفاصيل السيارة بناءً على اللوحة
+// // إضافة لوحة جديدة
 // export async function POST(req: NextRequest) {
 //   try {
-//     const { plate } = await req.json();
-
-//     if (!plate || typeof plate !== 'string') {
+//     const { letters, numbers } = await req.json();
+//     if (!letters || typeof letters !== 'string' || !numbers || typeof numbers !== 'string') {
 //       return NextResponse.json(
-//         { success: false, error: 'Plate is required and must be a string' },
+//         { success: false, error: 'Letters and numbers are required and must be strings' },
 //         { status: 400 }
 //       );
 //     }
 
-//     const createdRecords = await prisma.carsDetails.findFirst({
-//       select: { id: true, plate: true, manufacturer: true, model: true },
-//       where: { plate: plate },
-//     });
-
-//     if (!createdRecords) {
+//     // التحقق من صحة الإدخال
+//     const lettersRegex = /^[ء-ي\s]+$/; // حروف عربية ومسافات فقط
+//     const numbersRegex = /^\d{1,4}$/; // من 1 إلى 4 أرقام
+//     if (!lettersRegex.test(letters.trim())) {
 //       return NextResponse.json(
-//         { success: false, error: 'No car found for the provided plate' },
-//         { status: 404 }
+//         { success: false, error: 'Letters must contain only Arabic letters and spaces' },
+//         { status: 400 }
+//       );
+//     }
+//     if (!numbersRegex.test(numbers.trim())) {
+//       return NextResponse.json(
+//         { success: false, error: 'Numbers must contain 1 to 4 digits only' },
+//         { status: 400 }
 //       );
 //     }
 
-//     console.log('Fetched car details for plate:', createdRecords);
+//     const plate = `${letters.trim()} ${numbers.trim()}`;
+
+//     // التحقق من عدم وجود اللوحة مسبقًا
+//     const plateExists = await checkPlateExists(plate);
+//     if (plateExists) {
+//       return NextResponse.json(
+//         { success: false, error: 'Plate already exists' },
+//         { status: 400 }
+//       );
+//     }
+
+//     // إضافة اللوحة إلى Airtable
+//     const createdRecords = await prisma.plateslist.create({
+//       data: { plate_name: plate }})
+//     const recordId = createdRecords;
+//     console.log('Created plate record with ID:', recordId);
 
 //     return NextResponse.json({
 //       success: true,
-//       message: 'Car details fetched successfully!',
+//       message: 'Plate added successfully!',
 //       result: {
-//         id: createdRecords.id,
-//         fields: `${createdRecords.manufacturer} ${createdRecords.model}`,
+//         id: recordId,
+//         fields: createdRecords,
 //       },
 //     });
 //   } catch (error: any) {
-//     console.error('Error fetching car details:', error);
+//     console.error('Error adding plate:', error);
 //     return NextResponse.json(
-//       { success: false, error: 'Failed to fetch car details' },
+//       { success: false, error: 'Failed to add plate' },
 //       { status: 500 }
 //     );
 //   }
@@ -99,8 +141,7 @@
 //   try {
 //     const { id, letters, numbers } = await req.json();
 //     console.log('Received data for updating plate:', { id, letters, numbers });
-
-//     if (!id || !letters || typeof letters !== 'string' || !numbers || typeof numbers !== 'string') {
+//     if ( !letters || typeof letters !== 'string' || !numbers || typeof numbers !== 'string') {
 //       return NextResponse.json(
 //         { success: false, error: 'ID, letters, and numbers are required and must be strings' },
 //         { status: 400 }
@@ -125,10 +166,9 @@
 
 //     const plate = `${letters.trim()} ${numbers.trim()}`;
 
+ 
 //     const updatedRecords = await prisma.plateslist.update({
-//       where: { id: parseInt(id) },
-//       data: { plate_name: plate },
-//     });
+//       data: { plate_name: plate },where: { id: parseInt(id) }})
 
 //     console.log('Updated plate record with ID:', id);
 
@@ -136,8 +176,8 @@
 //       success: true,
 //       message: 'Plate updated successfully!',
 //       result: {
-//         id: updatedRecords.id,
-//         fields: { Name: updatedRecords.plate_name },
+//         id: updatedRecords,
+//         fields: updatedRecords,
 //       },
 //     });
 //   } catch (error: any) {
@@ -154,23 +194,15 @@
 //   try {
 //     const { id } = await req.json();
 
-//     if (!id || typeof id !== 'string') {
-//       return NextResponse.json(
-//         { success: false, error: 'ID is required and must be a string' },
-//         { status: 400 }
-//       );
-//     }
 
-//     const deleter = await prisma.plateslist.delete({
-//       where: { id: parseInt(id) },
-//     });
 
-//     console.log('Deleted plate record with ID:', id);
+// const deleter = await prisma.plateslist.delete({where: { id: parseInt(id) }});
 
 //     return NextResponse.json({
 //       success: true,
 //       message: 'Plate deleted successfully!',
 //     });
+  
 //   } catch (error: any) {
 //     console.error('Error deleting plate:', error);
 //     return NextResponse.json(
@@ -184,7 +216,6 @@
 //   }
 // }
 
-// api/addlicense/route.ts
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';

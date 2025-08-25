@@ -428,13 +428,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
+import { UserRole } from '../../app/ROLE/types';
 
 // واجهة User
 interface User {
   id: string;
   Name: string;
   EmID: number;
-  role: string;
+  role: UserRole; // ✅ الآن فقط الأدوار المعرفة مسموحة
   branch: string;
   selectedBranch: string;
 }
@@ -700,19 +701,118 @@ export default function Navbar() {
   const [selectedBranch, setSelectedBranch] = useState<string>('');
   const router = useRouter();
 
-  // دالة لتحديد نص الفرع
-  const getBranchDisplay = (branch: string, role: string, selectedBranch: string) => {
-    if (selectedBranch) {
-      return `${role === 'admin' ? 'مدير' : 'موظف'} في ${selectedBranch}`;
+ // ✅ اسم قاعدة البيانات المستخدمة في المشروع
+const DB_NAME = 'carImagesDB'; // ✅ تم التصحيح
+const STORE_NAME = 'pendingUploads';
+
+const openDatabase = (): Promise<IDBDatabase | null> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1); // يتم فتح قاعدة البيانات، لا إنشاء جديد
+
+    request.onerror = () => {
+      console.error('فشل في فتح carImagesDB:', request.error);
+      reject(request.error);
+    };
+
+    request.onsuccess = () => {
+      const db = request.result;
+      // ✅ تأكد أن المتجر موجود (لكن لا تُنشئ قاعدة بيانات جديدة)
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        console.warn('المتجر pendingUploads غير موجود في carImagesDB');
+        // ❌ لا نُنشئ objectStore هنا، لأن السيرفر هو من يتحكم في الهيكل
+        // فقط نُرجع الاتصال، ونسمح للعملية بالاستمرار
+      }
+      resolve(db);
+    };
+
+    // ❌ لا نستخدم onupgradeneeded لإنشاء متجر جديد
+    // لأننا لا نريد تعديل هيكل قاعدة البيانات
+    request.onupgradeneeded = (event) => {
+      const db = request.result;
+      // ❌ لا تفعل شيئًا هنا
+      // إذا لم يكن المتجر موجودًا، نتعامل معه في الدالة التي تستخدمه
+      console.warn('onupgradeneeded تم استدعاؤه، لكن لا يتم إنشاء متجر جديد');
+    };
+  });
+};
+
+const cleanupOldData = async (): Promise<void> => {
+  let db: IDBDatabase | null = null;
+  try {
+    db = await openDatabase();
+    if (!db) {
+      console.warn('تعذر فتح carImagesDB');
+      return;
     }
+
+    // ✅ التأكد من وجود المتجر قبل الحذف
+    if (!db.objectStoreNames.contains(STORE_NAME)) {
+      console.warn('المتجر pendingUploads غير موجود، لا حاجة للتنظيف');
+      return;
+    }
+
+    const transaction = db.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+
+    // ✅ حذف كل المحتوى
+    const request = store.clear();
+
+    await new Promise<void>((resolve, reject) => {
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+
+    console.log('تم تنظيف جميع الصور المؤقتة من carImagesDB');
+  } catch (error) {
+    console.error('فشل في تنظيف carImagesDB:', error);
+  } finally {
+    if (db) {
+      try {
+        db.close();
+      } catch (closeError) {
+        console.warn('فشل في إغلاق carImagesDB:', closeError);
+      }
+    }
+  }
+};
+
+  // دالة لتحديد نص الفرع
+  const getBranchDisplay = (branch: string, role: UserRole, selectedBranch: string) => {
+    // أولًا: حدد النص حسب الدور
+    let roleText = '';
+    switch (role) {
+      case 'owner':
+        roleText = 'مالك';
+        break;
+      case 'super_admin':
+        roleText = 'سوبر مدير';
+        break;
+      case 'admin':
+        roleText = 'مدير';
+        break;
+      case 'employee':
+        roleText = 'موظف';
+        break;
+      default:
+        roleText = 'مستخدم';
+    }
+  
+    // ثانيًا: حدد الفرع
+    if (selectedBranch) {
+      return `${roleText} في ${selectedBranch}`;
+    }
+  
     const branches = branch
       .split(',')
-      .map((b: string) => b.trim())
-      .filter((b: string) => b);
+      .map((b) => b.trim())
+      .filter((b) => b);
+  
     if (branches.length > 1) {
-      return role === 'admin' ? 'مدير في عدة فروع' : 'موظف في عدة فروع';
+      return `${roleText} في عدة فروع`;
     }
-    return `${role === 'admin' ? 'مدير' : 'موظف'} في ${branches[0] || 'بدون فرع'}`;
+  
+    const branchName = branches[0] || 'بدون فرع';
+    return `${roleText} في ${branchName}`;
   };
 
   // استرجاع بيانات المستخدم من localStorage
@@ -738,12 +838,35 @@ export default function Navbar() {
   }, [router]);
 
   // دالة تسجيل الخروج
-  const handleLogout = () => {
-    console.log('Logout clicked');
+ // دالة تسجيل الخروج
+const handleLogout = async () => {
+  console.log('Logout clicked');
+
+  try {
+    // 1. تنظيف الصور المؤقتة من IndexedDB
+    await cleanupOldData();
+
+    // 2. حذف بيانات المستخدم من localStorage
+    localStorage.removeItem('user');
+
+    // 3. حذف الكوكيز
+    ['accessToken', 'refreshToken', 'selectedBranch'].forEach((cookie) => {
+      document.cookie = `${cookie}=; path=/; max-age=0`;
+    });
+
+    // 4. تحديث الحالة
+    setUser(null);
+
+    // 5. التوجيه إلى صفحة تسجيل الدخول
+    router.push('/login');
+  } catch (error) {
+    console.error('Error during logout:', error);
+    // حتى لو فشل التنظيف، نُكمل عملية تسجيل الخروج
     localStorage.removeItem('user');
     setUser(null);
     router.push('/login');
-  };
+  }
+};
 
   // دالة فتح نافذة تغيير الفرع
   const handleOpenBranchModal = () => {

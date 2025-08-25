@@ -1,9 +1,5 @@
 //@ts-nocheck
 //@ts-ignore
-
-
-
-
 import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
 import { PrismaClient } from '@prisma/client';

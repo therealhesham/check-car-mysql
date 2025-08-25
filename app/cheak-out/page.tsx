@@ -47,6 +47,10 @@ import retry from 'async-retry';
 import { FiRefreshCw } from 'react-icons/fi';
 import { openDB } from 'idb';
 import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+// في الأعلى مع باقي الاستيرادات
+
+import { jwtVerify } from 'jose';
 
 const sanitizeTitle = (title: string, index: number) => {
   const cleanTitle = title.replace(/\s+/g, '-').replace(/[^\u0600-\u06FF\w-]/g, '');
@@ -200,13 +204,17 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
   const [isSignatureLocked, setIsSignatureLocked] = useState<boolean>(false);
   const [clientIdError, setClientIdError] = useState<string>('');
   const [clientNameError, setClientNameError] = useState<string>('');
-
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const carInputRef = useRef<HTMLDivElement>(null);
   const plateInputRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const [isFetchingCar, setIsFetchingCar] = useState<boolean>(false);
   // const uploadQueue = useRef<Promise<void>>(Promise.resolve());
   const signatureCanvasRef = useRef<SignaturePad>(null);
+ 
+ 
+
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -221,7 +229,15 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
     // تنظيف البيانات القديمة عند تحميل الصفحة
     cleanupOldData();
   }, [router]);
-
+  useEffect(() => {
+    if (plateSearch && plates.length > 0 && !car) {
+      const plateData = plates.find(p => p.name === plateSearch.trim());
+      if (plateData?.carInfo?.name) {
+        setCar(plateData.carInfo.name);
+        setCarSearch(plateData.carInfo.name);
+      }
+    }
+  }, [plateSearch, plates, car]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -282,59 +298,129 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
     }
   }, [contract]);
 
-  useEffect(() => {
-    const fetchCars = async () => {
-      setIsLoadingCars(true);
-      try {
-        const response = await fetch('/api/addcars', { method: 'GET' });
-        const data = await response.json();
-        if (data.success) {
-          const fetchedCars = data.results.map((record: any) => ({
-            id: record.id,
-            name: record.fields.Name,
-          }));
-          setCars(fetchedCars);
-        } else {
-          setUploadMessage('فشل في جلب قائمة السيارات.');
-          setShowToast(true);
-        }
-      } catch (error: any) {
-        setUploadMessage('حدث خطأ أثناء جلب قائمة السيارات.');
+  const getCar = (plate: string) => {
+    if (!plate || !plate.trim()) return;
+  
+    // البحث في القائمة المحلية
+    const plateData = plates.find(p => p.name === plate.trim());
+    if (plateData?.carInfo?.name) {
+      setCar(plateData.carInfo.name);
+      setCarSearch(plateData.carInfo.name);
+      toast.success(`تم العثور على السيارة: ${plateData.carInfo.name}`);
+    } else {
+      setCar('');
+      setCarSearch('');
+      toast.warn('اللوحة غير مسجلة في النظام.');
+    }
+  };
+  
+// مستمع لأحداث الاتصال
+useEffect(() => {
+  const handleOnline = () => {
+    setIsOnline(true);
+    console.log('تم استعادة الاتصال بالإنترنت.');
+    
+    // عرض toast للمستخدم عند عودة النت مع وجود لوحة وغياب بيانات السيارة
+    if (plate.trim() && !car.trim()) {
+      toast.info('سيتم جلب بيانات السيارة تلقائيًا عند عودة الاتصال بالإنترنت.', {
+        position: "top-right",
+        autoClose: 3000, // يغلق تلقائيًا بعد 3 ثوانٍ
+      });
+    }
+
+    // محاولة جلب بيانات السيارة إذا كانت الشروط مناسبة
+    if (plate.trim() && !car.trim() && !isSearching && !isFetchingCar) {
+      console.log(`جاري جلب بيانات السيارة بناءً على اللوحة: ${plate}`);
+      getCar(plate);
+    } else {
+      console.log('لم يتم استدعاء getCar: اللوحة فارغة أو السيارة ممتلئة أو البحث/الطلب جاري');
+    }
+  };
+
+  const handleOffline = () => {
+    setIsOnline(false);
+    console.log('تم فقدان الاتصال بالإنترنت.');
+  };
+
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
+
+  return () => {
+    window.removeEventListener('online', handleOnline);
+    window.removeEventListener('offline', handleOffline);
+  };
+}, [plate, car, isSearching, isFetchingCar]); // Dependencies
+
+// [جلب السيارات مع لوحاتها ]
+useEffect(() => {
+  const fetchPlates = async () => {
+    setIsLoadingPlates(true);
+    try {
+      const response = await fetch('/api/getcar', {
+        method: 'GET',
+      });
+      const data = await response.json();
+
+      if (response.ok && data.success && Array.isArray(data.results)) {
+        const fetchedPlates = data.results.map((record: any) => ({
+          id: record.id,
+          name: record.fields?.Name || 'غير محدد',
+          carInfo: record.carInfo, // حفظ معلومات السيارة
+        }));
+        setPlates(fetchedPlates);
+      } else {
+        console.error('خطأ في جلب اللوحات:', data?.message || data);
+        setUploadMessage('فشل في جلب اللوحات: ' + (data?.message || 'استجابة غير صالحة'));
         setShowToast(true);
-      } finally {
-        setIsLoadingCars(false);
       }
-    };
+    } catch (error: any) {
+      console.error('Error fetching plates:', error);
+      setUploadMessage('حدث خطأ أثناء جلب اللوحات: ' + error.message);
+      setShowToast(true);
+    } finally {
+      setIsLoadingPlates(false);
+    }
+  };
 
-    fetchCars();
-  }, []);
+  fetchPlates();
+}, []);
 
-  useEffect(() => {
-    const fetchPlates = async () => {
-      setIsLoadingPlates(true);
-      try {
-        const response = await fetch('/api/addlicense', { method: 'GET' });
-        const data = await response.json();
-        if (data.success) {
-          const fetchedPlates = data.results.map((record: any) => ({
-            id: record.id,
-            name: record.fields.Name,
-          }));
-          setPlates(fetchedPlates);
-        } else {
-          setUploadMessage('فشل في جلب قائمة اللوحات.');
-          setShowToast(true);
-        }
-      } catch (error: any) {
-        setUploadMessage('حدث خطأ أثناء جلب قائمة اللوحات.');
+
+
+
+// جلب اللوحات
+useEffect(() => {
+  const fetchPlates = async () => {
+    setIsLoadingPlates(true);
+    try {
+      const response = await fetch('/api/getcar');
+      const data = await response.json();
+
+      if (response.ok && data.success && Array.isArray(data.results)) {
+        const fetchedPlates = data.results.map((record: any) => ({
+          id: record.id,
+          name: record.fields?.Name || 'غير محدد', // ✅ هذا الحقل هو الذي ستبحث به
+          carInfo: record.carInfo, // ✅ وستستخدمه لعرض اسم السيارة
+        }));
+        setPlates(fetchedPlates);
+
+        // ✅ للتصحيح: تأكد من أن البيانات صحيحة
+        console.log('اللوحات بعد المعالجة:', fetchedPlates);
+      } else {
+        console.error('خطأ في جلب اللوحات:', data);
+        setUploadMessage('فشل في جلب اللوحات.');
         setShowToast(true);
-      } finally {
-        setIsLoadingPlates(false);
       }
-    };
-
-    fetchPlates();
-  }, []);
+    } catch (error: any) {
+      console.error('Error fetching plates:', error);
+      setUploadMessage('حدث خطأ أثناء جلب اللوحات.');
+      setShowToast(true);
+    } finally {
+      setIsLoadingPlates(false);
+    }
+  };
+  fetchPlates();
+}, []);
 
   const restrictToLettersAndSpaces = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const char = e.key;
@@ -352,60 +438,191 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
     }
   };
 
+  // const fetchPreviousRecord = async () => {
+  //   console.log("Starting fetchPreviousRecord for contract:", contract);
+  
+  //   // 1. Validate contract number input
+  //   if (!contract.trim()) {
+  //     console.warn("Contract number is empty.");
+  //     setHasExitRecord(false);
+  //     setUploadMessage('Contract number is required for the search.');
+  //     setShowToast(true);
+  //     return;
+  //   }
+  
+  //   // 2. Set loading state and clear previous messages
+  //   setIsSearching(true);
+  //   setUploadMessage('');
+  
+  //   // 3. Cancel any ongoing previous request for this action
+  //   if (abortControllerRef.current) {
+  //     console.log("Aborting previous fetchPreviousRecord request.");
+  //     abortControllerRef.current.abort();
+  //   }
+  
+  //   // 4. Create a new AbortController for the current request
+  //   abortControllerRef.current = new AbortController();
+  
+  //   try {
+  //     // --- Key Modification 1: Build URL with query parameters ---
+  //     const queryParams = new URLSearchParams({ contractNumber: contract.trim() });
+  //     const url = `/api/history?${queryParams.toString()}`;
+  //     console.log("Fetching history from URL:", url);
+  
+  //     // --- Key Modification 2: Use getAuthHeaders for Authorization ---
+  //     const response = await fetch(url, {
+  //       method: 'GET',
+  //       headers: getAuthHeaders(), // <-- This adds the Bearer token
+  //       signal: abortControllerRef.current.signal, // For request cancellation
+  //     });
+  //     console.log("Received response from /api/history:", response.status, response.statusText);
+  
+  //     // 5. Check if the response is successful (e.g., HTTP 200-299)
+  //     if (!response.ok) {
+  //       // Attempt to parse error response body
+  //       let errorMessage = `Failed to fetch previous record (Status: ${response.status})`;
+  //       try {
+  //         const errorData = await response.json();
+  //         errorMessage = errorData.message || errorData.error || errorMessage;
+  //       } catch (parseError) {
+  //         console.warn("Could not parse error response JSON:", parseError);
+  //       }
+  //       throw new Error(errorMessage);
+  //     }
+  
+  //     // 6. Parse the successful response body as JSON
+  //     const data = await response.json();
+  //     console.log("Parsed data from /api/history:", data);
+  
+  //     // 7. Process the returned data
+  //     // Assuming the API returns an array of record objects
+  //     if (Array.isArray(data) && data.length > 0) {
+  //       // Find a record where operation_type is 'خروج'
+  //       const exitRecord = data.find((record: any) => record.operation_type === 'خروج');
+  
+  //       if (exitRecord) {
+  //         // If an 'خروج' record exists, set state to prevent new checkout
+  //         console.log("Found existing 'خروج' record:", exitRecord);
+  //         setHasExitRecord(true);
+  //         setUploadMessage('Cannot add this checkout as an exit record already exists for this contract.');
+  //         setShowToast(true);
+  //       } else {
+  //         // If no 'خروج' record found, allow new checkout
+  //         console.log("No existing 'خروج' record found.");
+  //         setHasExitRecord(false);
+  //       }
+  //     } else {
+  //       // If no records returned for the contract, allow new checkout
+  //       console.log("No records found for contract number.");
+  //       setHasExitRecord(false);
+  //     }
+  //   } catch (err: any) {
+  //     // 8. Handle errors during the request process
+  //     // Check if the error is due to the request being aborted
+  //     if (err.name === 'AbortError') {
+  //       console.log('Previous record fetch request was aborted.');
+  //       return; // Exit silently for aborted requests
+  //     }
+  //     // Handle other types of errors
+  //     console.error('Error while fetching previous record:', err);
+  //     const displayMessage = err.message || 'An error occurred while fetching the previous record.';
+  //     setUploadMessage(displayMessage);
+  //     setShowToast(true);
+  //     // Ensure hasExitRecord is reset in case of error
+  //     setHasExitRecord(false);
+  //   } finally {
+  //     // 9. Reset loading state regardless of success or failure
+  //     console.log("Finished fetchPreviousRecord.");
+  //     setIsSearching(false);
+  //   }
+  // };
+  
   const fetchPreviousRecord = async () => {
+    console.log("Starting fetchPreviousRecord for contract:", contract);
+  
+    // 1. Validate contract number input
     if (!contract.trim()) {
+      console.warn("Contract number is empty.");
       setHasExitRecord(false);
       setUploadMessage('رقم العقد مطلوب للبحث.');
       setShowToast(true);
       return;
     }
-
+  
+    // 2. Set loading state and clear previous messages
     setIsSearching(true);
     setUploadMessage('');
-
+  
+    // 3. Cancel any ongoing previous request for this action
     if (abortControllerRef.current) {
+      console.log("Aborting previous fetchPreviousRecord request.");
       abortControllerRef.current.abort();
     }
+  
+    // 4. Create a new AbortController for the current request
     abortControllerRef.current = new AbortController();
-
+  
     try {
-      const response = await fetch(`/api/history?contractNumber=${encodeURIComponent(contract)}`, {
+      // Build URL with query parameters
+      const queryParams = new URLSearchParams({ contractNumber: contract.trim() });
+      const url = `/api/history?${queryParams.toString()}`;
+      console.log("Fetching history from URL:", url);
+  
+      // Send request without Authorization header
+      const response = await fetch(url, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: abortControllerRef.current.signal,
+        signal: abortControllerRef.current.signal, // For request cancellation
       });
-
+      console.log("Received response from /api/history:", response.status, response.statusText);
+  
+      // 5. Check if the response is successful (e.g., HTTP 200-299)
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `فشل في جلب السجل السابق (حالة: ${response.status})`);
+        let errorMessage = `فشل جلب السجل السابق (الحالة: ${response.status})`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (parseError) {
+          console.warn("Could not parse error response JSON:", parseError);
+        }
+        throw new Error(errorMessage);
       }
-
+  
+      // 6. Parse the successful response body as JSON
       const data = await response.json();
-      if (data.length > 0) {
-        const exitRecord = data.find((record) => record['operation_type'] === 'خروج');
+      console.log("Parsed data from /api/history:", data);
+  
+      // 7. Process the returned data
+      if (Array.isArray(data) && data.length > 0) {
+        const exitRecord = data.find((record: any) => record.operation_type === 'خروج');
         if (exitRecord) {
+          console.log("Found existing 'خروج' record:", exitRecord);
           setHasExitRecord(true);
-          setUploadMessage('لا يمكن إضافة هذا التشييك لأنه تم تسجيل خروج لهذه السيارة لهذا العقد.');
+          setUploadMessage('لا يمكن إضافة هذا التشييك لأنه يوجد سجل خروج مسبق لهذا العقد.');
           setShowToast(true);
         } else {
+          console.log("No existing 'خروج' record found.");
           setHasExitRecord(false);
         }
       } else {
+        console.log("No records found for contract number.");
         setHasExitRecord(false);
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
+        console.log('Previous record fetch request was aborted.');
         return;
       }
-      setUploadMessage(err.message || 'حدث خطأ أثناء جلب السجل السابق.');
+      console.error('Error while fetching previous record:', err);
+      const displayMessage = err.message || 'حدث خطأ أثناء جلب السجل السابق.';
+      setUploadMessage(displayMessage);
       setShowToast(true);
       setHasExitRecord(false);
     } finally {
+      console.log("Finished fetchPreviousRecord.");
       setIsSearching(false);
     }
   };
+
 
   const normalizeArabic = (text: string) => {
     if (typeof text !== 'string' || text == null) {
@@ -814,11 +1031,12 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
       if (isDbHealthy) {
         await clearFromLocalStorage(id);
       }
-      URL.revokeObjectURL(localPreviewUrl);
+      // URL.revokeObjectURL(localPreviewUrl);
       const index = files.findIndex((fileSection) => fileSection.id === id);
       if (fileInputRefs.current[index]) {
         fileInputRefs.current[index]!.value = '';
       }
+      URL.revokeObjectURL(localPreviewUrl);
     } catch (error: any) {
       let errorMessage = 'حدث خطأ أثناء رفع الصورة.';
       if (isDbHealthy) {
@@ -1256,23 +1474,27 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
     setCarSearch(selectedCar);
     setShowCarList(false);
   };
-  const getCar = async (plate) => {
-    // alert(plate)
-    const getCarType = await fetch('/api/getlicense', {
-      method: 'post', headers: {
-        'Content-Type': 'application/json'
-      }, body: JSON.stringify({ plate: plate })
-    });
-    const data = await getCarType.json();
-    setCarSearch(data.result.fields)
-    setCar(data.result.fields);
-  }
-  // alert(car)
   const handlePlateSelect = (selectedPlate: string) => {
-    getCar(selectedPlate)
-    setPlate(selectedPlate);
-    setPlateSearch(selectedPlate);
-    setShowPlateList(false);
+    if (selectedPlate && typeof selectedPlate === 'string' && selectedPlate.trim()) {
+      // البحث في القائمة المحلية عن اللوحة
+      const plateData = plates.find(p => p.name === selectedPlate.trim());
+      
+      if (plateData?.carInfo?.name) {
+        setCar(plateData.carInfo.name);        // ← اسم السيارة
+        setCarSearch(plateData.carInfo.name);  // ← للعرض في الحقل
+        toast.success(`تم العثور على السيارة: ${plateData.carInfo.name}`);
+      } else {
+        setCar('');
+        setCarSearch('');
+        toast.warn('اللوحة غير مسجلة في النظام.');
+      }
+  
+      setPlate(selectedPlate);
+      setPlateSearch(selectedPlate);
+      setShowPlateList(false);
+    } else {
+      toast.error('اللوحة غير صالحة');
+    }
   };
   const handleSaveSignature = async () => {
     try {
@@ -1324,47 +1546,40 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
       setIsSignatureLocked(false);
     }
   };
-
+  
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (clientIdError) {
       setUploadMessage('يرجى تصحيح رقم الهوية. يجب أن يكون 10 أرقام بالضبط.');
       setShowToast(true);
       return;
     }
-
     if (!contract.trim() || !plate.trim()) {
       setUploadMessage('يرجى ملء جميع الحقول المطلوبة.');
       setShowToast(true);
       return;
     }
-
     if (!/^\d+$/.test(contract.trim())) {
       setUploadMessage('رقم العقد يجب أن يحتوي على أرقام فقط.');
       setShowToast(true);
       return;
     }
-
     const contractNum = parseFloat(contract);
     if (isNaN(contractNum)) {
       setUploadMessage('رقم العقد يجب أن يكون رقمًا صالحًا.');
       setShowToast(true);
       return;
     }
-
     if (hasExitRecord) {
       setUploadMessage('لا يمكن إضافة هذا التشييك لأنه تم تسجيل خروج لهذه السيارة لهذا العقد.');
       setShowToast(true);
       return;
     }
-
     if (!signatureUrl) {
       setUploadMessage('يرجى حفظ التوقيع قبل إرسال البيانات.');
       setShowToast(true);
       return;
     }
-
     const requiredImages = files.filter((fileSection) => fileSection.title !== 'other_images');
     const hasAnyRequiredImage = requiredImages.some((fileSection) => {
       if (fileSection.imageUrls === null) return false;
@@ -1376,7 +1591,6 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
       setShowToast(true);
       return;
     }
-
     const missingImages = requiredImages.filter((fileSection) => {
       if (fileSection.imageUrls === null) return true;
       if (Array.isArray(fileSection.imageUrls)) return fileSection.imageUrls.length === 0;
@@ -1391,30 +1605,25 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
       setShowToast(true);
       return;
     }
-
     const isAnyUploading = files.some((fileSection) => fileSection.isUploading);
     if (isAnyUploading) {
       setUploadMessage('يرجى الانتظار حتى يكتمل رفع جميع الصور.');
       setShowToast(true);
       return;
     }
-
     if (!user || !user.Name || !user.selectedBranch) {
       setUploadMessage('بيانات الموظف أو الفرع غير متوفرة. يرجى تسجيل الدخول مرة أخرى.');
       setShowToast(true);
       router.push('/login');
       return;
     }
-
     setIsUploading(true);
     setUploadProgress(10);
     setIsSuccess(false);
-
     try {
       const airtableData = {
         fields: {} as Record<string, string | string[]>,
       };
-
       airtableData.fields['السيارة'] = car;
       airtableData.fields['اللوحة'] = plate;
       airtableData.fields['العقد'] = contractNum.toString();
@@ -1425,18 +1634,14 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
       airtableData.fields['meter_reading'] = meter_reading;
       airtableData.fields['client_name'] = client_name;
       airtableData.fields['signature_url'] = signatureUrl;
-
       files.forEach((fileSection) => {
         if (fileSection.imageUrls) {
           airtableData.fields[fileSection.title] = fileSection.imageUrls;
         }
       });
-
       setUploadProgress(30);
-
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000);
-
       try {
         const response = await fetch('/api/cheakout', {
           method: 'POST',
@@ -1446,12 +1651,9 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
           body: JSON.stringify(airtableData),
           signal: controller.signal,
         });
-
         clearTimeout(timeoutId);
         setUploadProgress(90);
-
         const result = await response.json();
-
         if (result.success) {
           setUploadProgress(100);
           setIsSuccess(true);
@@ -1459,7 +1661,7 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
           setUploadMessage('تم بنجاح رفع التشييك');
           setFiles(
             fieldTitles.map((title, index) => ({
-              id: `file-section-${sanitizeTitle(title, index)}`,
+              id: `file-section-${sanitizeTitle(title, index)}`, // تم التصحيح هنا
               imageUrls: null,
               title: title,
               multiple: index === fieldTitles.length - 1,
@@ -1478,7 +1680,7 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
           setClientName('');
           setHasExitRecord(false);
           setSignatureUrl(null);
-          setIsSignatureLocked(false); // إلغاء قفل التوقيع بعد الإرسال
+          setIsSignatureLocked(false);
           if (signatureCanvasRef.current) {
             signatureCanvasRef.current.clear();
             setIsSignatureEmpty(true);
@@ -1500,7 +1702,7 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
           setUploadMessage('انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.');
         } else {
           setUploadMessage(
-            `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}`
+            `فشلت عملية الرفع: ${fetchError.message || 'يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.'}` // تم التصحيح هنا
           );
         }
         setUploadProgress(0);
@@ -1514,6 +1716,10 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
       setIsUploading(false);
     }
   };
+  
+
+
+ 
 
   return (
     <div dir="rtl" className={`relative ${isDarkMode ? 'dark' : ''}`}>
@@ -1585,45 +1791,15 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     السيارة *
                   </label>
-                  {isLoadingCars ? (
-                    <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
-                      جاري تحميل قائمة السيارات...
-                    </div>
-                  ) : (
                     <input
-                      type="text"
-                      value={plateSearch ? carSearch : ""}
-                      // onChange={(e) => {
-                      //   setCarSearch(e.target.value);
-                      // color='gray'
-                      style={{ backgroundColor: 'lightgray' }}
-                      //   setShowCarList(true);
-                      // }}
-                      onFocus={() => setShowCarList(true)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                      // placeholder="اختر اللو"
-                      readOnly
-                      required
-                    />
-                  )}
-                  {/* {showCarList && filteredCars.length > 0 && (
-                    <ul className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
-                      {filteredCars.map((carItem) => (
-                        <li
-                          key={carItem.id}
-                          onClick={() => handleCarSelect(carItem.name)}
-                          className="px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer text-sm text-gray-900 dark:text-gray-100"
-                        >
-                          {carItem.name}
-                        </li>
-                      ))}
-                    </ul>
-                  )} */}
-                  {/* {showCarList && carSearch && filteredCars.length === 0 && (
-                    <div className="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg p-3 text-sm text-gray-500 dark:text-gray-400">
-                      لا توجد سيارات مطابقة
-                    </div>
-                  )} */}
+  type="text"
+  value={carSearch || ""} // ← يُملأ تلقائيًا
+  readOnly
+  style={{ backgroundColor: 'lightgray' }}
+  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+  placeholder="سيتم عرض اسم السيارة تلقائيًا"
+  required
+/>           
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
