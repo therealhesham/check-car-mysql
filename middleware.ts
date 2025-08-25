@@ -59,6 +59,7 @@ import { jwtVerify } from 'jose';
 import { jwtService } from '@/utils/jwt';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+const API_URL = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:3000`;
 
 export async function middleware(req: NextRequest) {
   console.log('Middleware: Processing request for:', req.nextUrl.pathname);
@@ -105,7 +106,7 @@ export async function middleware(req: NextRequest) {
       
       // استدعاء API endpoint للتحقق من التوكن في قاعدة البيانات
       console.log('Middleware: Checking refresh token in database via API...');
-      const verifyResponse = await fetch(`${req.nextUrl.origin}/api/verify-refresh`, {
+      const verifyResponse = await fetch(`${API_URL}/api/verify-refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
