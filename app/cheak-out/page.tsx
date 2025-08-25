@@ -2162,8 +2162,8 @@ useEffect(() => {
               <div className="mb-4 text-center mt-4">
                 <button
                   type="submit"
-                  disabled={isUploading || hasExitRecord || isLoadingCars || isLoadingPlates}
-                  className={`w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none text-lg font-medium ${isUploading || hasExitRecord || isLoadingCars || isLoadingPlates ? 'bg-gray-400' : ''
+                  disabled={isUploading || hasExitRecord || isLoadingPlates}
+                  className={`w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none text-lg font-medium ${isUploading || hasExitRecord || isLoadingPlates ? 'bg-gray-400' : ''
                     }`}
                 >
                   {isUploading ? 'جاري الرفع...' : 'رفع البيانات'}
