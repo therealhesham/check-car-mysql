@@ -4,6 +4,7 @@ import Navbar from '@/public/components/navbar';
 import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import * as XLSX from 'xlsx';
+import { PermissionGuard } from '../ROLE/PermissionGuard';
 
 // قاموس لتحويل أسماء السيارات إلى التنسيق العربي/الإنجليزي
 const carNameMapping: { [key: string]: string } = {
@@ -1120,9 +1121,11 @@ export default function CarsPage() {
                         <button onClick={() => handleEdit(car)} className="edit-button">
                           تعديل
                         </button>
-                        <button onClick={() => handleDelete(car.id)} className="delete-button">
-                          حذف
-                        </button>
+                        <PermissionGuard requireAtLeastRole="super_admin">
+  <button onClick={() => handleDelete(car.id)} className="delete-button">
+    حذف
+  </button>
+</PermissionGuard>
                       </div>
                     </div>
                   ))}

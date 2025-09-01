@@ -2273,7 +2273,7 @@ const sortedEmployees = useMemo(() => {
 
 
       {/* Delete Confirmation Modal */}
-      {isDeleteConfirmModalOpen && (
+      {isDeleteConfirmModalOpen && (employeeToDelete || branchToDelete || plateToDelete) && (
         <div 
         className="fixed inset-0 flex items-center justify-center z-50"
         style={{
@@ -2314,7 +2314,7 @@ const sortedEmployees = useMemo(() => {
       )}
       
       {/* نموذج تأكيد الحذف الجديد */}
-{isDeleteConfirmModalOpen && (
+      {isDeleteConfirmModalOpen && selectedContractIds.length > 0 && (
  <div
  className="fixed inset-0 flex items-center justify-center z-50 p-4"
  style={{
