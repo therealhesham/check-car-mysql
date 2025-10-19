@@ -269,10 +269,10 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const page = parseInt(url.searchParams.get('page') || '1', 10);
     const pageSize = parseInt(url.searchParams.get('pageSize') || '50', 10);
-    const contractNumber = url.searchParams.get('contractNumber');
+    const contractNumber = url.searchParams.get('contract_number');
     const plateNumber = url.searchParams.get('plateNumber')?.trim();
     const carModel = url.searchParams.get('carModel')?.trim();
-    const operationType = url.searchParams.get('operationType')?.trim();
+    const operationType = url.searchParams.get('operation_type')?.trim();
     const branchName = url.searchParams.get('branchName')?.trim();
     const createdAt = url.searchParams.get('createdAt')?.trim();
     const createdBeforeStr = url.searchParams.get('createdBefore')?.trim();
@@ -329,9 +329,64 @@ export async function GET(req: NextRequest) {
 
     // Handle sorting
     type SortOrder = 'asc' | 'desc';
-    const orderBy: { created_at: SortOrder }[] = [
+    let orderBy: { created_at: SortOrder }[] = [
       { created_at: sort === 'desc' ? 'desc' : 'asc' },
     ];
+
+    // تعديل خاص لجلب سجل الخروج الأحدث لعقد معين
+    if (contractNumber && operationType === 'خروج') {
+      // عند البحث عن سجل خروج لعقد معين، استخدم ترتيب تنازلي لضمان الحصول على الأحدث
+      orderBy = [
+        { created_at: 'desc' as SortOrder },
+      ];
+      
+      // استخدم findFirst بدلاً من findMany للحصول على سجل واحد فقط
+      const contract = await prisma.contracts.findFirst({
+        where,
+        select: {
+          signature_url: true,
+          id: true,
+          contract_number: true,
+          client_id: true,
+          created_at: true,
+          client_name: true,
+          meter_reading: true,
+          car_model: true,
+          plate_number: true,
+          operation_type: true,
+          employee_name: true,
+          branch_name: true,
+          meter: true,
+          right_doors: true,
+          front_right_fender: true,
+          rear_right_fender: true,
+          rear_bumper_with_lights: true,
+          trunk_lid: true,
+          roof: true,
+          rear_left_fender: true,
+          left_doors: true,
+          front_left_fender: true,
+          front_bumper: true,
+          hoode: true,
+          front_windshield: true,
+          trunk_contents: true,
+          fire_extinguisher: true,
+          front_right_seat: true,
+          front_left_seat: true,
+          rear_seat_with_front_seat_backs: true,
+          other_images: true,
+        },
+        orderBy,
+      });
+
+      return NextResponse.json(
+        {
+          records: contract ? [contract] : [],
+          totalCount: contract ? 1 : 0,
+        },
+        { status: 200 }
+      );
+    }
 
     // Handle fetch filters
     if (fetchFiltersParam) {

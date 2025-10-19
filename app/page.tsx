@@ -332,26 +332,22 @@ const [loadingExpired, setLoadingExpired] = useState<boolean>(false);
           headers: { 'Content-Type': 'application/json' },
         }
       );
-  
       const data = await response.json();
-  
-      if (!response.ok || !data.records) {
+      if (!response.ok || !Array.isArray(data.records)) {
         throw new Error(data.message || 'فشل في جلب العقود');
       }
   
-      const contracts: Contract[] = Array.isArray(data.records) ? data.records : [];
+      const contracts: Contract[] = data.records;
   
       // 3. إزالة التكرارات حسب contract_number
       const uniqueContractsMap = new Map<number, Contract>();
       contracts.forEach(contract => {
         if (contract.contract_number && contract.operation_type === 'دخول') {
-          // نستخدم contract_number كمفتاح، إذا وُجد من قبل، نتجاهله
           if (!uniqueContractsMap.has(contract.contract_number)) {
             uniqueContractsMap.set(contract.contract_number, contract);
           }
         }
       });
-  
       const uniqueContracts = Array.from(uniqueContractsMap.values());
   
       // 4. جلب عقود "الخروج" لكل عقد دخول
@@ -360,38 +356,50 @@ const [loadingExpired, setLoadingExpired] = useState<boolean>(false);
       for (const entry of uniqueContracts) {
         const contractNum = entry.contract_number;
   
-        if (!contractNum) continue;
+        // ✅ التحقق من صحة contract_number
+        if (!contractNum || typeof contractNum !== 'number' || contractNum <= 0) {
+          result.push({ entry, exit: null });
+          continue;
+        }
   
         let exitContract: Contract | null = null;
-
         try {
           const exitResponse = await fetch(
-            `/api/history?contract_number=${contractNum}&operation_type=خروج`,
+            `/api/history?contract_number=${encodeURIComponent(contractNum)}&operation_type=خروج&sort=desc`,
             {
               method: 'GET',
               headers: { 'Content-Type': 'application/json' },
+              cache: 'no-store'
             }
           );
-        
-          // ✅ تحقق من أن الاستجابة ناجحة
+          
           if (!exitResponse.ok) {
             console.warn(`فشل في جلب سجل الخروج للعقد ${contractNum}:`, exitResponse.status);
-            // لا نُرجع خطأً، فقط نُعيّن exitContract = null
             exitContract = null;
           } else {
-            // ✅ تحقق من أن الجسم ليس فارغًا
             const contentType = exitResponse.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
               console.warn('الاستجابة ليست من نوع JSON:', contentType);
               exitContract = null;
             } else {
               const exitData = await exitResponse.json();
-              exitContract = exitData.records?.[0] || null;
+              // استخراج أحدث سجل خروج (مع التأكد من الترتيب الصحيح)
+              if (Array.isArray(exitData.records) && exitData.records.length > 0) {
+                // ترتيب السجلات حسب التاريخ بشكل صريح واختيار الأحدث
+                const sortedExits = exitData.records.sort((a: any, b: any) => {
+                  const dateA = new Date(a.created_at).getTime();
+                  const dateB = new Date(b.created_at).getTime();
+                  return dateB - dateA; // تنازلي (الأحدث أولاً)
+                });
+                exitContract = sortedExits[0];
+              } else {
+                exitContract = null;
+              }
             }
           }
         } catch (error) {
           console.error(`خطأ في جلب سجل الخروج للعقد ${contractNum}:`, error);
-          exitContract = null; // استمر دون إيقاف العملية
+          exitContract = null;
         }
   
         result.push({
@@ -400,11 +408,10 @@ const [loadingExpired, setLoadingExpired] = useState<boolean>(false);
         });
       }
   
-      // 5. ترتيب: الأحدث أولًا
+      // 5. ترتيب: الأحدث أولًا (حسب تاريخ الدخول)
       result.sort(
         (a, b) =>
-          new Date(b.entry.created_at).getTime() -
-          new Date(a.entry.created_at).getTime()
+          new Date(b.entry.created_at).getTime() - new Date(a.entry.created_at).getTime()
       );
   
       // 6. تحديث الحالة
@@ -1752,7 +1759,7 @@ const sortedEmployees = useMemo(() => {
               </div>
               
               {/* فقط owner يرى ويُدخل كلمة المرور عند الإضافة */}
-              <PermissionGuard role="owner">
+           
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">كلمة المرور</label>
                   <div className="relative">
@@ -1769,7 +1776,7 @@ const sortedEmployees = useMemo(() => {
                     </div>
                   </div>
                 </div>
-              </PermissionGuard>
+              
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">الدور</label>
