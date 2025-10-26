@@ -1549,6 +1549,7 @@ useEffect(() => {
   
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isUploading) return;
     if (clientIdError) {
       setUploadMessage('يرجى تصحيح رقم الهوية. يجب أن يكون 10 أرقام بالضبط.');
       setShowToast(true);
@@ -2174,7 +2175,7 @@ useEffect(() => {
         </div>
 
         {(isUploading || isSuccess) && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 backdrop-blur-xl bg-white/20 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex flex-col items-center justify-center">
               {isUploading ? (
                 <>

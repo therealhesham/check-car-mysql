@@ -2235,11 +2235,13 @@ export default function CheckInPage() {
   // دالة لفتح قاعدة البيانات
   async function openDatabase() {
     try {
-      return await openDB('carImagesDB', 1, {
+      return await openDB('carImagesDB', 2, {
         upgrade(db, oldVersion, newVersion, transaction) {
-          if (!db.objectStoreNames.contains('pendingUploads')) {
-            const store = db.createObjectStore('pendingUploads', { keyPath: 'id' });
-            console.log('تم إنشاء متجر pendingUploads');
+          if (oldVersion < 2) {
+            if (!db.objectStoreNames.contains('pendingUploads')) {
+              const store = db.createObjectStore('pendingUploads', { keyPath: 'id' });
+              console.log('تم إنشاء متجر pendingUploads في الترقية إلى إصدار 2');
+            }
           }
         },
         blocked() {
@@ -2314,12 +2316,6 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
     cleanupOldData();
   }, []);
 
-  useEffect(() => {
-    if (shouldRedirect && !showToast) {
-      // Redirect only after the toast has finished displaying
-      router.push('/');
-    }
-  }, [shouldRedirect, showToast, router]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -3798,10 +3794,6 @@ const retryUpload = async (fileSectionId: string, index?: number): Promise<void>
         console.log('Response from /api/cheakin:', result);
   
         if (result.success) {
-          setIsSuccess(true);
-          setShowToast(true);
-          setUploadMessage('تم بنجاح رفع التشييك');
-          toast.success('تم بنجاح رفع التشييك');
           setFiles(
             fieldTitles.map((title, index) => ({
               id: `file-section-${sanitizeTitle(title, index)}`,
@@ -3841,6 +3833,12 @@ const retryUpload = async (fileSectionId: string, index?: number): Promise<void>
           setClientName('');
           setNewMeterReading('');
           setMeterError('');
+          setIsSuccess(true);
+          setShowToast(true);
+          // توجيه بعد 2 ثانية (مثل UploadPage)
+          setTimeout(() => {
+          router.push('/');
+         }, 2000);
           fileInputRefs.current.forEach((ref) => {
             if (ref) ref.value = '';
           });
@@ -4478,7 +4476,24 @@ const retryUpload = async (fileSectionId: string, index?: number): Promise<void>
     }}
   />
 )}
-         
+                 {(isUploading || isSuccess) && (
+          <div className="fixed inset-0 backdrop-blur-xl bg-black/30 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex flex-col items-center justify-center shadow-xl">
+              {isUploading ? (
+                <>
+                  <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+                  <span className="text-gray-600 dark:text-gray-300 text-lg">جاري الرفع...</span>
+                </>
+              ) : isSuccess ? (
+                <>
+                  <FaCheckCircle className="text-green-500 text-5xl mb-4" />
+                  <span className="text-gray-600 dark:text-gray-300 text-lg">تم الرفع بنجاح</span>
+                </>
+              ) : null}
+            </div>
+          </div>
+        )}
+
           {showToast && (
             <div
               className={`fixed top-5 right-5 px-4 py-2 rounded-md shadow-lg text-white flex items-center z-50 ${
