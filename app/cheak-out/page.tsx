@@ -138,7 +138,7 @@ export default function UploadPage() {
   // دالة لفتح قاعدة البيانات
   async function openDatabase() {
     try {
-      return await openDB('carImagesDB', 1, {
+      return await openDB('carImagesDB', 2, {
         upgrade(db, oldVersion, newVersion, transaction) {
           if (!db.objectStoreNames.contains('pendingUploads')) {
             const store = db.createObjectStore('pendingUploads', { keyPath: 'id' });
