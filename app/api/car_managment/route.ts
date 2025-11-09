@@ -33,21 +33,18 @@ export async function GET(request: Request) {
         }
 
         // Build search filter
-        const searchFilter = searchQuery
-            ? {
-                OR: [
-                    { owner_name: { contains: searchQuery } },
-                    { manufacturer: { contains: searchQuery } },
-                    { model: { contains: searchQuery } },
-                    { plate: { contains: searchQuery } },
-                    { color: { contains: searchQuery } },
-                ].filter(condition => {
-                    // Only include conditions where the field is not null
-                    const key = Object.keys(condition)[0];
-                    return prisma.carsDetails.fields[key].type !== 'String?';
-                }),
-            }
-            : {};
+       // Build search filter
+               const searchFilter = searchQuery
+                   ? {
+                       OR: [
+                           { owner_name: { contains: searchQuery } },
+                           { manufacturer: { contains: searchQuery } },
+                           { model: { contains: searchQuery } },
+                           { plate: { contains: searchQuery } },
+                           { color: { contains: searchQuery } },
+                       ]
+                   }
+                   : {};
 
         // Fetch all cars with the search filter
         const cars = await prisma.carsDetails.findMany({

@@ -11,7 +11,7 @@ import Select from 'react-select';
 import { PermissionGuard } from './ROLE/PermissionGuard';
 import { usePermissions } from './ROLE/usePermissions';
 import { UserRole , ROLE_PERMISSIONS} from './ROLE/types';
-import { FaEdit,FaPlus,FaSave,FaTrash,FaList,FaUser,FaIdCard,FaLock,FaUserTag,FaChevronDown,FaSignOutAlt} from 'react-icons/fa';
+import { FaEdit,FaPlus,FaSave,FaTrash,FaList,FaUser,FaIdCard,FaLock,FaUserTag,FaChevronDown,FaSignOutAlt,FaMoneyBillWave} from 'react-icons/fa';
 import React from 'react';
 import AWS from 'aws-sdk';
 
@@ -123,6 +123,7 @@ export default function HomePage() {
   const [isPlateModalOpen, setIsPlateModalOpen] = useState(false);
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
   const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
+  const [searchEmployeeTerm, setSearchEmployeeTerm] = useState('');
   const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState<boolean>(false);
   const [confirmDeleteChecked, setConfirmDeleteChecked] = useState<boolean>(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<string | null>(null);
@@ -138,7 +139,7 @@ export default function HomePage() {
   const [originalRole, setOriginalRole] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'EmID' | 'role'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const { isAtLeastRole, hasRole } = usePermissions();
+  const { isAtLeastRole, hasRole, hasPermission } = usePermissions();
   const [newEmployee, setNewEmployee] = useState<Employee>({
     id: '',
     Name: '',
@@ -199,6 +200,9 @@ const [expiredContracts, setExpiredContracts] = useState<{
   exit?: any;
 }[]>([]); // تخزين أزواج (دخول + خروج)
 const [loadingExpired, setLoadingExpired] = useState<boolean>(false);
+const [expiredContractsPage, setExpiredContractsPage] = useState(1);
+const [isLoadingMore, setIsLoadingMore] = useState(false);
+const [hasMoreExpired, setHasMoreExpired] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
   const [time, settime] = useState(Date.now())
@@ -316,40 +320,54 @@ const [loadingExpired, setLoadingExpired] = useState<boolean>(false);
 
   
 
-  const fetchExpiredContracts = async () => {
-    setLoadingExpired(true);
-    try {
-      const response = await fetch(
-        `/api/expired-contracts?monthsAgo=3&page=1&pageSize=50&sort=desc`,
-        {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
-      const data = await response.json();
-      if (!response.ok || !Array.isArray(data.records)) {
-        throw new Error(data.message || 'فشل في جلب العقود');
+  const fetchExpiredContracts = async (pageToFetch: number = 1) => {
+    // 1. تحديد أي مؤشر تحميل سيتم استخدامه
+    if (pageToFetch === 1) {
+      setLoadingExpired(true); // (تحميل المودال بالكامل)
+    } else {
+      setIsLoadingMore(true); // (تحميل "المزيد" فقط)
+    }
+
+    try {
+      const response = await fetch(
+        // 2. استخدام "pageToFetch" في الرابط
+        `/api/expired-contracts?monthsAgo=3&page=${pageToFetch}&pageSize=50&sort=desc`,
+        {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+      const data = await response.json();
+      if (!response.ok || !Array.isArray(data.records)) {
+        throw new Error(data.message || 'فشل في جلب العقود');
+      }
+  
+      const result = data.records;
+
+      // 3. (مهم) إضافة البيانات الجديدة بدلاً من الاستبدال
+      if (pageToFetch === 1) {
+        setExpiredContracts(result);
+      } else {
+        setExpiredContracts(prev => [...prev, ...result]);
       }
-  
-      // النتيجة جاهزة كـ [{ entry, exit }, ...]
-      const result = data.records;
-  
-      // تحديث الحالة
-      setExpiredContracts(result);
-      setSelectedContractIds([]);
-      setExpandedContract(null);
-      setSelectAll(false);
-    } catch (error) {
-      console.error('Error fetching expired contracts:', error);
-      toast.error('فشل في جلب العقود المنتهية');
-      setExpiredContracts([]);
-      setSelectedContractIds([]);
-      setExpandedContract(null);
-      setSelectAll(false);
-    } finally {
-      setLoadingExpired(false);
-    }
-  };
+      
+      // 4. تحديث رقم الصفحة الحالي
+      setExpiredContractsPage(pageToFetch);
+
+      // 5. التحقق إذا كان هناك المزيد
+      if (result.length < 50) {
+        setHasMoreExpired(false); // (وصلنا للنهاية)
+      }
+    
+    } catch (error) {
+      console.error('Error fetching expired contracts:', error);
+      toast.error('فشل في جلب العقود المنتهية');
+    } finally {
+      // 6. إيقاف كلا مؤشري التحميل
+      setLoadingExpired(false);
+      setIsLoadingMore(false);
+    }
+  };
 
   const closeBranchModal = () => {
     setIsBranchModalOpen(false);
@@ -1094,18 +1112,39 @@ const handleBulkDeleteConfirmed = async () => {
 
 
  // دالة ترتيب الموظفين حسب الدور (ثابتة)
+// دالة ترتيب الموظفين حسب الدور (ثابتة)
 const sortedEmployees = useMemo(() => {
-  return [...employees].sort((a, b) => {
+  // 1. الفلترة أولاً
+  const filtered = employees.filter(employee => {
+    const searchTerm = searchEmployeeTerm.trim();
+    if (searchTerm === '') {
+      return true; // إذا كان البحث فارغاً، أظهر الجميع
+    }
+
+    const searchLower = searchTerm.toLowerCase();
+
+    // التحقق من الاسم (يتضمن)
+    const nameMatch = employee.Name.toLowerCase().includes(searchLower);
+
+    // التحقق من رقم الموظف (يتضمن)
+    const idMatch = employee.EmID.toString().includes(searchTerm);
+
+    return nameMatch || idMatch;
+  });
+
+  // 2. الترتيب ثانياً (بنفس منطقك السابق)
+  return filtered.sort((a, b) => {
     // دالة للحصول على قيمة الترتيب للدور
     const getRoleValue = (role: string): number => {
-      switch (role) {
-        case 'owner': return 4;
-        case 'super_admin': return 3;
-        case 'admin': return 2;
-        case 'employee': return 1;
-        default: return 0;
-      }
-    };
+            switch (role) {
+              case 'owner': return 5;
+              case 'super_admin': return 4;
+              case 'admin': return 3;
+              case 'accountant': return 2; 
+              case 'employee': return 1;
+              default: return 0;
+            }
+          };
     
     // ترتيب حسب الدور
     const roleComparison = getRoleValue(b.role) - getRoleValue(a.role);
@@ -1116,7 +1155,7 @@ const sortedEmployees = useMemo(() => {
     // إذا كان الدور نفسه، ترتيب حسب الاسم
     return a.Name.localeCompare(b.Name, 'ar');
   });
-}, [employees]);
+}, [employees, searchEmployeeTerm]); // ⬅️ (مهم) أضفنا searchEmployeeTerm هنا
 
  
 
@@ -1129,6 +1168,7 @@ const sortedEmployees = useMemo(() => {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
       {/* ✅ هذا هو القسم المعدّل */}
+      <PermissionGuard permission="canManageCheckInOut">
       <Link href="/cheak-out">
         <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer">
           <div className="text-blue-600 mb-4">
@@ -1139,7 +1179,9 @@ const sortedEmployees = useMemo(() => {
           <p className="text-sm text-gray-600">تسجيل بيانات خروج السيارة مع الصور</p>
         </div>
       </Link>
+      </PermissionGuard>
 
+      <PermissionGuard permission="canManageCheckInOut">
           <Link href="/cheak-in">
             <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
               <div className="text-blue-600 mb-4">
@@ -1150,7 +1192,9 @@ const sortedEmployees = useMemo(() => {
               <p className="text-sm text-gray-600">تسجيل بيانات دخول السيارة مع الصور</p>
             </div>
           </Link>
+          </PermissionGuard>
 
+          <PermissionGuard permission="canViewHistory">
           <Link href="/history">
             <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
               <div className="text-blue-600 mb-4">
@@ -1160,6 +1204,7 @@ const sortedEmployees = useMemo(() => {
               <p className="text-sm text-gray-600">عرض سجلات تشييك السيارات</p>
             </div>
           </Link>
+          </PermissionGuard>
 
 <PermissionGuard requireAtLeastRole="admin">
   <div
@@ -1200,15 +1245,20 @@ const sortedEmployees = useMemo(() => {
 </PermissionGuard>
 
 <PermissionGuard requireAtLeastRole="super_admin">
-  <div
-    onClick={async () => {
-      setIsExpiredContractsModalOpen(true);
-      await fetchExpiredContracts(); // ✅ الاستدعاء يحدث هنا
-    }}
+  <div
+    onClick={async () => {
+      setIsExpiredContractsModalOpen(true);
+      // (إعادة تعيين الحالات قبل الفتح)
+      setExpiredContracts([]); // (إفراغ البيانات القديمة)
+      setSelectedContractIds([]);
+      setSelectAll(false);
+      setHasMoreExpired(true); // (إعادة تعيين زر "المزيد")
+      await fetchExpiredContracts(1); // (جلب صفحة 1)
+    }}
     className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer"
   >
     <div className="text-red-600 mb-4">
-    <svg className="text-red-600" fill="currentColor" viewBox="0 0 20 20" width="50" height="50">
+    <svg className="text-red-600" fill="currentColor" viewBox="0 0 20 20" width="36" height="36">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
     </div>
@@ -1216,6 +1266,16 @@ const sortedEmployees = useMemo(() => {
     <p className="text-sm text-gray-600">عرض العقود التي مضى على دخولها أكثر من 3 أشهر</p>
   </div>
 </PermissionGuard>
+
+<Link href="/BranchCash">
+            <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
+              <div className="text-blue-600 mb-4">
+              <FaMoneyBillWave className="inline-block text-4xl" />
+              </div>
+              <h2 className="text-xl font-medium text-gray-800 mb-2">ادارة العهدة</h2>
+              <p className="text-sm text-gray-600">استلام وتسليم عهدة الفرع </p>
+            </div>
+          </Link>
         </div>
       </div>
 
@@ -1563,6 +1623,7 @@ const sortedEmployees = useMemo(() => {
       style={{ lineHeight: '1.7' }}
     >
       <option value="employee">موظف</option>
+      <option value="accountant">محاسب</option>
       <option value="admin">مدير</option>
       {isAtLeastRole('owner') && (
         <option value="super_admin">سوبر مدير</option>
@@ -1717,6 +1778,7 @@ const sortedEmployees = useMemo(() => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
                   >
                     <option value="employee">موظف</option>
+                    <option value="accountant">محاسب</option>
                     <option value="admin">مدير</option>
                     {isAtLeastRole('owner') && (
                       <option value="super_admin">سوبر مدير</option>
@@ -1807,6 +1869,20 @@ const sortedEmployees = useMemo(() => {
                 إضافة موظف جديد
               </button>
             </div>
+            <div className="mb-4">
+  <div className="relative">
+    <input
+      type="text"
+      placeholder="ابحث بالاسم أو رقم الموظف..."
+      value={searchEmployeeTerm}
+      onChange={(e) => setSearchEmployeeTerm(e.target.value)}
+      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 pl-10"
+    />
+    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+      <FaUser className="text-gray-400" /> {/* يمكنك تغييرها إلى FaSearch إذا أردت */}
+    </div>
+  </div>
+</div>
             
             <div className="flex-1 bg-gray-50 rounded-xl p-4 border border-gray-200 overflow-hidden flex flex-col min-h-0">
               {employees.length === 0 ? (
@@ -1837,18 +1913,21 @@ const sortedEmployees = useMemo(() => {
                             {employee.EmID}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              employee.role === 'owner' 
-                                ? 'bg-purple-100 text-purple-800' 
-                                : employee.role === 'super_admin' 
-                                  ? 'bg-indigo-100 text-indigo-800' 
-                                  : employee.role === 'admin' 
-                                    ? 'bg-blue-100 text-blue-800' 
-                                    : 'bg-green-100 text-green-800'
-                            }`}>
-                              {employee.role === 'admin' ? 'مدير' : 
-                               employee.role === 'super_admin' ? 'سوبر مدير' : 
-                               employee.role === 'owner' ? 'مالك' : 'موظف'}
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              employee.role === 'owner' 
+                                ? 'bg-purple-100 text-purple-800' 
+                                : employee.role === 'super_admin' 
+                                  ? 'bg-indigo-100 text-indigo-800' 
+                                  : employee.role === 'admin' 
+                                    ? 'bg-blue-100 text-blue-800' 
+                                    : employee.role === 'accountant' 
+                                      ? 'bg-orange-100 text-orange-800' 
+                                      : 'bg-green-100 text-green-800'
+                            }`}>
+                              {employee.role === 'admin' ? 'مدير' : 
+                               employee.role === 'super_admin' ? 'سوبر مدير' : 
+                               employee.role === 'owner' ? 'مالك' : 
+                               employee.role === 'accountant' ? 'محاسب' : 'موظف'} 
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right text-gray-800 font-medium max-w-xs" title={employee.branch}>
@@ -2184,6 +2263,16 @@ const sortedEmployees = useMemo(() => {
 >
   {selectedContractIds.length === 0 ? 'لا يوجد تحديد' : `حذف ${selectedContractIds.length}`}
 </button>
+{/* زر اظهار المزيد المحدث */}
+{hasMoreExpired && (
+      <button
+        onClick={() => fetchExpiredContracts(expiredContractsPage + 1)}
+        disabled={isLoadingMore}
+        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex-1"
+      >
+        {isLoadingMore ? 'جاري التحميل...' : 'إظهار المزيد'}
+      </button>
+    )}
 
     {/* زر الإغلاق */}
     <button

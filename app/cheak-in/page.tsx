@@ -268,6 +268,11 @@ export default function CheckInPage() {
   const [branchName, setBranchName] = useState<string>('');
   const [openLightbox, setOpenLightbox] = useState(false);
 const [selectedImage, setSelectedImage] = useState<{ src: string; title: string } | null>(null);
+const hasUnsavedData = 
+    contract.trim() !== '' ||
+    newMeterReading.trim() !== '' ||
+    files.some(f => f.previewUrls.length > 0) || // هل توجد صور مرفوعة؟
+    !sigCanvas.current?.isEmpty(); // هل يوجد توقيع؟
 
 
   useEffect(() => {
@@ -348,6 +353,22 @@ const [selectedImage, setSelectedImage] = useState<{ src: string; title: string 
       setPlateSearch('');
     }
   }, [contract]);
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // التحقق إذا كان هناك بيانات غير محفوظة
+      if (hasUnsavedData) {
+        e.preventDefault(); // هذا ضروري لـ Chrome
+        e.returnValue = 'لديك تغييرات غير محفوظة، هل أنت متأكد من المغادرة؟'; // هذا ضروري لـ Firefox
+        return 'لديك تغييرات غير محفوظة، هل أنت متأكد من المغادرة؟';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedData]); // (يعتمد على المتغير الجديد)
 
   const restrictToNumbers = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const charCode = e.charCode;

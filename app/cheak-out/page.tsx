@@ -212,6 +212,13 @@ const initialFiles: FileSection[] = fieldTitles.map((title, index) => ({
   const [isFetchingCar, setIsFetchingCar] = useState<boolean>(false);
   // const uploadQueue = useRef<Promise<void>>(Promise.resolve());
   const signatureCanvasRef = useRef<SignaturePad>(null);
+  const hasUnsavedData = 
+    contract.trim() !== '' ||
+    meter_reading.trim() !== '' ||
+    client_id.trim() !== '' ||
+    client_name.trim() !== '' ||
+    files.some(f => f.previewUrls.length > 0) || // هل توجد صور مرفوعة؟
+    !signatureCanvasRef.current?.isEmpty(); // هل يوجد توقيع؟
  
  
 
@@ -421,6 +428,22 @@ useEffect(() => {
   };
   fetchPlates();
 }, []);
+useEffect(() => {
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        // التحقق إذا كان هناك بيانات غير محفوظة
+        if (hasUnsavedData) {
+          e.preventDefault(); // هذا ضروري لـ Chrome
+          e.returnValue = 'لديك تغييرات غير محفوظة، هل أنت متأكد من المغادرة؟'; // هذا ضروري لـ Firefox
+          return 'لديك تغييرات غير محفوظة، هل أنت متأكد من المغادرة؟';
+        }
+      };
+  
+      window.addEventListener('beforeunload', handleBeforeUnload);
+  
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      };
+    }, [hasUnsavedData]); // (يعتمد على المتغير الجديد)
 
   const restrictToLettersAndSpaces = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const char = e.key;
@@ -438,104 +461,6 @@ useEffect(() => {
     }
   };
 
-  // const fetchPreviousRecord = async () => {
-  //   console.log("Starting fetchPreviousRecord for contract:", contract);
-  
-  //   // 1. Validate contract number input
-  //   if (!contract.trim()) {
-  //     console.warn("Contract number is empty.");
-  //     setHasExitRecord(false);
-  //     setUploadMessage('Contract number is required for the search.');
-  //     setShowToast(true);
-  //     return;
-  //   }
-  
-  //   // 2. Set loading state and clear previous messages
-  //   setIsSearching(true);
-  //   setUploadMessage('');
-  
-  //   // 3. Cancel any ongoing previous request for this action
-  //   if (abortControllerRef.current) {
-  //     console.log("Aborting previous fetchPreviousRecord request.");
-  //     abortControllerRef.current.abort();
-  //   }
-  
-  //   // 4. Create a new AbortController for the current request
-  //   abortControllerRef.current = new AbortController();
-  
-  //   try {
-  //     // --- Key Modification 1: Build URL with query parameters ---
-  //     const queryParams = new URLSearchParams({ contractNumber: contract.trim() });
-  //     const url = `/api/history?${queryParams.toString()}`;
-  //     console.log("Fetching history from URL:", url);
-  
-  //     // --- Key Modification 2: Use getAuthHeaders for Authorization ---
-  //     const response = await fetch(url, {
-  //       method: 'GET',
-  //       headers: getAuthHeaders(), // <-- This adds the Bearer token
-  //       signal: abortControllerRef.current.signal, // For request cancellation
-  //     });
-  //     console.log("Received response from /api/history:", response.status, response.statusText);
-  
-  //     // 5. Check if the response is successful (e.g., HTTP 200-299)
-  //     if (!response.ok) {
-  //       // Attempt to parse error response body
-  //       let errorMessage = `Failed to fetch previous record (Status: ${response.status})`;
-  //       try {
-  //         const errorData = await response.json();
-  //         errorMessage = errorData.message || errorData.error || errorMessage;
-  //       } catch (parseError) {
-  //         console.warn("Could not parse error response JSON:", parseError);
-  //       }
-  //       throw new Error(errorMessage);
-  //     }
-  
-  //     // 6. Parse the successful response body as JSON
-  //     const data = await response.json();
-  //     console.log("Parsed data from /api/history:", data);
-  
-  //     // 7. Process the returned data
-  //     // Assuming the API returns an array of record objects
-  //     if (Array.isArray(data) && data.length > 0) {
-  //       // Find a record where operation_type is 'خروج'
-  //       const exitRecord = data.find((record: any) => record.operation_type === 'خروج');
-  
-  //       if (exitRecord) {
-  //         // If an 'خروج' record exists, set state to prevent new checkout
-  //         console.log("Found existing 'خروج' record:", exitRecord);
-  //         setHasExitRecord(true);
-  //         setUploadMessage('Cannot add this checkout as an exit record already exists for this contract.');
-  //         setShowToast(true);
-  //       } else {
-  //         // If no 'خروج' record found, allow new checkout
-  //         console.log("No existing 'خروج' record found.");
-  //         setHasExitRecord(false);
-  //       }
-  //     } else {
-  //       // If no records returned for the contract, allow new checkout
-  //       console.log("No records found for contract number.");
-  //       setHasExitRecord(false);
-  //     }
-  //   } catch (err: any) {
-  //     // 8. Handle errors during the request process
-  //     // Check if the error is due to the request being aborted
-  //     if (err.name === 'AbortError') {
-  //       console.log('Previous record fetch request was aborted.');
-  //       return; // Exit silently for aborted requests
-  //     }
-  //     // Handle other types of errors
-  //     console.error('Error while fetching previous record:', err);
-  //     const displayMessage = err.message || 'An error occurred while fetching the previous record.';
-  //     setUploadMessage(displayMessage);
-  //     setShowToast(true);
-  //     // Ensure hasExitRecord is reset in case of error
-  //     setHasExitRecord(false);
-  //   } finally {
-  //     // 9. Reset loading state regardless of success or failure
-  //     console.log("Finished fetchPreviousRecord.");
-  //     setIsSearching(false);
-  //   }
-  // };
   
   const fetchPreviousRecord = async () => {
     console.log("Starting fetchPreviousRecord for contract:", contract);

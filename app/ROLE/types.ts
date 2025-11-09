@@ -2,15 +2,17 @@
 
 export const USER_ROLES = {
     EMPLOYEE: 'employee',
+    ACCOUNTANT: 'accountant',
     ADMIN: 'admin',
     SUPER_ADMIN: 'super_admin',
     OWNER: 'owner'
   } as const;
   
-  export type UserRole = 'employee' | 'admin' | 'super_admin' | 'owner';
+  export type UserRole = 'employee' | 'accountant' | 'admin' | 'super_admin' | 'owner'; 
   
   export const ROLE_HIERARCHY = [
     'employee',
+    'accountant',
     'admin',
     'super_admin',
     'owner'
@@ -26,7 +28,9 @@ export const USER_ROLES = {
     | 'canManageCars'
     | 'canManagePlates'
     | 'canManageAdmins'
-    | 'canManageSuperAdmins';
+    | 'canManageSuperAdmins'
+    | 'canManageCash'    
+    | 'canFeedCash';
   
   export const ROLE_PERMISSIONS = {
     employee: {
@@ -39,8 +43,24 @@ export const USER_ROLES = {
       canManageCars: false,
       canManagePlates: false,
       canManageAdmins: false,
-      canManageSuperAdmins: false
+      canManageSuperAdmins: false,
+      canManageCash: true, 
+      canFeedCash: false
     },
+    accountant: {
+          canViewDashboard: true,
+          canManageCheckInOut: false,
+          canViewHistory: false,
+          canManageBranches: true,
+          canDeleteBranches : false,
+          canManageEmployees: false,
+          canManageCars: false,
+          canManagePlates: false,
+          canManageAdmins: false,
+          canManageSuperAdmins: false,
+          canManageCash: true,   
+          canFeedCash: true    
+        },
     admin: {
       canViewDashboard: true,
       canManageCheckInOut: true,
@@ -51,7 +71,9 @@ export const USER_ROLES = {
       canManageCars: true,
       canManagePlates: true,
       canManageAdmins: false,
-      canManageSuperAdmins: false
+      canManageSuperAdmins: false,
+      canManageCash: true,   
+      canFeedCash: false   
     },
     super_admin: {
       canViewDashboard: true,
@@ -63,7 +85,9 @@ export const USER_ROLES = {
       canManageCars: true,
       canManagePlates: true,
       canManageAdmins: true,
-      canManageSuperAdmins: false
+      canManageSuperAdmins: false,
+      canManageCash: true,   
+      canFeedCash: true,
     },
     owner: {
       canViewDashboard: true,
@@ -75,7 +99,9 @@ export const USER_ROLES = {
       canManageCars: true,
       canManagePlates: true,
       canManageAdmins: true,
-      canManageSuperAdmins: true
+      canManageSuperAdmins: true,
+      canManageCash: true,   
+      canFeedCash: true   
     }
   } as const;
   

@@ -29,7 +29,7 @@ export const usePermissions = () => {
       
       // تحويل البيانات إلى تنسيق User المتوقع مع التحقق من صحة الدور
       const userRole = parsedUser.role as UserRole;
-      const validRoles: UserRole[] = ['employee', 'admin', 'super_admin', 'owner'];
+      const validRoles: UserRole[] = ['employee', 'accountant', 'admin', 'super_admin', 'owner'];
       
       if (validRoles.includes(userRole)) {
         const formattedUser: User = {
@@ -86,7 +86,7 @@ export const usePermissions = () => {
     if (storedUser) {
       const parsedUser: StoredUser = JSON.parse(storedUser);
       const userRole = parsedUser.role as UserRole;
-      const validRoles: UserRole[] = ['employee', 'admin', 'super_admin', 'owner'];
+      const validRoles: UserRole[] = ['employee', 'accountant', 'admin', 'super_admin', 'owner'];
       
       if (validRoles.includes(userRole)) {
         const formattedUser: User = {

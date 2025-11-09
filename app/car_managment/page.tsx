@@ -701,11 +701,11 @@ export default function CarsPage() {
       const method = editingId ? 'PUT' : 'POST';
       const normalizedFormData = {
         ...formData,
-        manufacturer: formData.manufacturer ? formData.manufacturer.toLowerCase() : formData.manufacturer,
+        manufacturer: formData.manufacturer ? formData.manufacturer.trim() : undefined,
       };
       const body = editingId ? { id: editingId, ...normalizedFormData } : normalizedFormData;
 
-      const response = await fetch('/api/CarsDetails', {
+      const response = await fetch('/api/car_managment', {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -738,7 +738,7 @@ export default function CarsPage() {
     try {
       setError(null);
       setSuccessMessage(null);
-      const response = await fetch(`/api/CarsDetails?id=${id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/car_managment?id=${id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('فشل في حذف السيارة');
       setSuccessMessage('تم حذف السيارة بنجاح');
       fetchCars();
@@ -752,7 +752,7 @@ export default function CarsPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    const newValue = name === 'manufacturer' ? value.toLowerCase() : value;
+    const newValue = value;
     setFormData({ ...formData, [name]: newValue });
   };
 
@@ -1001,7 +1001,7 @@ export default function CarsPage() {
   //   formData.append('file', excelFile);
 
   //   try {
-  //     const response = await fetch('/api/CarsDetails/check-excel', {
+  //     const response = await fetch('/api/car_managment/check-excel', {
   //       method: 'POST',
   //       body: formData,
   //     });
@@ -1032,7 +1032,7 @@ export default function CarsPage() {
   //   try {
   //     setError(null);
   //     setSuccessMessage(null);
-  //     const response = await fetch('/api/CarsDetails/bulk', {
+  //     const response = await fetch('/api/car_managment/bulk', {
   //       method: 'POST',
   //       headers: { 'Content-Type': 'application/json' },
   //       body: JSON.stringify(newCars),
