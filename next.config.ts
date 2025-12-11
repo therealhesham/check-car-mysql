@@ -29,8 +29,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // @ts-expect-error: Suppress type error for eslint config
   eslint: {
-    ignoreDuringBuilds: true, // This bypasses ESLint errors during build
+    ignoreDuringBuilds: true,
   },
   env: {
     JWT_SECRET: process.env.JWT_SECRET, // ⬅️ هذا المطلوب للميدل وير
