@@ -97,6 +97,7 @@ model branches {
   id          Int    @id @default(autoincrement())
   branch_name String @db.VarChar(512)
   current_cash Decimal @default(0) @db.Decimal(10, 2)
+  is_frozen   Boolean @default(false)
   @@map("branches")
 }
 
@@ -186,6 +187,7 @@ model cash_transactions {
 
   created_at DateTime @default(now()) @db.Timestamp(0) // افترضت 0 بناءً على جداولك القديمة
   processed_at       DateTime? @db.Timestamp(0)
+  requires_review    Boolean   @default(false)
 
   // العلاقة العكسية مع المصروفات
   expenses expenses[]
@@ -211,4 +213,21 @@ model expenses {
 
   @@index([transaction_id], map: "idx_transaction_id")
   @@map("expenses")
+}
+
+model wix_bookings {
+  id             Int       @id @default(autoincrement())
+  client_name    String
+  client_phone   String    @db.VarChar(25)
+  client_age     Int?
+  car_category   String?   @db.VarChar(255)
+  booking_days   Int?
+  pickup_date    DateTime? @db.Date
+  pickup_branch  String?   @db.VarChar(255)
+  status         String    @default("pending") @db.VarChar(50) // (العمود الذي أضفته)
+  follow_up_note String?   @db.Text                     // (العمود الذي أضفته)
+  created_at     DateTime  @default(now()) @db.Timestamp(0)
+  updated_at     DateTime? @updatedAt @db.Timestamp(0)
+
+  @@map("wix_bookings") // للربط مع اسم الجدول في MySQL
 }

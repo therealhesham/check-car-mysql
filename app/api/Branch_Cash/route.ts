@@ -3,24 +3,38 @@
 
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { z } from 'zod'; // تأكد من تثبيت هذه المكتبة (npm install zod)
+import { z } from 'zod';
 
+// يفضل استخدام global instance لـ Prisma في بيئة التطوير لتجنب كثرة الاتصالات
 const prisma = new PrismaClient();
+
+// تعريف مدة التجميد (72 ساعة بالمللي ثانية)
+const FREEZE_DURATION_MS = 72 * 60 * 60 * 1000;
 
 /**
  * -----------------------------------------------------------------
- * دالة المصادقة
+ * دالة مساعدة: المصادقة وتحديد الفرع الفعال
  * -----------------------------------------------------------------
- * تقرأ ID الموظف و (selectedBranch) المشفر من الـ Headers
  */
+async function getUserRole(userId: number) {
+  const user = await prisma.users.findUnique({
+    where: { id: userId },
+    select: { role: true }
+  });
+  if (!user) throw new Error('User not found');
+  return user.role;
+}
+
 async function getUserFromRequest(request: Request) {
   const headers = request.headers;
   
   const userIdHeader = headers.get('x-user-id');
-  const userBranchHeader = headers.get('x-user-branch'); // (يأتي مشفراً)
+  const userBranchHeader = headers.get('x-user-branch'); 
+  // قراءة الهيدر الخاص بالفرع المستهدف (الذي يرسله المحاسب)
+  const targetBranchHeader = headers.get('x-target-branch'); 
 
   if (!userIdHeader || !userBranchHeader) {
-    throw new Error('User authentication headers (x-user-id, x-user-branch) are missing');
+    throw new Error('User authentication headers are missing');
   }
 
   const userId = parseInt(userIdHeader, 10);
@@ -28,116 +42,185 @@ async function getUserFromRequest(request: Request) {
     throw new Error('Invalid User ID in header');
   }
 
-  // فك تشفير اسم الفرع (الذي هو selectedBranch)
-  const decodedBranchName = decodeURIComponent(userBranchHeader);
+  // الفرع الأصلي للمستخدم (من التوكن أو اللوجن)
+  const originalUserBranch = decodeURIComponent(userBranchHeader);
+  
+  // تحديد الفرع الفعال (Effective Branch)
+  // إذا كان هناك target_branch، نعتبره هو الفرع الحالي للعمليات
+  let effectiveBranchName = originalUserBranch;
+  if (targetBranchHeader && targetBranchHeader !== 'null' && targetBranchHeader !== 'undefined') {
+      effectiveBranchName = decodeURIComponent(targetBranchHeader);
+  }
 
   return {
     userId: userId,
-    branchName: decodedBranchName, // هذا هو 'selectedBranch'
+    branchName: effectiveBranchName, // هذا هو الفرع الذي سيتم جلب بياناته
+    originalBranch: originalUserBranch,
   };
 }
 
 
 /**
  * -----------------------------------------------------------------
- * GET: جلب بيانات الصفحة الأولية
+ * GET: جلب البيانات
  * -----------------------------------------------------------------
  */
-
 export async function GET(request: Request) {
   try {
+    // هنا branchName سيحتوي على الفرع المختار (إذا كان محاسباً) أو فرع الموظف
     const { userId, branchName } = await getUserFromRequest(request);
-
-    // 1. جلب العهدة المعلقة (للموظف)
-    const pendingTransactions = await prisma.cash_transactions.findMany({
-      where: {
-        receiver_employee_id: userId,
-        status: 'pending',
-      },
-      include: {
-        expenses: true,
-        sender_employee: { select: { Name: true } },
-      },
-      orderBy: { created_at: 'asc' }
-    });
-
-   // 2. جلب السجل (للفرع)
-   const history = await prisma.cash_transactions.findMany({
-    where: { 
-      branch_name: branchName 
-    },
-    include: {
-      sender_employee: { select: { Name: true } },
-      receiver_employee: { select: { Name: true } },
-      expenses: true // <-- (الإضافة الجديدة هنا)
-    },
-    orderBy: { created_at: 'desc' },
-    take: 50,
-  });
-    // 3. جلب الموظفين (للفرع)
-    const employeesList = await prisma.users.findMany({
-      where: {
-        branch: { contains: branchName }, 
-        id: { not: userId },
-        is_active: true,
-      },
-      select: { id: true, Name: true },
-    });
-
-    // 4. جلب العهدة الحالية المخزنة
-    const branchData = await prisma.branches.findFirst({
-        where: { branch_name: branchName },
-        select: { current_cash: true }
-    });
-    const currentCash = branchData ? branchData.current_cash.toNumber() : 0;
     
-    // -------------------------------------------------
-    // ▼▼▼ 5. (تعديل جوهري) التحقق من حالة الفرع ▼▼▼
-    // -------------------------------------------------
-    let branchStatus = 'ok'; // الحالة الافتراضية
+    const url = new URL(request.url);
+    const action = url.searchParams.get('action');
 
-    // 5a. ابحث عن آخر "استلام وردية" (handover) تم رفضه
-    const lastRejectedHandover = await prisma.cash_transactions.findFirst({
-        where: {
-            branch_name: branchName,
-            type: 'handover',
-            status: 'rejected'
-        },
-        orderBy: { created_at: 'desc' },
-        select: { created_at: true }
-    });
+    // ─── مسار 1: جلب ملخص كل الفروع (للمحاسب/الأدمن) ───
+    if (action === 'get_all_branches_summary') {
+        // التحقق من الصلاحية
+        const role = await getUserRole(userId);
+        if (!['accountant', 'admin', 'super_admin', 'owner'].includes(role)) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+        }
 
-    // 5b. إذا وجدنا حركة مرفوضة، يجب أن نتحقق
-    if (lastRejectedHandover) {
-        
-        // 5c. ابحث عن أي "تغذية" (feed) مقبولة حدثت *بعد* الرفض
-        const subsequentAcceptedFeed = await prisma.cash_transactions.findFirst({
-            where: {
-                branch_name: branchName,
-                type: 'feed',
-                status: 'accepted',
-                // (أهم شرط) تاريخها أحدث من تاريخ الرفض
-                created_at: { gt: lastRejectedHandover.created_at } 
-            },
-            select: { id: true } // نحتاج فقط للتأكد من وجودها
+        // جلب كل الفروع
+        const branches = await prisma.branches.findMany({
+            select: {
+                id: true,
+                branch_name: true,
+                current_cash: true,
+                is_frozen: true
+            }
         });
 
-        // 5d. إذا لم نجد أي تغذية لاحقة، فالفرع "مرفوض"
-        if (!subsequentAcceptedFeed) {
-            branchStatus = 'rejected';
-        }
-        // (إذا وجدنا تغذية، ستبقى الحالة 'ok' كما هي)
+        // تجهيز البيانات وحساب الطلبات المعلقة
+        const branchesSummary = await Promise.all(branches.map(async (branch) => {
+            const pendingCount = await prisma.cash_transactions.count({
+                where: {
+                    branch_name: branch.branch_name,
+                    status: 'pending'
+                }
+            });
+
+            return {
+                id: branch.id,
+                name: branch.branch_name,
+                balance: branch.current_cash.toNumber(),
+                status: branch.is_frozen ? 'frozen' : 'active',
+                pending_requests: pendingCount
+            };
+        }));
+
+        return NextResponse.json({ branches: branchesSummary });
     }
-    // -------------------------------------------------
-    // ▲▲▲ نهاية التعديل ▲▲▲
-    // -------------------------------------------------
+    
+    // ─── مسار 2: جلب تفاصيل الفرع المحدد (branchName) ───
+
+    // 1. جلب العهد المعلقة الخاصة بالمستخدم (بغض النظر عن الفرع) أو يمكن تخصيصها
+    // ملاحظة: هنا نجلب ما يجب أن يستلمه المستخدم الحالي (userId)
+   // 1. جلب العهدة المعلقة (للموظف)
+   const pendingTransactions = await prisma.cash_transactions.findMany({
+    where: {
+      receiver_employee_id: userId,
+      status: 'pending',
+      // ▼▼▼ الإضافة الحاسمة هنا ▼▼▼
+      // هذا الشرط يضمن أن الموظف لا يرى إلا الحوالات الخاصة بالفرع الذي يتصفحه حالياً
+      branch_name: branchName, 
+    },
+    include: {
+      expenses: true,
+      sender_employee: { select: { id: true, Name: true } },
+    },
+    orderBy: { created_at: 'asc' }
+  });
+
+    // 2. جلب السجل (للفرع المحدد حالياً)
+    // هذا هو الأهم: سيجلب سجل الفرع المختار من الداشبورد
+    const history = await prisma.cash_transactions.findMany({
+      where: { 
+        branch_name: branchName 
+      },
+      include: {
+        sender_employee: { select: { id: true, Name: true } },
+        receiver_employee: { select: { id: true, Name: true } },
+        expenses: true
+      },
+      orderBy: { created_at: 'desc' },
+      take: 50,
+    });
+
+    // 3. جلب موظفي هذا الفرع فقط
+    const employeesList = await prisma.users.findMany({
+         where: {
+           branch: { contains: branchName }, 
+           is_active: true,
+         },
+         select: { id: true, Name: true },
+    });
+
+    // 4. جلب بيانات الرصيد وحالة التجميد للفرع
+    const branchData = await prisma.branches.findFirst({
+        where: { branch_name: branchName },
+        select: { current_cash: true, is_frozen: true }
+    });
+
+    if (!branchData) {
+      return NextResponse.json({ 
+        error: 'Branch not found', 
+        currentCash: 0, 
+        branchStatus: 'ok', 
+        history: [], 
+        employeesList: [], 
+        pendingTransactions: [] 
+      }, { status: 200 });
+    }
+
+    let currentCash = branchData.current_cash.toNumber();
+    let branchStatus = 'ok';
+    let timeRemaining = null;
+
+    // 5. منطق التجميد والمهلة
+    if (branchData.is_frozen) {
+        branchStatus = 'frozen';
+        currentCash = 0;
+    } else {
+        // البحث عن آخر عملية مقبولة وتتطلب مراجعة
+        const unresolvedTx = await prisma.cash_transactions.findFirst({
+            where: {
+                branch_name: branchName,
+                requires_review: true,
+                status: 'accepted'
+            },
+            orderBy: { processed_at: 'desc' },
+            select: { processed_at: true }
+        });
+
+        if (unresolvedTx && unresolvedTx.processed_at) {
+            const freezeTime = unresolvedTx.processed_at.getTime() + FREEZE_DURATION_MS;
+            const now = Date.now();
+            
+            if (now >= freezeTime) {
+                // تجميد الفرع إذا انتهت المهلة
+                await prisma.branches.updateMany({
+                    where: { branch_name: branchName },
+                    data: { is_frozen: true, current_cash: 0 }
+                });
+                branchStatus = 'frozen';
+                currentCash = 0;
+            } else {
+                branchStatus = 'review_pending';
+                timeRemaining = freezeTime - now;
+            }
+        }
+    }
 
     return NextResponse.json({
       pendingTransactions: pendingTransactions,
       history,
       employeesList,
       currentCash: currentCash,
-      branchStatus: branchStatus // <-- إرسال الحالة الصحيحة
+      branchStatus: branchStatus,
+      timeRemainingForFreeze: timeRemaining,
+      // نعيد اسم الفرع للتأكد في الفرونت اند
+      branchName: branchName 
     });
 
   } catch (error) {
@@ -149,23 +232,19 @@ export async function GET(request: Request) {
   }
 }
 
-
-
 /**
  * -----------------------------------------------------------------
- * POST: إنشاء حركة جديدة (تسليم أو تغذية)
+ * POST: إنشاء حركة جديدة (تسليم، تغذية، حل إشكالية)
  * -----------------------------------------------------------------
  */
 export async function POST(request: Request) {
   try {
-    const { userId, branchName } = await getUserFromRequest(request);
+    // branchName هنا هو الفرع المختار
+    const { userId, branchName } = await getUserFromRequest(request); 
     const body = await request.json();
+    const role = await getUserRole(userId);
 
-    // ▼▼▼ (هذا هو التعديل) ▼▼▼
-
-    // -- تعريف هياكل التحقق (Validation Schemas) --
-    
-    // 1. مخطط تسليم العهدة
+    // -- Validation Schemas --
     const handoverSchema = z.object({
       action: z.literal('handover'),
       amount: z.number().positive('المبلغ يجب أن يكون أكبر من صفر'),
@@ -178,7 +257,6 @@ export async function POST(request: Request) {
       })),
     });
 
-    // 2. مخطط تغذية العهدة (من المحاسب)
     const feedSchema = z.object({
       action: z.literal('feed'),
       amount: z.number().positive('المبلغ يجب أن يكون أكبر من صفر'),
@@ -186,13 +264,18 @@ export async function POST(request: Request) {
       receiver_employee_id: z.number().int('يجب اختيار الموظف المستلم للتغذية'),
     });
 
-    // 3. (الأهم) استخدام discriminatedUnion للتحقق الصحيح
+    const resolveSchema = z.object({
+        action: z.literal('resolve_issue'),
+        amount: z.number().positive('المبلغ يجب أن يكون أكبر من صفر'),
+        receiver_employee_id: z.number().int('يجب اختيار الموظف المستلم'),
+        notes: z.string().optional(), 
+    });
+
     const parsedBody = z.discriminatedUnion('action', [
       handoverSchema,
-      feedSchema
+      feedSchema,
+      resolveSchema
     ]).safeParse(body);
-
-    // ▲▲▲ (نهاية التعديل) ▲▲▲
 
 
     if (!parsedBody.success) {
@@ -201,17 +284,57 @@ export async function POST(request: Request) {
     const data = parsedBody.data;
 
 
-    // --- 1. حالة تسليم العهدة (Handover) ---
+    // ─── 1. تسليم العهدة (Handover) ───
     if (data.action === 'handover') {
+      const branchData = await prisma.branches.findFirst({
+        where: { branch_name: branchName },
+        select: { current_cash: true, is_frozen: true }
+      });
+
+      if (!branchData || branchData.is_frozen) {
+        return NextResponse.json({ error: 'العهدة مجمدة أو الفرع غير موجود' }, { status: 403 });
+      }
+      
+      // السماح بالتسليم الصفري فقط إذا كانت العهدة أصلاً 0 (لتسليم الفواتير فقط مثلاً) أو إغلاق
+      // لكن هنا نتحقق إذا كان الرصيد والمبلغ صفر ولا توجد مصروفات
+      if (branchData.current_cash.toNumber() <= 0 && data.amount <= 0 && data.expenses.length === 0) {
+           return NextResponse.json({ error: 'لا يوجد رصيد أو عمليات لتسليمها' }, { status: 403 });
+      }
+
+      // التحقق من أن المسلّم هو صاحب العهدة الحالي
+      const lastAcceptedTx = await prisma.cash_transactions.findFirst({
+        where: {
+            branch_name: branchName,
+            status: 'accepted',
+        },
+        orderBy: { processed_at: 'desc' },
+        select: { receiver_employee_id: true }
+      });
+
+      if (lastAcceptedTx && lastAcceptedTx.receiver_employee_id !== userId) {
+        const correctUser = await prisma.users.findUnique({
+            where: { id: lastAcceptedTx.receiver_employee_id },
+            select: { Name: true }
+        });
+        const correctUserName = correctUser?.Name || 'الموظف المستلم الأخير';
+        return NextResponse.json({ error: `لا يمكنك تسليم العهدة. العهدة حالياً بحوزة: ${correctUserName}` }, { status: 403 });
+      }
+      
+      // رصيد افتتاحي (أول مرة)
+      if (!lastAcceptedTx && branchData.current_cash.toNumber() > 0) {
+           if (!['accountant', 'admin', 'super_admin', 'owner'].includes(role)) {
+               return NextResponse.json({ error: 'لا يمكنك تسليم رصيد افتتاحي. هذه المهمة للمشرف أو المحاسب.' }, { status: 403 });
+           }
+      }
+
       const { amount, notes, receiver_employee_id, expenses } = data;
 
-      // (لا يتم تحديث الرصيد هنا، فقط ننشئ حركة "معلقة")
       const newTransaction = await prisma.$transaction(async (tx) => {
         const transaction = await tx.cash_transactions.create({
           data: {
             branch_name: branchName,
             type: 'handover',
-            status: 'pending', // <-- معلقة بانتظار القبول
+            status: 'pending',
             amount: amount,
             notes: notes,
             sender_employee_id: userId,
@@ -239,24 +362,67 @@ export async function POST(request: Request) {
       return NextResponse.json(newTransaction, { status: 201 });
     }
 
-    // --- 2. حالة تغذية العهدة (Feed) ---
+    // ─── 2. تغذية العهدة (Feed) ───
     if (data.action === 'feed') {
-      // (الآن سيتم جلب البيانات بشكل صحيح بسبب discriminatedUnion)
       const { amount, notes, receiver_employee_id } = data;
       
-      // (التغذية أيضاً تنشئ حركة "معلقة" ليقبلها الموظف)
+      // ملاحظة: يتم إنشاء التغذية للفرع المختار (branchName)
       const newFeed = await prisma.cash_transactions.create({
         data: {
-          branch_name: branchName,
+          branch_name: branchName, 
           type: 'feed',
-          status: 'pending', // <-- معلقة بانتظار القبول
+          status: 'pending',
           amount: amount,
           notes: notes || 'تغذية عهدة من المحاسب',
-          sender_employee_id: userId, // (المحاسب)
-          receiver_employee_id: receiver_employee_id, // (الموظف)
+          sender_employee_id: userId,
+          receiver_employee_id: receiver_employee_id,
         },
       });
       return NextResponse.json(newFeed, { status: 201 });
+    }
+
+    // ─── 3. حل الإشكالية (Resolve Issue) ───
+    if (data.action === 'resolve_issue') {
+      const { amount, receiver_employee_id, notes } = data; 
+      
+      if (!['accountant', 'admin', 'super_admin', 'owner'].includes(role)) {
+           return NextResponse.json({ error: 'غير مصرح لك بتنفيذ هذا الإجراء' }, { status: 403 });
+      }
+
+      await prisma.$transaction(async (tx) => {
+          // فك التجميد وتصفير الرصيد (استعداداً للقيمة الجديدة)
+          await tx.branches.updateMany({
+              where: { branch_name: branchName },
+              data: { 
+                  is_frozen: false,
+                  current_cash: 0
+              }
+          });
+
+          // إزالة علامة "تتطلب مراجعة" من العمليات السابقة في هذا الفرع
+          await tx.cash_transactions.updateMany({
+              where: { 
+                  branch_name: branchName,
+                  requires_review: true 
+              },
+              data: { requires_review: false }
+          });
+          
+          // إنشاء حركة تغذية جديدة بالمبلغ المصحح
+          await tx.cash_transactions.create({
+              data: {
+                  branch_name: branchName,
+                  type: 'feed',
+                  status: 'pending', 
+                  notes: notes || 'تسوية عهدة وحل إشكالية', 
+                  amount: amount,
+                  sender_employee_id: userId,
+                  receiver_employee_id: receiver_employee_id
+              }
+          });
+      });
+      
+      return NextResponse.json({ message: 'تم إرسال تسوية العهدة للموظف بنجاح' });
     }
 
   } catch (error) {
@@ -270,7 +436,7 @@ export async function POST(request: Request) {
 
 /**
  * -----------------------------------------------------------------
- * PATCH: تحديث حركة (قبول أو رفض) - (معدل)
+ * PATCH: تحديث حالة الحركة (قبول / رفض مع تصحيح)
  * -----------------------------------------------------------------
  */
 export async function PATCH(request: Request) {
@@ -278,19 +444,20 @@ export async function PATCH(request: Request) {
     const { userId, branchName } = await getUserFromRequest(request);
     const body = await request.json();
 
-    // (Zod schema parsing - كما هو)
     const patchSchema = z.object({
       transactionId: z.number().int(),
       action: z.enum(['accept', 'reject']),
       rejection_reason: z.string().optional(),
+      actual_amount: z.number().optional(), 
     });
+    
     const parsedBody = patchSchema.safeParse(body);
     if (!parsedBody.success) {
       return NextResponse.json({ error: 'Invalid data', details: parsedBody.error.errors }, { status: 400 });
     }
     const { transactionId, action, rejection_reason } = parsedBody.data;
 
-    // (التحقق من أن الموظف هو المستلم الصحيح - كما هو)
+    // البحث عن الحركة المعلقة الموجهة لهذا المستخدم
     const transactionToUpdate = await prisma.cash_transactions.findFirst({
       where: {
         id: transactionId,
@@ -300,72 +467,82 @@ export async function PATCH(request: Request) {
     });
 
     if (!transactionToUpdate) {
-      return NextResponse.json({ error: 'Transaction not found or you do not have permission' }, { status: 404 });
+      return NextResponse.json({ error: 'Transaction not found or permissions denied' }, { status: 404 });
     }
 
-    // ▼▼▼ (الإضافة الجديدة) ▼▼▼
-    const processingTime = new Date(); // (الوقت الحالي)
+    const processingTime = new Date();
 
-    // --- 1. حالة القبول (Accept) ---
-    if (action === 'accept') {
-      
-      await prisma.$transaction(async (tx) => {
-        
-        // أ. تحديث حالة الحركة (مع إضافة وقت المعالجة)
-        await tx.cash_transactions.update({
-          where: { id: transactionId },
-          data: { 
-            status: 'accepted',
-            processed_at: processingTime // <-- (تمت الإضافة)
-          },
-        });
-
-        // ب. تحديث رصيد الفرع (كما هو)
-        if (transactionToUpdate.type === 'handover') {
-          await tx.branches.updateMany({
-            where: { branch_name: branchName },
-            data: { current_cash: transactionToUpdate.amount }
-          });
-        } 
-        else if (transactionToUpdate.type === 'feed') {
-          await tx.branches.updateMany({
-            where: { branch_name: branchName },
-            data: { current_cash: { increment: transactionToUpdate.amount } }
-          });
-        }
+    // ─── 1. قبول عادي (المبلغ مطابق) ───
+   // ─── 1. قبول عادي (المبلغ مطابق) ───
+   if (action === 'accept') {
+    await prisma.$transaction(async (tx) => {
+      // تحديث حالة الطلب
+      await tx.cash_transactions.update({
+        where: { id: transactionId },
+        data: { 
+          status: 'accepted',
+          processed_at: processingTime,
+          requires_review: false
+        },
       });
 
-      return NextResponse.json({ message: 'تم قبول العهدة وتحديث الرصيد' });
-    }
+      // تحديث رصيد الفرع
+      // ▼▼▼ التغيير الخطير هنا: لا نستخدم branchName من الهيدر، بل من الحركة نفسها ▼▼▼
+      const targetBranchName = transactionToUpdate.branch_name; 
 
-    // --- 2. حالة الرفض (Reject) ---
-    if (action === 'reject') {
-      if (!rejection_reason) {
-        return NextResponse.json({ error: 'Rejection reason is required' }, { status: 400 });
+      if (transactionToUpdate.type === 'handover') {
+        await tx.branches.updateMany({
+          where: { branch_name: targetBranchName }, // استخدام الفرع المسجل في الحركة
+          data: { current_cash: transactionToUpdate.amount }
+        });
+      } 
+      else if (transactionToUpdate.type === 'feed') {
+        await tx.branches.updateMany({
+          where: { branch_name: targetBranchName }, // استخدام الفرع المسجل في الحركة
+          data: { current_cash: { increment: transactionToUpdate.amount } }
+        });
       }
-      
+    });
+
+    return NextResponse.json({ message: 'تم قبول العهدة وتحديث الرصيد' });
+  }
+
+    // ─── 2. رفض (تصحيح مبلغ / عجز / فائض) ───
+    if (action === 'reject') {
+      const actual_amount = body.actual_amount;
+      if (actual_amount === undefined || typeof actual_amount !== 'number' || actual_amount < 0) {
+          return NextResponse.json({ error: 'المبلغ الفعلي مطلوب للتصحيح' }, { status: 400 });
+      }
+
       await prisma.$transaction(async (tx) => {
-        
-        // 1. تحديث حالة الحركة (مع إضافة وقت المعالجة)
+        // نعتبرها "مقبولة" لكن مع تعديل المبلغ ووضع علامة requires_review
         await tx.cash_transactions.update({
           where: { id: transactionId },
           data: {
-            status: 'rejected',
-            rejection_reason: rejection_reason,
-            processed_at: processingTime // <-- (تمت الإضافة)
+            status: 'accepted',
+            notes: rejection_reason, // حفظ سبب الاختلاف
+            amount: actual_amount,   // تحديث المبلغ بالمبلغ الفعلي
+            processed_at: processingTime,
+            requires_review: true    // تفعيل وضع المراجعة
           },
         });
 
-        // 2. تصفير رصيد الفرع (كما هو)
+        // تحديث رصيد الفرع بالمبلغ الفعلي
         if (transactionToUpdate.type === 'handover') {
             await tx.branches.updateMany({
                 where: { branch_name: branchName },
-                data: { current_cash: 0 }
+                data: { current_cash: actual_amount }
+            });
+        }
+        else if (transactionToUpdate.type === 'feed') {
+            await tx.branches.updateMany({
+                where: { branch_name: branchName },
+                data: { current_cash: { increment: actual_amount } }
             });
         }
       });
 
-      return NextResponse.json({ message: 'تم رفض العهدة' });
+      return NextResponse.json({ message: 'تم قبول العهدة بالمبلغ المصحح' });
     }
 
   } catch (error) {

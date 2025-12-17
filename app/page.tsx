@@ -11,7 +11,7 @@ import Select from 'react-select';
 import { PermissionGuard } from './ROLE/PermissionGuard';
 import { usePermissions } from './ROLE/usePermissions';
 import { UserRole , ROLE_PERMISSIONS} from './ROLE/types';
-import { FaEdit,FaPlus,FaSave,FaTrash,FaList,FaUser,FaIdCard,FaLock,FaUserTag,FaChevronDown,FaSignOutAlt,FaMoneyBillWave} from 'react-icons/fa';
+import { FaEdit,FaPlus,FaSave,FaTrash,FaList,FaUser,FaIdCard,FaLock,FaUserTag,FaChevronDown,FaSignOutAlt,FaMoneyBillWave,FaCalendarCheck} from 'react-icons/fa';
 import React from 'react';
 import AWS from 'aws-sdk';
 
@@ -1165,119 +1165,149 @@ const sortedEmployees = useMemo(() => {
     <div dir="rtl" className="min-h-screen bg-gray-100">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
-      {/* ✅ هذا هو القسم المعدّل */}
-      <PermissionGuard permission="canManageCheckInOut">
-      <Link href="/cheak-out">
-        <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer">
-          <div className="text-blue-600 mb-4">
-            <FaCar className="inline-block text-4xl" />
-            <FaArrowLeft className="inline-block text-2xl ml-2" />
-          </div>
-          <h2 className="text-xl font-medium text-gray-800 mb-2">تشييك خروج السيارة</h2>
-          <p className="text-sm text-gray-600">تسجيل بيانات خروج السيارة مع الصور</p>
-        </div>
-      </Link>
-      </PermissionGuard>
+          {/* --- الصف الأول --- */}
 
-      <PermissionGuard permission="canManageCheckInOut">
-          <Link href="/cheak-in">
-            <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
-              <div className="text-blue-600 mb-4">
-                <FaCar className="inline-block text-4xl" />
-                <FaArrowRight className="inline-block text-2xl ml-2" />
+          {/* 1. تشييك الخروج */}
+          <PermissionGuard permission="canManageCheckInOut">
+            <Link href="/cheak-out">
+              <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full">
+                <div className="text-blue-600 mb-4">
+                  <FaCar className="inline-block text-4xl" />
+                  <FaArrowLeft className="inline-block text-2xl ml-2" />
+                </div>
+                <h2 className="text-xl font-medium text-gray-800 mb-2">تشييك خروج السيارة</h2>
+                <p className="text-sm text-gray-600">تسجيل بيانات خروج السيارة مع الصور</p>
               </div>
-              <h2 className="text-xl font-medium text-gray-800 mb-2">تشييك دخول السيارة</h2>
-              <p className="text-sm text-gray-600">تسجيل بيانات دخول السيارة مع الصور</p>
-            </div>
-          </Link>
+            </Link>
           </PermissionGuard>
 
+          {/* 2. تشييك الدخول */}
+          <PermissionGuard permission="canManageCheckInOut">
+            <Link href="/cheak-in">
+              <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 h-full">
+                <div className="text-blue-600 mb-4">
+                  <FaCar className="inline-block text-4xl" />
+                  <FaArrowRight className="inline-block text-2xl ml-2" />
+                </div>
+                <h2 className="text-xl font-medium text-gray-800 mb-2">تشييك دخول السيارة</h2>
+                <p className="text-sm text-gray-600">تسجيل بيانات دخول السيارة مع الصور</p>
+              </div>
+            </Link>
+          </PermissionGuard>
+
+          {/* 3. السجل */}
           <PermissionGuard permission="canViewHistory">
-          <Link href="/history">
-            <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
-              <div className="text-blue-600 mb-4">
-                <FaHistory className="inline-block text-4xl" />
+            <Link href="/history">
+              <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 h-full">
+                <div className="text-blue-600 mb-4">
+                  <FaHistory className="inline-block text-4xl" />
+                </div>
+                <h2 className="text-xl font-medium text-gray-800 mb-2">السجل</h2>
+                <p className="text-sm text-gray-600">عرض سجلات تشييك السيارات</p>
               </div>
-              <h2 className="text-xl font-medium text-gray-800 mb-2">السجل</h2>
-              <p className="text-sm text-gray-600">عرض سجلات تشييك السيارات</p>
-            </div>
-          </Link>
+            </Link>
           </PermissionGuard>
 
-<PermissionGuard requireAtLeastRole="admin">
-  <div
-    onClick={openBranchModal}
-    className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer"
-  >
-    <div className="text-blue-600 mb-4">
-      <FaBuilding className="inline-block text-4xl" />
-    </div>
-    <h2 className="text-xl font-medium text-gray-800 mb-2">إدارة الفروع</h2>
-    <p className="text-sm text-gray-600">إضافة، تعديل، وحذف الفروع</p>
-  </div>
-</PermissionGuard>
 
-<PermissionGuard requireAtLeastRole="admin">
-  <div
-    onClick={openEmployeeModal}
-    className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer"
-  >
-    <div className="text-blue-600 mb-4">
-      <FaUsers className="inline-block text-4xl" />
-    </div>
-    <h2 className="text-xl font-medium text-gray-800 mb-2">إدارة الموظفين</h2>
-    <p className="text-sm text-gray-600">عرض وتعديل بيانات الموظفين</p>
-  </div>
-</PermissionGuard>
-<PermissionGuard requireAtLeastRole="admin">
-  <div
-    onClick={() => router.push("/car_managment")}
-    className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer"
-  >
-    <div className="text-blue-600 mb-4">
-      <FaCarSide className="inline-block text-4xl" />
-    </div>
-    <h2 className="text-xl font-medium text-gray-800 mb-2">إدارة السيارات</h2>
-    <p className="text-sm text-gray-600">إضافة وحذف السيارات</p>
-  </div>
-</PermissionGuard>
+          {/* --- الصف الثاني --- */}
 
-<PermissionGuard requireAtLeastRole="super_admin">
-  <div
-    onClick={async () => {
-      setIsExpiredContractsModalOpen(true);
-      // (إعادة تعيين الحالات قبل الفتح)
-      setExpiredContracts([]); // (إفراغ البيانات القديمة)
-      setSelectedContractIds([]);
-      setSelectAll(false);
-      setHasMoreExpired(true); // (إعادة تعيين زر "المزيد")
-      await fetchExpiredContracts(1); // (جلب صفحة 1)
-    }}
-    className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer"
-  >
-    <div className="text-red-600 mb-4">
-    <svg className="text-red-600" fill="currentColor" viewBox="0 0 20 20" width="36" height="36">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-    </div>
-    <h2 className="text-xl font-medium text-gray-800 mb-2">العقود المنتهية</h2>
-    <p className="text-sm text-gray-600">عرض العقود التي مضى على دخولها أكثر من 3 أشهر</p>
-  </div>
-</PermissionGuard>
-
-<Link href="/BranchCash">
-            <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300">
+          {/* 4. إدارة الفروع (Admin فقط) */}
+          <PermissionGuard requireAtLeastRole="admin">
+            <div
+              onClick={openBranchModal}
+              className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full"
+            >
               <div className="text-blue-600 mb-4">
-              <FaMoneyBillWave className="inline-block text-4xl" />
+                <FaBuilding className="inline-block text-4xl" />
               </div>
-              <h2 className="text-xl font-medium text-gray-800 mb-2">ادارة العهدة</h2>
-              <p className="text-sm text-gray-600">استلام وتسليم عهدة الفرع </p>
+              <h2 className="text-xl font-medium text-gray-800 mb-2">إدارة الفروع</h2>
+              <p className="text-sm text-gray-600">إضافة، تعديل، وحذف الفروع</p>
+            </div>
+          </PermissionGuard>
+
+          {/* 5. إدارة الموظفين (Admin فقط) */}
+          <PermissionGuard requireAtLeastRole="admin">
+            <div
+              onClick={openEmployeeModal}
+              className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full"
+            >
+              <div className="text-blue-600 mb-4">
+                <FaUsers className="inline-block text-4xl" />
+              </div>
+              <h2 className="text-xl font-medium text-gray-800 mb-2">إدارة الموظفين</h2>
+              <p className="text-sm text-gray-600">عرض وتعديل بيانات الموظفين</p>
+            </div>
+          </PermissionGuard>
+
+          {/* 6. إدارة السيارات (Admin فقط) */}
+          <PermissionGuard requireAtLeastRole="admin">
+            <div
+              onClick={() => router.push("/car_managment")}
+              className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full"
+            >
+              <div className="text-blue-600 mb-4">
+                <FaCarSide className="inline-block text-4xl" />
+              </div>
+              <h2 className="text-xl font-medium text-gray-800 mb-2">إدارة السيارات</h2>
+              <p className="text-sm text-gray-600">إضافة وحذف السيارات</p>
+            </div>
+          </PermissionGuard>
+
+
+          {/* --- الصف الثالث (الأخير) --- */}
+
+          {/* 7. الحجوزات (Wix) - يظهر للجميع ما عدا المحاسب */}
+          {!hasRole('accountant') && (
+            <Link href="/bookings">
+              <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 h-full">
+                <div className="text-blue-600 mb-4">
+                  <FaCalendarCheck className="inline-block text-4xl" />
+                </div>
+                <h2 className="text-xl font-medium text-gray-800 mb-2">الحجوزات (Wix)</h2>
+                <p className="text-sm text-gray-600">متابعة طلبات الحجز الخارجية</p>
+              </div>
+            </Link>
+          )}
+
+          {/* 8. إدارة العهدة - (للمحاسب والمسؤولين) */}
+          <Link href="/BranchCash">
+            <div className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 h-full">
+              <div className="text-blue-600 mb-4">
+                <FaMoneyBillWave className="inline-block text-4xl" />
+              </div>
+              <h2 className="text-xl font-medium text-gray-800 mb-2">إدارة العهدة</h2>
+              <p className="text-sm text-gray-600">استلام وتسليم عهدة الفرع</p>
             </div>
           </Link>
+
+          {/* 9. العقود المنتهية (Super Admin فقط) */}
+          <PermissionGuard requireAtLeastRole="super_admin">
+            <div
+              onClick={async () => {
+                setIsExpiredContractsModalOpen(true);
+                setExpiredContracts([]);
+                setSelectedContractIds([]);
+                setSelectAll(false);
+                setHasMoreExpired(true);
+                await fetchExpiredContracts(1);
+              }}
+              className="bg-white rounded-lg shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg transition-shadow duration-300 cursor-pointer h-full"
+            >
+              <div className="text-red-600 mb-4">
+                <svg className="text-red-600" fill="currentColor" viewBox="0 0 20 20" width="50" height="50">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-medium text-gray-800 mb-2">العقود المنتهية</h2>
+              <p className="text-sm text-gray-600">عرض العقود التي مضى على دخولها أكثر من 3 أشهر</p>
+            </div>
+          </PermissionGuard>
+
         </div>
       </div>
+    
 
       {isBranchModalOpen && (
   <div 
