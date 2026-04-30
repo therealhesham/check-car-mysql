@@ -14,9 +14,9 @@ RUN apt-get update && apt-get install -y \
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
 
-# Install dependencies (skip prisma generate in postinstall, it will run in builder stage)
-ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
-RUN npm ci
+# Install dependencies (skip postinstall scripts - prisma generate runs in builder stage)
+RUN npm ci --ignore-scripts
+RUN npm rebuild bcrypt
 
 # Stage 2: Builder
 FROM node:22-slim AS builder
