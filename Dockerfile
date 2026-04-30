@@ -1,51 +1,46 @@
 # Install dependencies only when needed
-FROM node:22-alpine AS deps
+FROM node:22-slim AS deps
 WORKDIR /app
 
-# Install canvas dependencies
-RUN apk add --no-cache \
-    build-base \
-    g++ \
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    giflib-dev \
-    libc6-compat \
-    openssl \
-    gcompat
+# Install necessary system libraries for Canvas and Prisma
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    libgif-dev \
+    librsvg2-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set environment variables for Prisma
 ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
 ENV PRISMA_CLIENT_ENGINE_TYPE=library
-ENV PRISMA_SKIP_POSTINSTALL_GENERATE=1
 
 # Install dependencies
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
-RUN npm ci --ignore-scripts
-
-# Generate Prisma client manually
-RUN npx prisma generate
+RUN npm ci
 
 # Rebuild the source code only when needed
-FROM node:22-alpine AS builder
+FROM node:22-slim AS builder
 WORKDIR /app
-
-ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
-ENV PRISMA_CLIENT_ENGINE_TYPE=library
 
 COPY . .
 COPY --from=deps /app/node_modules ./node_modules
 
+# Ensure Prisma client is generated
 RUN npx prisma generate
-# Build the Next.js app
 RUN npm run build
 
 # Production image, copy all necessary files
-FROM node:22-alpine AS runner
+FROM node:22-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+
+# Install openssl for Prisma runtime
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Copy only the output of the build
 COPY --from=builder /app/public ./public
