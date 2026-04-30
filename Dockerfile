@@ -13,14 +13,25 @@ RUN apk add --no-cache \
     libc6-compat \
     openssl
 
+# Set environment variables for Prisma
+ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
+ENV PRISMA_CLIENT_ENGINE_TYPE=library
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=1
+
 # Install dependencies
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
 RUN npm ci
 
+# Generate Prisma client manually
+RUN npx prisma generate
+
 # Rebuild the source code only when needed
 FROM node:22-alpine AS builder
 WORKDIR /app
+
+ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
+ENV PRISMA_CLIENT_ENGINE_TYPE=library
 
 COPY . .
 COPY --from=deps /app/node_modules ./node_modules
