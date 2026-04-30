@@ -9,7 +9,9 @@ RUN apk add --no-cache \
     cairo-dev \
     jpeg-dev \
     pango-dev \
-    giflib-dev
+    giflib-dev \
+    libc6-compat \
+    openssl
 
 # Install dependencies
 COPY package.json package-lock.json* ./
