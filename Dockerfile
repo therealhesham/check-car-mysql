@@ -11,7 +11,8 @@ RUN apk add --no-cache \
     pango-dev \
     giflib-dev \
     libc6-compat \
-    openssl
+    openssl \
+    gcompat
 
 # Set environment variables for Prisma
 ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
@@ -21,7 +22,7 @@ ENV PRISMA_SKIP_POSTINSTALL_GENERATE=1
 # Install dependencies
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 # Generate Prisma client manually
 RUN npx prisma generate
