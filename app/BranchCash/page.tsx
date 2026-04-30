@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { FaWallet, FaHandHoldingUsd, FaHistory, FaPlus, FaSave, FaList, FaCheck, FaTimes, FaTrash,FaChevronDown,FaExclamationTriangle,FaEdit } from 'react-icons/fa';
+import { FaWallet, FaHandHoldingUsd, FaHistory, FaPlus, FaSave, FaList, FaCheck, FaTimes, FaTrash,FaChevronDown,FaExclamationTriangle,FaEdit, FaFileExcel } from 'react-icons/fa';
+import * as XLSX from 'xlsx';
 import Navbar from '@/public/components/navbar';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -589,6 +590,54 @@ useEffect(() => {
     setResolveNotes('لقد تم حل الاشكالية وتغذية الفرع من جديد'); // (إعادة تعيين الملاحظة)
   };
 
+  /**
+   * (جديد) دالة تصدير سجل العمليات إلى ملف إكسل
+   */
+  const handleExportExcel = () => {
+    if (history.length === 0) {
+      toast.warning('لا توجد بيانات لتصديرها حالياً.');
+      return;
+    }
+
+    try {
+      // 1. تجهيز البيانات للتصدير بتنسيق مفهوم للإكسل
+      const exportData = history.map((item) => ({
+        'نوع العملية': item.type === 'receive' ? 'تغذية' : 'تسليم واستلام',
+        'المبلغ (ريال)': item.amount,
+        'الموظف المرسل': item.sender_employee?.Name || '—',
+        'الموظف المستلم': item.receiver_employee?.Name || '—',
+        'الحالة': item.status === 'accepted' ? 'مقبولة' : item.status === 'pending' ? 'معلقة' : 'مرفوضة',
+        'الملاحظات': item.status === 'rejected' ? (item.rejection_reason || 'مرفوض') : (item.notes || '—'),
+        'بنود الصرف': item.expenses && item.expenses.length > 0 
+          ? item.expenses.map(exp => `${exp.amount} ر.س [${exp.notes}]${exp.contractNumber ? ` (عقد: ${exp.contractNumber})` : ''}`).join(' | ')
+          : '—',
+        'وقت المعالجة': item.timestamp,
+        'تاريخ الإنشاء': item.createdAt,
+      }));
+
+      // 2. إنشاء ورقة العمل (Worksheet)
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      
+      // 3. إنشاء كتاب العمل (Workbook)
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'سجل العهدة');
+
+      // 4. تعيين اتجاه الصفحة ليكون من اليمين لليسار (اختياري للإكسل العربي)
+      if (!workbook.Workbook) workbook.Workbook = {};
+      if (!workbook.Workbook.Views) workbook.Workbook.Views = [{}];
+      workbook.Workbook.Views[0].RTL = true;
+
+      // 5. تحميل الملف
+      const fileName = `سجل_عهدة_${branchName || 'فرع'}_${new Date().toLocaleDateString('ar-EG').replace(/\//g, '-')}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      
+      toast.success('تم تصدير ملف الإكسل بنجاح');
+    } catch (error) {
+      console.error('Export Error:', error);
+      toast.error('حدث خطأ أثناء تصدير ملف الإكسل');
+    }
+  };
+
   
   // ---------------------------------------------------------------
 
@@ -736,6 +785,10 @@ useEffect(() => {
                         {branch.status === 'frozen' ? (
                           <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
                             <FaExclamationTriangle /> مجمد
+                          </span>
+                        ) : branch.has_review_issue ? (
+                          <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                            <FaExclamationTriangle /> يجب المراجعة
                           </span>
                         ) : branch.pending_requests > 0 ? (
                           <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
@@ -1198,11 +1251,23 @@ useEffect(() => {
             {/* 3. قسم السجل */}
             <div>
                   <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                    <div className="flex items-center gap-3 mb-5">
-                      <div className="bg-purple-100 p-3 rounded-lg">
-                        <FaHistory className="text-purple-600 text-2xl" />
+                    <div className="flex items-center justify-between mb-5">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-purple-100 p-3 rounded-lg">
+                          <FaHistory className="text-purple-600 text-2xl" />
+                        </div>
+                        <h2 className="text-xl font-semibold text-gray-800">سجل عمليات العهدة</h2>
                       </div>
-                      <h2 className="text-xl font-semibold text-gray-800">سجل عمليات العهدة</h2>
+                      
+                      {/* زر التصدير للإكسل */}
+                      <button 
+                        onClick={handleExportExcel}
+                        className="flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-lg hover:bg-green-100 transition-colors border border-green-100 shadow-sm"
+                        title="تصدير السجل إلى ملف إكسل"
+                      >
+                        <FaFileExcel className="text-lg" />
+                        <span className="text-sm font-medium">تصدير إكسل</span>
+                      </button>
                     </div>
 
                     {history.length === 0 ? (
@@ -1290,9 +1355,24 @@ useEffect(() => {
                                     <td colSpan={8} className="p-4">
                                       <div className="px-4 space-y-4"> 
                                         
-                                        <div>
-                                          <h4 className="text-sm font-semibold text-gray-800">وقت إنشاء الطلب:</h4>
-                                          <span className="text-xs text-gray-600" dir="ltr">{item.createdAt}</span>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                          <div>
+                                            <h4 className="text-sm font-semibold text-gray-800 mb-1">وقت إنشاء الطلب:</h4>
+                                            <span className="text-xs text-gray-600 bg-white px-2 py-1 rounded border border-gray-100" dir="ltr">{item.createdAt}</span>
+                                          </div>
+
+                                          <div>
+                                            <h4 className="text-sm font-semibold text-gray-800 mb-1">الملاحظات كاملة:</h4>
+                                            <div className="text-sm text-gray-700 bg-white p-3 rounded-lg border border-gray-100 whitespace-pre-wrap shadow-sm">
+                                              {item.status === 'rejected' ? (
+                                                <span className="text-red-700 font-medium">سبب الرفض: {item.rejection_reason || 'لا يوجد سبب مرفق'}</span>
+                                              ) : item.requires_review ? (
+                                                <span className="text-amber-700 font-medium">إشكالية: {item.notes || 'يوجد فرق في المبالغ يتطلب مراجعة'}</span>
+                                              ) : (
+                                                item.notes || '—'
+                                              )}
+                                            </div>
+                                          </div>
                                         </div>
 
                                         {item.type === 'handover' && item.expenses && item.expenses.length > 0 && (

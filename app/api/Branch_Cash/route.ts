@@ -100,12 +100,22 @@ export async function GET(request: Request) {
                 }
             });
 
+            // (جديد) التحقق من وجود عمليات تتطلب مراجعة
+            const reviewCount = await prisma.cash_transactions.count({
+                where: {
+                    branch_name: branch.branch_name,
+                    requires_review: true,
+                    status: 'accepted'
+                }
+            });
+
             return {
                 id: branch.id,
                 name: branch.branch_name,
                 balance: branch.current_cash.toNumber(),
                 status: branch.is_frozen ? 'frozen' : 'active',
-                pending_requests: pendingCount
+                pending_requests: pendingCount,
+                has_review_issue: reviewCount > 0 // (إضافة الحقل الجديد)
             };
         }));
 
