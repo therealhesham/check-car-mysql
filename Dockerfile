@@ -1,55 +1,55 @@
-# Install dependencies only when needed
+# Stage 1: Dependencies
 FROM node:22-slim AS deps
 WORKDIR /app
 
-# Install necessary system libraries for Canvas and Prisma
+# Install essential build tools for native modules like bcrypt
 RUN apt-get update && apt-get install -y \
+    python3 \
     build-essential \
-    libcairo2-dev \
-    libpango1.0-dev \
-    libjpeg-dev \
-    libgif-dev \
-    librsvg2-dev \
+    openssl \
     libssl-dev \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Set environment variables for Prisma
-ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
-ENV PRISMA_CLIENT_ENGINE_TYPE=library
-
-# Install dependencies
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
+
+# Install dependencies
 RUN npm ci
 
-# Rebuild the source code only when needed
+# Stage 2: Builder
 FROM node:22-slim AS builder
 WORKDIR /app
+
+# Install openssl for prisma generate
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 COPY . .
 COPY --from=deps /app/node_modules ./node_modules
 
-# Ensure Prisma client is generated
+# Ensure Prisma uses the correct binary for Debian
+ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
+
+# Generate Prisma client and build
 RUN npx prisma generate
 RUN npm run build
 
-# Production image, copy all necessary files
+# Stage 3: Runner
 FROM node:22-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install openssl for Prisma runtime
-RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Copy only the output of the build
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/server.js ./server.js
 
-# Expose the port Next.js will run on
 EXPOSE 3000
 
-# Start the Next.js app
-CMD ["npx", "next", "start"]
+# Use npm start to trigger the server.js as defined in package.json
+CMD ["npm", "start"]
