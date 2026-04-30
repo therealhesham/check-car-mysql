@@ -14,7 +14,8 @@ RUN apt-get update && apt-get install -y \
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
 
-# Install dependencies
+# Install dependencies (skip prisma generate in postinstall, it will run in builder stage)
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 RUN npm ci
 
 # Stage 2: Builder
